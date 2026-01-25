@@ -1,0 +1,30 @@
+{
+  "name": "@ekacode/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev -- --ozone-platform=wayland --enable-features=UseOzonePlatform --force-device-scale-factor=1 --disable-fractional-rp-pixelation",
+    "build": "npm run typecheck && electron-vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
+    "@ekacode/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@electron-toolkit/tsconfig": "^2.0.0",
+    "@types/node": "^22.19.1",
+    "electron": "^39.2.6",
+    "electron-vite": "^5.0.0",
+    "solid-js": "^1.9.10",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.6",
+    "vite-plugin-solid": "^2.11.10",
+    "@tailwindcss/vite": "^4.1.18"
+  }
+}

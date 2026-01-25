@@ -56,14 +56,12 @@ And it stays clean because it’s **small, typed, and boring**.
 
 - No Node
 - Uses:
-
   - **HTTP** (`fetchServerSentEvents`) to talk to the local Hono server for chat + streaming
   - **IPC bridge** for config and FS events
 
 ### Main process (Electron)
 
 - Runs:
-
   - Hono server (localhost only)
   - Mastra runtime (agents/tools/workflows)
   - filesystem access + process spawning
@@ -106,7 +104,6 @@ A localhost server is not automatically safe. Secure it:
 3. **Bind to loopback only** (127.0.0.1 / ::1)
 4. **Reject any request missing `Authorization: Bearer <token>`**
 5. Consider:
-
    - strict `Host` validation (DNS rebinding mitigation)
    - strict `Origin` checks / CORS allowlist
 
@@ -199,7 +196,6 @@ This is the sequence you should instruct your AI builder to follow.
 ### Step 1 — Electron bootstrapping (secure defaults)
 
 - Create BrowserWindow with:
-
   - `contextIsolation: true`
   - `nodeIntegration: false`
   - `sandbox: true`
@@ -243,7 +239,6 @@ In `createHonoApp({ token })`:
 - `app.use('*', authMiddleware(token))`
 - (optional) `cors()` allow only your app origin
 - add routes:
-
   - `/system/status`
   - `/api/chat` (SSE)
   - (optional) mount MastraServer routes
@@ -255,18 +250,15 @@ Mastra’s official Hono server integration uses `MastraServer` + `await server.
 Create tools (privileged, validated):
 
 - FS:
-
   - `readFile`
   - `writeFile`
   - `applyPatch` (preferred: diff-based editing)
   - `listDir`
 
 - Shell:
-
   - `runCommand` (stream stdout/stderr)
 
 - Git:
-
   - `gitStatus`, `gitDiff`, `gitCommit`, etc.
 
 Mastra tool streaming supports writing progress via `context.writer` / `writer.custom`. ([Mastra][9])
@@ -283,7 +275,6 @@ Implement:
 - `const stream = await coderAgent.stream(messages, { abortSignal, requireToolApproval: true, memory: ... })` ([Mastra][7])
 - Use Hono `streamSSE` to send TanStack chunks as SSE. ([Hono][10])
 - Handle abort:
-
   - use request AbortSignal
   - call cleanup and kill child processes
 

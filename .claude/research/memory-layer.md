@@ -174,7 +174,7 @@ export class MemoryProcess {
       input: this.proc.stdout,
     });
 
-    rl.on("line", (line) => {
+    rl.on("line", line => {
       const msg = JSON.parse(line);
       const p = this.pending.get(msg.id);
       if (!p) return;
@@ -389,7 +389,6 @@ Old best practices rot fast in frontend land.
 
 - Gradually reduce confidence over time
 - Hard decay for:
-
   - Framework major version changes
   - Deprecated APIs
 
@@ -792,7 +791,7 @@ export async function addMemory(m: MemoryInput, embedding: Float32Array) {
         m.projectId ?? null,
       ],
     },
-    ...m.tags.map((tag) => ({
+    ...m.tags.map(tag => ({
       sql: `INSERT INTO memory_tags (memory_id, tag) VALUES (?, ?)`,
       args: [m.id, tag],
     })),
@@ -863,7 +862,7 @@ export async function searchMemory(
     args: [opts.topic ?? null, opts.topic ?? null, opts.minConfidence ?? 0.3],
   });
 
-  const scored = rows.rows.map((r) => {
+  const scored = rows.rows.map(r => {
     const emb = new Float32Array((r.embedding as Buffer).buffer);
     return {
       ...r,
@@ -947,13 +946,11 @@ This is **impossible** to do cleanly in Chroma.
 ### Steps
 
 1. Export Chroma:
-
    - document
    - metadata
    - embedding
 
 2. Map:
-
    - collection → topic
    - metadata.type → memory type
 

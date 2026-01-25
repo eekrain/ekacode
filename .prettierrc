@@ -1,0 +1,19 @@
+{
+  "semi": true,
+  "singleQuote": false,
+  "tabWidth": 2,
+  "trailingComma": "es5",
+  "printWidth": 100,
+  "arrowParens": "avoid",
+  "plugins": ["prettier-plugin-organize-imports", "prettier-plugin-tailwindcss"],
+  "importOrder": [
+    "^(solid-js|@solid)",
+    "<THIRD_PARTY_MODULES>",
+    "^@mastra/",
+    "^@ekacode/",
+    "^[./]"
+  ],
+  "importOrderSeparation": true,
+  "importOrderSortSpecifiers": true,
+  "tailwindFunctions": ["cn", "cva", "clsx"]
+}

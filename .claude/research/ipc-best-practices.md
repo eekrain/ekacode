@@ -212,20 +212,17 @@ type Unsubscribe = () => void;
 const api = {
   settings: {
     get: () => ipcRenderer.invoke(IPC.settings.get),
-    set: (patch: Partial<Settings>) =>
-      ipcRenderer.invoke(IPC.settings.set, patch),
+    set: (patch: Partial<Settings>) => ipcRenderer.invoke(IPC.settings.set, patch),
 
     onChanged: (cb: (next: Settings) => void): Unsubscribe => {
-      const listener = (_event: Electron.IpcRendererEvent, next: Settings) =>
-        cb(next);
+      const listener = (_event: Electron.IpcRendererEvent, next: Settings) => cb(next);
       ipcRenderer.on(IPC.settings.changed, listener);
       return () => ipcRenderer.removeListener(IPC.settings.changed, listener);
     },
   },
 
   dialog: {
-    pickFile: (opts?: { title?: string }) =>
-      ipcRenderer.invoke(IPC.dialog.pickFile, opts ?? {}),
+    pickFile: (opts?: { title?: string }) => ipcRenderer.invoke(IPC.dialog.pickFile, opts ?? {}),
   },
 };
 
@@ -252,14 +249,10 @@ declare global {
         set: (
           patch: Partial<import("../shared/ipc").Settings>
         ) => Promise<import("../shared/ipc").Settings>;
-        onChanged: (
-          cb: (next: import("../shared/ipc").Settings) => void
-        ) => () => void;
+        onChanged: (cb: (next: import("../shared/ipc").Settings) => void) => () => void;
       };
       dialog: {
-        pickFile: (opts?: {
-          title?: string;
-        }) => Promise<{ path: string | null }>;
+        pickFile: (opts?: { title?: string }) => Promise<{ path: string | null }>;
       };
     };
   }
@@ -273,12 +266,10 @@ Now in Solid:
 import { createResource, onCleanup, createSignal } from "solid-js";
 
 export function App() {
-  const [settings, { mutate, refetch }] = createResource(() =>
-    window.api.settings.get()
-  );
+  const [settings, { mutate, refetch }] = createResource(() => window.api.settings.get());
   const [filePath, setFilePath] = createSignal<string | null>(null);
 
-  const off = window.api.settings.onChanged((next) => {
+  const off = window.api.settings.onChanged(next => {
     // keep UI in sync without refetching if you already have the new value
     mutate(next);
   });
@@ -294,12 +285,8 @@ export function App() {
       <button onClick={pick}>Pick file</button>
       <div>Picked: {filePath() ?? "(none)"}</div>
       <div>Theme: {settings()?.theme ?? "loading..."}</div>
-      <button onClick={() => window.api.settings.set({ theme: "light" })}>
-        Light
-      </button>
-      <button onClick={() => window.api.settings.set({ theme: "dark" })}>
-        Dark
-      </button>
+      <button onClick={() => window.api.settings.set({ theme: "light" })}>Light</button>
+      <button onClick={() => window.api.settings.set({ theme: "dark" })}>Dark</button>
     </div>
   );
 }
