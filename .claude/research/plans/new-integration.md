@@ -1,5 +1,16 @@
 # XState + Vercel AI SDK Integration: Hierarchical 2-Agent RLM Architecture
 
+## Cohesion Addendum (2026-01-28)
+Aligned to `00-cohesion-summary.md`.
+
+Key overrides:
+- UI: Solid.js + **UIMessage stream protocol**.
+- Providers: Z.ai-first; model list is illustrative, keep provider-agnostic AI SDK v6 support.
+- Sessions: UUIDv7 server-generated; `threadId == sessionId`, `resourceId == userId|local`.
+- Memory: Mastra Memory is used for recall only; Drizzle/libsql for app tables.
+
+---
+
 > A comprehensive integration guide for building an autonomous coding agent using XState v5 for state management and Vercel AI SDK as the LLM abstraction layer with a hierarchical 2-agent system (Plan + Build), state-dependent tool routing, and doom loop detection.
 
 ---
@@ -1515,42 +1526,37 @@ export async function runRLMWorkflow(config: { goal: string; workspace: string }
 
 ## Project Structure
 
-### Recommended Directory Structure
+### Current Monorepo-Aligned Structure (Keep As-Is)
 
 ```
-packages/ekacode/src/
-├── rlm/                                    # XState + Vercel AI SDK integration
-│   ├── machine.ts                             # XState hierarchical machine
-│   ├── actors/                               # XState actor implementations
-│   │   ├── explore-agent.ts                  # Explore subagent
-│   │   ├── plan-agent.ts                     # Plan agent (phase-specific loops)
-│   │   └── build-agent.ts                    # Build agent
-│   ├── guards/                               # XState guards
-│   │   └── doom-loop.ts                       # Doom loop detection
-│   ├── tools/                                # Vercel AI SDK tool definitions
-│   │   ├── read.ts                            # Read tools
-│   │   ├── write.ts                           # Write tools
-│   │   ├── validation.ts                      # LSP validation
-│   │   ├── research.ts                        # webSearch, docsLookup
-│   │   └── planning.ts                        # sequentialThinking, createPlan
-│   ├── models/                               # Provider configurations
-│   │   └── index.ts                           # OpenAI/Anthropic models
-│   ├── loop-control/                         # XState-based loop control
-│   │   └── index.ts                           # Loop control logic
-│   └── index.ts                               # RLM exports
+packages/ [existing]
+├── core/ [existing]                                     # Agent logic + tools + HybridAgent
+│   └── src/ [existing]
+│       ├── agents/ [existing]
+│       │   ├── core/ [existing]                         # Base agent roles/types
+│       │   ├── hybrid-agent/ [existing]                 # HybridAgent + vision routing
+│       │   ├── planner.ts [existing]                    # Plan agent (XState actor)
+│       │   └── coder.ts [existing]                      # Build agent (XState actor)
+│       ├── tools/ [existing]                            # Tool definitions + factories
+│       ├── security/ [existing]                         # Safe exec + path jail policies
+│       └── workspace/ [existing]                        # Project/workspace helpers
 │
-├── server/                                   # Server-side streaming
-│   ├── routes/
-│   │   └── agent-chat.ts                     # SSE endpoint for frontend
-│   └── stream-handler.ts                     # XState → SSE streaming
+├── server/ [existing]                                   # Hono sidecar + streaming
+│   └── src/ [existing]
+│       ├── routes/ [existing]                           # API endpoints
+│       └── (stream handler, session store) [new]   # UIMessage streaming + session bridge
 │
-└── frontend/                                 # Solid.js frontend
-    ├── components/
-    │   ├── Chat.tsx                         # Main chat component
-    │   ├── MessageList.tsx                   # Message display
-    │   └── ToolCallView.tsx                  # Tool call visualization
-    └── hooks/
-        └── useAgentStream.ts                 # SSE stream management
+├── desktop/ [existing]                                  # Electron + Solid renderer
+│   └── src/ [existing]
+│       ├── main/ [existing]                             # Electron main (spawn sidecar, auth)
+│       ├── preload/ [existing]                          # contextBridge APIs
+│       └── renderer/src/ [existing]                     # Solid UI + UIMessage parser
+│
+├── shared/ [existing]                                   # Shared types + utilities
+│   └── src/ [existing]
+│
+└── zai/ [existing]                                      # Z.ai provider (AI SDK v6)
+    └── src/ [existing]
 ```
 
 ---

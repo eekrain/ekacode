@@ -1,5 +1,14 @@
 # Sequential Thinking Tool - Native AI SDK v6 Implementation (Z.ai-first)
 
+## Cohesion Addendum (2026-01-28)
+Aligned to `00-cohesion-summary.md`.
+
+Key overrides:
+- Session ownership: XState owns `sessionId`; tool sessions stored in Drizzle `tool_sessions`.
+- IDs: UUIDv7 for session + tool sessions.
+
+---
+
 ## Table of Contents
 
 1. [Overview](#overview)

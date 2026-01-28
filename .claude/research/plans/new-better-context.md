@@ -1,5 +1,16 @@
 # Better Context: Native AI SDK v6 Tool Implementation Plan (Z.ai-first)
 
+## Cohesion Addendum (2026-01-28)
+Aligned to `00-cohesion-summary.md`.
+
+Key overrides:
+- Orchestration: XState Plan/Build owns session lifecycle; sub-agents are XState-controlled.
+- Providers: Z.ai-first with AI SDK v6, provider-agnostic.
+- Sessions: UUIDv7 server-generated; stored in Drizzle; tool sessions in `tool_sessions`.
+- Repo cache persistence: Drizzle/libsql `repo_cache` table (not Mastra store).
+
+---
+
 ## Overview
 
 **Goal**: Replicate btca's code search capabilities as a native Vercel AI SDK v6 tool with Z.ai as the default provider (still provider-agnostic), enabling agents to search and understand library source code during execution.

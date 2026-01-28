@@ -1,5 +1,14 @@
 # Solid.js Integration Plan: Vercel AI SDK
 
+## Cohesion Addendum (2026-01-28)
+Aligned to `00-cohesion-summary.md`.
+
+Key overrides:
+- Sessions: UUIDv7 server-generated; `threadId == sessionId`, `resourceId == userId|local`.
+- Storage: Mastra Memory for recall; Drizzle/libsql for app tables.
+
+---
+
 **Version**: 2.0.0
 **Status**: Implementation Plan
 **Updated**: 2025-01-28
@@ -255,7 +264,7 @@ Understanding the protocol is critical for correct implementation.
 ### Server-Side Implementation
 
 ```typescript
-// src/app/api/chat/route.ts
+// packages/server/src/routes/prompt.ts
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
@@ -396,12 +405,12 @@ writer.write({
 
 ### Phase 1: Type Definitions
 
-**File**: `src/types/ui-message.ts`
+**File: `packages/desktop/src/renderer/src/types/ui-message.ts`** [new]
 
 Define the extended UIMessage type with custom data parts.
 
 ```typescript
-// src/types/ui-message.ts
+// packages/desktop/src/renderer/src/types/ui-message.ts
 import type { UIMessage } from "ai";
 
 /**
@@ -450,12 +459,12 @@ export interface ChatState {
 
 ### Phase 2: Solid Store with produce and reconcile
 
-**File**: `src/lib/chat/store.ts`
+**File: `packages/desktop/src/renderer/src/lib/chat/store.ts`** [new]
 
 **Purpose**: High-performance state management using Solid stores.
 
 ```typescript
-// src/lib/chat/store.ts
+// packages/desktop/src/renderer/src/lib/chat/store.ts
 import { createStore, produce, reconcile, unwrap } from "solid-js/store";
 import type { ChatUIMessage, ChatState, RLMStateData } from "../../types/ui-message";
 
@@ -598,12 +607,12 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
 
 ### Phase 3: UIMessage Stream Parser
 
-**File**: `src/lib/chat/stream-parser.ts`
+**File: `packages/desktop/src/renderer/src/lib/chat/stream-parser.ts`** [new]
 
 **Purpose**: Parse AI SDK's UIMessage stream protocol.
 
 ```typescript
-// src/lib/chat/stream-parser.ts
+// packages/desktop/src/renderer/src/lib/chat/stream-parser.ts
 import type { ChatUIMessage, RLMStateData } from "../../types/ui-message";
 
 export interface StreamCallbacks {
@@ -726,12 +735,12 @@ function handleStreamPart(part: Record<string, unknown>, callbacks: StreamCallba
 
 ### Phase 4: useChat Hook (Corrected)
 
-**File**: `src/hooks/use-chat.ts`
+**File: `packages/desktop/src/renderer/src/hooks/use-chat.ts`** [new]
 
 **Purpose**: Main hook with correct Solid primitives.
 
 ```typescript
-// src/hooks/use-chat.ts
+// packages/desktop/src/renderer/src/hooks/use-chat.ts
 import { createEffect, onCleanup, type Accessor } from "solid-js";
 import { createChatStore } from "../lib/chat/store";
 import { parseUIMessageStream } from "../lib/chat/stream-parser";
@@ -950,12 +959,12 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
 
 ### Phase 5: Message Components (Parts-Based Rendering)
 
-**File**: `src/components/message-parts.tsx`
+**File: `packages/desktop/src/renderer/src/components/message-parts.tsx`** [new]
 
 **Purpose**: Render individual message parts correctly.
 
 ```typescript
-// src/components/message-parts.tsx
+// packages/desktop/src/renderer/src/components/message-parts.tsx
 import { For, Show, Switch, Match } from 'solid-js'
 import type { MessagePart } from 'ai'
 
@@ -1068,10 +1077,10 @@ function UnknownPart(props: { part: MessagePart }) {
 
 ### Phase 6: Message List Component
 
-**File**: `src/components/message-list.tsx`
+**File: `packages/desktop/src/renderer/src/components/message-list.tsx`** [new]
 
 ```typescript
-// src/components/message-list.tsx
+// packages/desktop/src/renderer/src/components/message-list.tsx
 import { For, Show } from 'solid-js'
 import type { ChatUIMessage } from '../types/ui-message'
 import { MessageParts } from './message-parts'
@@ -1119,10 +1128,10 @@ function MessageBubble(props: { message: ChatUIMessage }) {
 
 ### Phase 7: Complete Chat Component
 
-**File**: `src/components/chat.tsx`
+**File: `packages/desktop/src/renderer/src/components/chat.tsx`** [new]
 
 ```typescript
-// src/components/chat.tsx
+// packages/desktop/src/renderer/src/components/chat.tsx
 import { Show, createEffect } from 'solid-js'
 import { useChat } from '../hooks/use-chat'
 import { MessageList } from './message-list'
@@ -1227,26 +1236,29 @@ export function Chat(props: ChatProps) {
 
 ---
 
-## File Structure
+## File Structure (Current Monorepo Paths)
 
 ```
-src/
-├── types/
-│   └── ui-message.ts                 # Extended UIMessage types
-├── lib/
-│   └── chat/
-│       ├── store.ts                  # createStore + produce/reconcile
-│       └── stream-parser.ts          # UIMessage protocol parser
-├── hooks/
-│   └── use-chat.ts                   # Main useChat hook (corrected)
-├── components/
-│   ├── chat.tsx                      # Main chat component
-│   ├── message-list.tsx              # Message list container
-│   └── message-parts.tsx             # Part-based rendering
-└── app/
-    └── api/
-        └── chat/
-            └── route.ts              # Server: createUIMessageStream
+packages/desktop/src/renderer/src/ [existing]
+├── types/ [new]
+│   └── ui-message.ts [new]                 # Extended UIMessage types
+├── lib/ [new]
+│   └── chat/ [new]
+│       ├── store.ts [new]                  # createStore + produce/reconcile
+│       └── stream-parser.ts [new]          # UIMessage protocol parser
+├── hooks/ [new]
+│   └── use-chat.ts [new]                   # Main useChat hook (corrected)
+├── components/ [new]
+│   ├── chat.tsx [new]                      # Main chat component
+│   ├── message-list.tsx [new]              # Message list container
+│   └── message-parts.tsx [new]             # Part-based rendering
+```
+
+Server UIMessage endpoint lives in the sidecar:
+
+```
+packages/server/src/routes/ [existing]
+└── prompt.ts [new]                           # createUIMessageStream() response
 ```
 
 ---
@@ -1256,7 +1268,7 @@ src/
 ### Unit Tests
 
 ```typescript
-// src/lib/chat/__tests__/store.test.ts
+// packages/desktop/src/renderer/src/lib/chat/__tests__/store.test.ts
 import { describe, it, expect } from "vitest";
 import { createChatStore } from "../store";
 import type { ChatUIMessage } from "../../../types/ui-message";
@@ -1324,7 +1336,7 @@ GOOGLE_GENERATIVE_AI_API_KEY=xxx
 ### Security: XSS Prevention
 
 ```typescript
-// src/lib/markdown.ts
+// packages/desktop/src/renderer/src/lib/markdown.ts
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 

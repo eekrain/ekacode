@@ -1,6 +1,6 @@
-import { PermissionManager } from "@ekacode/ekacode";
-import { createLogger } from "@ekacode/logger";
+import { PermissionManager } from "@ekacode/core";
 import { startServer } from "@ekacode/server";
+import { createLogger } from "@ekacode/shared/logger";
 import { electronApp, is, optimizer } from "@electron-toolkit/utils";
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { join } from "node:path";

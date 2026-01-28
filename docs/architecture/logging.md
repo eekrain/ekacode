@@ -34,7 +34,7 @@ All logs include a searchable prefix in the format: `[package:module]` or `[pack
 
 | Prefix      | Package          | Description          |
 | ----------- | ---------------- | -------------------- |
-| `[ekacode]` | @ekacode/ekacode | Core ekacode package |
+| `[ekacode]` | @ekacode/core    | Core ekacode package |
 | `[server]`  | @ekacode/server  | Hono server          |
 | `[desktop]` | @ekacode/desktop | Electron desktop app |
 

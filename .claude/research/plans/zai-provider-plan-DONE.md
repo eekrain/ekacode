@@ -1,5 +1,15 @@
 # Z.ai Provider Implementation Plan (DONE)
 
+## Cohesion Addendum (2026-01-28)
+Aligned to `00-cohesion-summary.md`.
+
+Key overrides:
+- AI SDK target: **v6**; any v3 wording is historical.
+- HybridAgent is **used by XState Plan/Build** (provider layer, not orchestrator).
+- Z.ai-first is canonical for now; keep provider-agnostic compatibility.
+
+---
+
 > Comprehensive implementation plan for `@ai-sdk/zai` - A Vercel AI SDK provider for Z.ai's GLM models
 
 ## Table of Contents
@@ -18,7 +28,7 @@
 
 ### Goal
 
-Create a fully-featured Vercel AI SDK v3 provider for Z.ai that supports all documented capabilities including:
+Create a fully-featured Vercel AI SDK v6 provider for Z.ai that supports all documented capabilities including:
 
 - Chat completions with streaming
 - Function calling (tools)
@@ -151,62 +161,62 @@ interface ZaiProviderOptions {
 ## File Structure
 
 ```
-packages/zai/
-├── src/
-│   ├── chat/
-│   │   ├── zai-chat-language-model.ts      # Main chat model implementation
-│   │   ├── convert-to-zai-chat-messages.ts # AI SDK → Z.ai format
-│   │   ├── map-zai-chat-response.ts        # Z.ai → AI SDK format
-│   │   ├── zai-chat-prompt.ts              # AI SDK prompt types
-│   │   ├── zai-chat-api.ts                 # Z.ai API schemas
-│   │   ├── zai-chat-settings.ts            # Provider options schema
-│   │   ├── zai-chat-prepare-tools.ts       # Tool preparation
-│   │   └── zai-language-model-capabilities.ts # Model capabilities
-│   ├── zai-provider.ts                     # Provider factory
-│   ├── zai-error.ts                         # Error handling
-│   ├── zai-constants.ts                     # Constants (baseURL, etc)
-│   ├── index.ts                             # Public exports
-│   └── version.ts                           # Package version
-├── CHANGELOG.md
-├── package.json
-├── README.md
-├── tsconfig.json
-└── tsconfig.with-examples.json
+packages/zai/ [existing]
+├── src/ [existing]
+│   ├── chat/ [existing]
+│   │   ├── zai-chat-language-model.ts [new]      # Main chat model implementation
+│   │   ├── convert-to-zai-chat-messages.ts [existing] # AI SDK → Z.ai format
+│   │   ├── map-zai-chat-response.ts [existing]        # Z.ai → AI SDK format
+│   │   ├── zai-chat-prompt.ts [existing]              # AI SDK prompt types
+│   │   ├── zai-chat-api.ts [existing]                 # Z.ai API schemas
+│   │   ├── zai-chat-settings.ts [existing]            # Provider options schema
+│   │   ├── zai-chat-prepare-tools.ts [new]       # Tool preparation
+│   │   └── zai-language-model-capabilities.ts [new] # Model capabilities
+│   ├── zai-provider.ts [existing]                     # Provider factory
+│   ├── zai-error.ts [existing]                         # Error handling
+│   ├── zai-constants.ts [existing]                     # Constants (baseURL, etc)
+│   ├── index.ts [existing]                             # Public exports
+│   └── version.ts [existing]                           # Package version
+├── CHANGELOG.md [existing]
+├── package.json [existing]
+├── README.md [existing]
+├── tsconfig.json [existing]
+└── tsconfig.with-examples.json [new]
 
-packages/ekacode/
-├── src/
-│   ├── agents/
-│   │   └── hybrid-agent/
-│   │       ├── hybrid-agent.ts             # LanguageModelV3 implementation
-│   │       ├── intent-classifier.ts        # Intent detection logic
-│   │       ├── prompt-registry.ts          # Prompt registry
-│   │       ├── prompts/                    # Prompt definitions
-│   │       │   ├── ui-to-artifact.ts
-│   │       │   ├── text-extraction.ts
-│   │       │   ├── error-diagnosis.ts
-│   │       │   ├── diagram-analysis.ts
-│   │       │   ├── data-viz.ts
-│   │       │   ├── ui-diff.ts
-│   │       │   └── general-image.ts
-│   │       ├── zai-hybrid-agent.ts         # Z.ai adapter factory
-│   │       ├── vision-request-handler.ts   # Vision model calling
-│   │       ├── prompt-injector.ts          # Inject vision analysis into prompt
-│   │       ├── image-utils.ts              # Image detection + extraction
-│   │       ├── types.ts                    # Agent-specific types
-│   │       └── index.ts                    # Agent exports
-│   └── index.ts                             # Public exports
-├── tests/
-│   └── agents/
-│       └── hybrid-agent/
-│           ├── intent-classifier.test.ts
-│           ├── vision-request.test.ts
-│           ├── prompt-injector.test.ts
-│           └── e2e-scenarios.test.ts
-├── examples/
-│   └── hybrid-agent.ts
-├── package.json
-├── tsconfig.json
-└── README.md
+packages/core/
+├── src/ [existing]
+│   ├── agents/ [new]
+│   │   └── hybrid-agent/ [new]
+│   │       ├── hybrid-agent.ts [new]             # LanguageModelV3 implementation
+│   │       ├── intent-classifier.ts [new]        # Intent detection logic
+│   │       ├── prompt-registry.ts [new]          # Prompt registry
+│   │       ├── prompts/ [new]                    # Prompt definitions
+│   │       │   ├── ui-to-artifact.ts [new]
+│   │       │   ├── text-extraction.ts [new]
+│   │       │   ├── error-diagnosis.ts [new]
+│   │       │   ├── diagram-analysis.ts [new]
+│   │       │   ├── data-viz.ts [new]
+│   │       │   ├── ui-diff.ts [new]
+│   │       │   └── general-image.ts [new]
+│   │       ├── zai-hybrid-agent.ts [new]         # Z.ai adapter factory
+│   │       ├── vision-request-handler.ts [new]   # Vision model calling
+│   │       ├── prompt-injector.ts [new]          # Inject vision analysis into prompt
+│   │       ├── image-utils.ts [new]              # Image detection + extraction
+│   │       ├── types.ts [new]                    # Agent-specific types
+│   │       └── index.ts [new]                    # Agent exports
+│   └── index.ts [existing]                             # Public exports
+├── tests/ [existing]
+│   └── agents/ [new]
+│       └── hybrid-agent/ [new]
+│           ├── intent-classifier.test.ts [new]
+│           ├── vision-request.test.ts [new]
+│           ├── prompt-injector.test.ts [new]
+│           └── e2e-scenarios.test.ts [new]
+├── examples/ [existing]
+│   └── hybrid-agent.ts [new]
+├── package.json [existing]
+├── tsconfig.json [existing]
+└── README.md [existing]
 ```
 
 ---
@@ -1706,40 +1716,40 @@ Core requirements:
 #### File Structure
 
 ```
-packages/ekacode/
-├── src/
-│   ├── agents/
-│   │   └── hybrid-agent/
-│   │       ├── hybrid-agent.ts              # LanguageModelV3 implementation
-│   │       ├── intent-classifier.ts         # Intent detection logic
-│   │       ├── prompt-registry.ts           # Prompt registry + prompt sources (sync)
-│   │       ├── prompts/                     # Prompt definitions (reused from MCP server)
-│   │       │   ├── ui-to-artifact.ts
-│   │       │   ├── text-extraction.ts
-│   │       │   ├── error-diagnosis.ts
-│   │       │   ├── diagram-analysis.ts
-│   │       │   ├── data-viz.ts
-│   │       │   ├── ui-diff.ts
-│   │       │   └── general-image.ts
-│   │       ├── zai-hybrid-agent.ts          # Z.ai adapter factory
-│   │       ├── vision-request-handler.ts    # Vision model calling
-│   │       ├── prompt-injector.ts           # Inject vision analysis into prompt
-│   │       ├── image-utils.ts               # Image detection + extraction
-│   │       ├── types.ts                     # Agent-specific types
-│   │       └── index.ts                     # Agent exports
-│   └── index.ts                             # Public exports
-├── tests/
-│   └── agents/
-│       └── hybrid-agent/
-│           ├── intent-classifier.test.ts
-│           ├── vision-request.test.ts
-│           ├── prompt-injector.test.ts
-│           └── e2e-scenarios.test.ts
-├── examples/
-│   └── hybrid-agent.ts
-├── package.json
-├── tsconfig.json
-└── README.md
+packages/core/ [existing]
+├── src/ [existing]
+│   ├── agents/ [existing]
+│   │   └── hybrid-agent/ [existing]
+│   │       ├── hybrid-agent.ts [existing]              # LanguageModelV3 implementation
+│   │       ├── intent-classifier.ts [existing]         # Intent detection logic
+│   │       ├── prompt-registry.ts [existing]           # Prompt registry + prompt sources (sync)
+│   │       ├── prompts/ [existing]                     # Prompt definitions (reused from MCP server)
+│   │       │   ├── ui-to-artifact.ts [existing]
+│   │       │   ├── text-extraction.ts [existing]
+│   │       │   ├── error-diagnosis.ts [existing]
+│   │       │   ├── diagram-analysis.ts [existing]
+│   │       │   ├── data-viz.ts [existing]
+│   │       │   ├── ui-diff.ts [existing]
+│   │       │   └── general-image.ts [existing]
+│   │       ├── zai-hybrid-agent.ts [existing]          # Z.ai adapter factory
+│   │       ├── vision-request-handler.ts [existing]    # Vision model calling
+│   │       ├── prompt-injector.ts [existing]           # Inject vision analysis into prompt
+│   │       ├── image-utils.ts [existing]               # Image detection + extraction
+│   │       ├── types.ts [existing]                     # Agent-specific types
+│   │       └── index.ts [existing]                     # Agent exports
+│   └── index.ts [existing]                             # Public exports
+├── tests/ [existing]
+│   └── agents/ [existing]
+│       └── hybrid-agent/ [existing]
+│           ├── intent-classifier.test.ts [existing]
+│           ├── vision-request.test.ts [new]
+│           ├── prompt-injector.test.ts [existing]
+│           └── e2e-scenarios.test.ts [new]
+├── examples/ [existing]
+│   └── hybrid-agent.ts [existing]
+├── package.json [existing]
+├── tsconfig.json [existing]
+└── README.md [new]
 ```
 
 #### Prompt Registry (MCP-Compatible + Extensible)
@@ -2083,7 +2093,7 @@ export interface VisionRequest {
 #### Usage Examples (AI SDK v6 shapes)
 
 ```typescript
-import { HybridAgent, buildMcpPromptRegistry } from "@ekacode/ekacode";
+import { HybridAgent, buildMcpPromptRegistry } from "@ekacode/core";
 import { createZai } from "@ekacode/zai";
 
 const provider = createZai({ apiKey: process.env.ZAI_API_KEY });
@@ -2135,7 +2145,7 @@ const { stream } = await agent.doStream({
 #### Z.ai Adapter Example (provider-specific wrapper)
 
 ```typescript
-// packages/ekacode/src/agents/hybrid-agent/zai-hybrid-agent.ts
+// packages/core/src/agents/hybrid-agent/zai-hybrid-agent.ts
 import { createZai } from "@ekacode/zai";
 import { HybridAgent } from "./hybrid-agent";
 import { createPromptRegistry } from "./prompt-registry";
@@ -2370,10 +2380,10 @@ export function extractTextFromContent(content: LanguageModelV3Content): string;
 #### Agent Package Exports
 
 ```typescript
-// packages/ekacode/src/index.ts
+// packages/core/src/index.ts
 export * from "./agents/hybrid-agent";
 
-// packages/ekacode/src/agents/hybrid-agent/index.ts
+// packages/core/src/agents/hybrid-agent/index.ts
 export { HybridAgent } from "./hybrid-agent";
 export { createPromptRegistry } from "./prompt-registry";
 export { createZaiHybridAgent, buildMcpPromptRegistry } from "./zai-hybrid-agent";
@@ -2401,7 +2411,7 @@ export type {
 
 #### Checklist
 
-- [ ] Agent structure setup (`packages/ekacode/src/agents/`)
+- [ ] Agent structure setup (`packages/core/src/agents/`)
 - [ ] `hybrid-agent.ts` - LanguageModelV3 implementation
 - [ ] `intent-classifier.ts` - Intent detection
 - [ ] `prompt-registry.ts` - Prompt registry

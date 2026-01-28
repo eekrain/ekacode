@@ -11,7 +11,7 @@
 ### SolidJS (UI Framework)
 
 - **Version**: ^1.x with Vite
-- **Rationale**: React-like components with fine-grained reactivity; smaller bundle, better performance for streaming UI; integrates well with TanStack AI.
+- **Rationale**: React-like components with fine-grained reactivity; smaller bundle, better performance for streaming UI; integrates well with Vercel AI SDK.
 - **Alternatives considered**: React — fine-grained reactivity and Solid MotionOne for animations.
 
 ### Tailwind CSS (Styling)
@@ -39,17 +39,11 @@
 - **Rationale**: Secure `invoke/handle` for request/response and `contextBridge` to expose minimal, typed API; no raw `ipcRenderer` in renderer; structured clone-safe payloads.
 - **Best practices**: Centralize channel constants in `shared/ipc.ts`, validate with Zod, avoid sync IPC.
 
-### TanStack AI (Headless Chat + Streaming Consumer)
+### Vercel AI SDK v6 (Headless Chat + Streaming Consumer)
 
-- **Version**: Latest
-- **Rationale**: `useChat` hook with `fetchServerSentEvents` for SSE connections; streaming message rendering, stop/cancel support, auth headers; maps Mastra events via custom adapter.
-- **Alternatives considered**: Vercel AI SDK directly — TanStack provides better UI integration patterns and tool rendering.
-
-### Mastra (Agent Orchestration)
-
-- **Version**: Latest (vNext workflow engine)
-- **Rationale**: TypeScript-first framework for building production-grade agents; structured tools with Zod, streaming via `.stream()`, vNext workflows with `.dountil()` loops, `.parallel()`, branching; processors (ToolCallFilter, TokenLimiter) for context rot.
-- **Alternatives considered**: LangChain (Python) — TypeScript ecosystem, Mastra’s workflow primitives are more deterministic for engineering.
+- **Version**: ^0.4.x (v6 stable)
+- **Rationale**: `useChat` hook with native streaming support; direct Mastra integration via tool passing; streaming message rendering, stop/cancel support, auth headers; built-in tool UI helpers.
+- **Alternatives considered**: TanStack AI — rejected in favor of direct AI SDK v6 for better Mastra compatibility and simpler streaming patterns.
 
 ## Database
 

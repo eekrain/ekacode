@@ -17,9 +17,19 @@ export interface SessionContext {
 }
 
 // Permission types
+export type PermissionType = "read" | "edit" | "external_directory" | "bash";
+
+export type PermissionAction = "allow" | "deny" | "ask";
+
+export interface PermissionRule {
+  permission: PermissionType;
+  pattern: string; // glob pattern (e.g., "*.ts", "/etc/**", "git*")
+  action: PermissionAction;
+}
+
 export interface PermissionRequest {
   id: string;
-  permission: "read" | "edit" | "external_directory" | "bash";
+  permission: PermissionType;
   patterns: string[];
   always: string[];
   sessionID: string;

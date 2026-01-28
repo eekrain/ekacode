@@ -138,7 +138,7 @@ Each package uses TypeScript's `exports` field for clean imports:
 
 ```json
 {
-  "name": "@ekacode/ekacode",
+  "name": "@ekacode/core",
   "exports": {
     ".": "./src/index.ts"
   }
@@ -176,7 +176,7 @@ Use workspace protocol for dependencies:
 ```typescript
 // packages/desktop/src/main/index.ts
 import { startServer } from "@ekacode/server";
-import { PermissionManager } from "@ekacode/ekacode";
+import { PermissionManager } from "@ekacode/core";
 
 // packages/ekacode/src/tools/filesystem/read.ts
 import type { SessionContext } from "@ekacode/shared";
@@ -202,7 +202,7 @@ pnpm build      # Turborepo handles ordering
 Build specific package with dependencies:
 
 ```bash
-pnpm --filter @ekacode/ekacode build
+pnpm --filter @ekacode/core build
 ```
 
 ## Development Workflow
@@ -220,7 +220,7 @@ pnpm --filter @ekacode/ekacode build
 To add a dependency to a specific package:
 
 ```bash
-pnpm add --filter @ekacode/ekacode zod
+pnpm add --filter @ekacode/core zod
 ```
 
 To add to all packages:

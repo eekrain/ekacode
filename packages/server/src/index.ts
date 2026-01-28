@@ -4,11 +4,14 @@
  * Hono server with authentication and permission API
  */
 
-import { createLogger } from "@ekacode/logger";
+import { initializePermissionRules } from "@ekacode/core";
+import { createLogger } from "@ekacode/shared/logger";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
+import eventsRouter from "./routes/events";
 import permissionsRouter from "./routes/permissions";
+import rulesRouter from "./routes/rules";
 
 type Env = {
   Variables: {
@@ -96,6 +99,15 @@ app.get("/api/config", c => {
 // Mount permission routes
 app.route("/api/permissions", permissionsRouter);
 
+// Mount events routes
+app.route("/", eventsRouter);
+
+// Mount rules routes
+app.route("/", rulesRouter);
+
+// Health check
+app.route("/", eventsRouter);
+
 // Health check
 app.get("/", c => {
   return c.text("ekacode server running");
@@ -103,6 +115,9 @@ app.get("/", c => {
 
 // Start server
 export async function startServer() {
+  // Initialize permission rules from config
+  initializePermissionRules();
+
   const server = await serve({
     fetch: app.fetch,
     port: SERVER_PORT,

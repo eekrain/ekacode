@@ -3,7 +3,7 @@
   "references": [
     { "path": "./packages/desktop" },
     { "path": "./packages/server" },
-    { "path": "./packages/ekacode" },
+    { "path": "./packages/core" },
     { "path": "./packages/shared" },
     { "path": "./packages/zai" }
   ],

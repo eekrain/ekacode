@@ -218,7 +218,7 @@ pnpm init
 
 ```json
 {
-  "name": "@ekacode/ekacode",
+  "name": "@ekacode/core",
   "version": "0.0.1",
   "private": true,
   "type": "module",

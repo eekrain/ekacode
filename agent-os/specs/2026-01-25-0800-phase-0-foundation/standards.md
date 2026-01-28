@@ -61,5 +61,5 @@ husky:
 - `@ekacode/preload` - Preload script
 - `@ekacode/renderer` - SolidJS UI
 - `@ekacode/server` - Hono server
-- `@ekacode/ekacode` - Main agent package
+- `@ekacode/core` - Main agent package
 - `@ekacode/shared` - Shared utilities

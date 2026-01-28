@@ -1,0 +1,35 @@
+{
+  "name": "@ekacode/core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^3.0.18",
+    "@ekacode/zai": "workspace:*",
+    "@ai-sdk/provider": "^3.0.5",
+    "@ekacode/shared": "workspace:*",
+    "@types/turndown": "^5.0.6",
+    "ai": "^6.0.49",
+    "diff": "^8.0.3",
+    "glob": "^13.0.0",
+    "jsdom": "^27.4.0",
+    "nanoid": "^5.1.6",
+    "tree-sitter": "^0.25.0",
+    "tree-sitter-bash": "^0.25.1",
+    "turndown": "^7.2.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.1",
+    "typescript": "^5.9.3"
+  }
+}
