@@ -2,7 +2,7 @@
  * Apply patch tool
  */
 
-import { createTool } from "@mastra/core/tools";
+import { tool, zodSchema } from "ai";
 import { nanoid } from "nanoid";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -10,8 +10,7 @@ import { z } from "zod";
 import { PermissionManager } from "../../security/permission-manager";
 import { WorkspaceInstance } from "../../workspace/instance";
 
-export const applyPatchTool = createTool({
-  id: "apply-patch",
+export const applyPatchTool = tool({
   description: `Apply a unified diff patch to files.
 
 - Supports add, update, delete, and move operations
@@ -19,25 +18,30 @@ export const applyPatchTool = createTool({
 - Shows comprehensive diff before applying
 - All operations in the patch are atomic (all succeed or all fail)`,
 
-  inputSchema: z.object({
-    patchText: z.string().describe("Full unified diff patch text"),
-  }),
+  inputSchema: zodSchema(
+    z.object({
+      patchText: z.string().describe("Full unified diff patch text"),
+    })
+  ),
 
-  outputSchema: z.object({
-    success: z.boolean(),
-    filesModified: z.number(),
-    files: z.array(
-      z.object({
-        path: z.string(),
-        action: z.enum(["add", "update", "delete", "move"]),
-      })
-    ),
-  }),
+  outputSchema: zodSchema(
+    z.object({
+      success: z.boolean(),
+      filesModified: z.number(),
+      files: z.array(
+        z.object({
+          path: z.string(),
+          action: z.enum(["add", "update", "delete", "move"]),
+        })
+      ),
+    })
+  ),
 
-  execute: async ({ patchText }, context) => {
+  execute: async ({ patchText }, options) => {
     const workspace = WorkspaceInstance.getInstance();
     const permissionMgr = PermissionManager.getInstance();
-    const sessionID = (context as { sessionID?: string })?.sessionID || nanoid();
+    const sessionID =
+      (options.experimental_context as { sessionID?: string })?.sessionID || nanoid();
 
     // Parse patch (simplified - use proper diff parser in production)
     const lines = patchText.split("\n");

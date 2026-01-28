@@ -2,7 +2,7 @@
  * Multi-edit tool
  */
 
-import { createTool } from "@mastra/core/tools";
+import { tool, zodSchema } from "ai";
 import { nanoid } from "nanoid";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -11,43 +11,47 @@ import { PermissionManager } from "../../security/permission-manager";
 import { WorkspaceInstance } from "../../workspace/instance";
 import { assertExternalDirectory } from "../base/filesystem";
 
-export const multieditTool = createTool({
-  id: "multi-edit",
+export const multieditTool = tool({
   description: `Apply multiple edits to a single file in sequence.
 
 - Edits are applied in the order specified
 - Each edit uses the same logic as the edit tool
 - If any edit fails (string not found), the entire operation fails`,
 
-  inputSchema: z.object({
-    filePath: z.string().describe("Absolute path to the file"),
-    edits: z
-      .array(
+  inputSchema: zodSchema(
+    z.object({
+      filePath: z.string().describe("Absolute path to the file"),
+      edits: z
+        .array(
+          z.object({
+            oldString: z.string(),
+            newString: z.string(),
+            replaceAll: z.boolean().optional(),
+          })
+        )
+        .min(1)
+        .describe("Array of edit operations to apply sequentially"),
+    })
+  ),
+
+  outputSchema: zodSchema(
+    z.object({
+      success: z.boolean(),
+      filePath: z.string(),
+      totalReplacements: z.number(),
+      results: z.array(
         z.object({
-          oldString: z.string(),
-          newString: z.string(),
-          replaceAll: z.boolean().optional(),
+          replacements: z.number(),
         })
-      )
-      .min(1)
-      .describe("Array of edit operations to apply sequentially"),
-  }),
+      ),
+    })
+  ),
 
-  outputSchema: z.object({
-    success: z.boolean(),
-    filePath: z.string(),
-    totalReplacements: z.number(),
-    results: z.array(
-      z.object({
-        replacements: z.number(),
-      })
-    ),
-  }),
-
-  execute: async ({ filePath, edits }, context) => {
+  execute: async ({ filePath, edits }, options) => {
     const workspace = WorkspaceInstance.getInstance();
     const permissionMgr = PermissionManager.getInstance();
-    const sessionID = (context as { sessionID?: string })?.sessionID || nanoid();
+    const sessionID =
+      (options.experimental_context as { sessionID?: string })?.sessionID || nanoid();
 
     // Resolve path
     const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(workspace.root, filePath);

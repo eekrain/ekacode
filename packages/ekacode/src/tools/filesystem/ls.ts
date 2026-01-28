@@ -2,35 +2,38 @@
  * List directory tool
  */
 
-import { createTool } from "@mastra/core/tools";
+import { tool, zodSchema } from "ai";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 import { WorkspaceInstance } from "../../workspace/instance";
 
-export const lsTool = createTool({
-  id: "list-directory",
+export const lsTool = tool({
   description: `List directory contents.
 
 - Returns files and directories in the specified path
 - Supports recursive listing
 - Paths are relative to workspace root in output`,
 
-  inputSchema: z.object({
-    dirPath: z.string().describe("Path to the directory"),
-    recursive: z.boolean().optional().describe("List recursively (default: false)"),
-  }),
+  inputSchema: zodSchema(
+    z.object({
+      dirPath: z.string().describe("Path to the directory"),
+      recursive: z.boolean().optional().describe("List recursively (default: false)"),
+    })
+  ),
 
-  outputSchema: z.object({
-    entries: z.array(
-      z.object({
-        name: z.string(),
-        path: z.string(),
-        type: z.enum(["file", "directory"]),
-      })
-    ),
-    count: z.number(),
-  }),
+  outputSchema: zodSchema(
+    z.object({
+      entries: z.array(
+        z.object({
+          name: z.string(),
+          path: z.string(),
+          type: z.enum(["file", "directory"]),
+        })
+      ),
+      count: z.number(),
+    })
+  ),
 
   execute: async ({ dirPath, recursive = false }) => {
     const workspace = WorkspaceInstance.getInstance();

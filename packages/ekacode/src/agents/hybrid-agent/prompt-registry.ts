@@ -4,6 +4,7 @@
  * Manages prompt handlers and resolves prompts based on intent.
  */
 
+import { GENERAL_IMAGE_ANALYSIS_PROMPT } from "./prompts";
 import type { PromptContext, PromptHandler, PromptRegistry, PromptResolution } from "./types";
 
 /**
@@ -42,4 +43,25 @@ export function createPromptRegistry(initial: PromptHandler[] = []): PromptRegis
  */
 export function createEmptyPromptRegistry(): PromptRegistry {
   return createPromptRegistry([]);
+}
+
+/**
+ * Create a default prompt registry with a general image fallback.
+ */
+export function createDefaultPromptRegistry(): PromptRegistry {
+  const registry = createPromptRegistry();
+
+  registry.register({
+    id: "general-image",
+    description: "General image analysis when no specific intent is detected",
+    keywords: [],
+    requiredMedia: "none",
+    resolve: ({ userText }) => ({
+      system: GENERAL_IMAGE_ANALYSIS_PROMPT,
+      user: userText,
+      outputFormat: "markdown",
+    }),
+  });
+
+  return registry;
 }

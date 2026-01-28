@@ -8,7 +8,10 @@
 export { mastra } from "./mastra";
 
 // Agents
-export { coderAgent } from "./agents/coder";
+export { buildAgentModel, createRoleAgent } from "./agents";
+export type { AgentModels, AgentProfile, RoleAgentOverrides } from "./agents";
+export { createCoderAgent } from "./agents/coder";
+export { createPlannerAgent } from "./agents/planner";
 
 // Tools
 export {
@@ -39,28 +42,11 @@ export { PermissionManager } from "./security/permission-manager";
 // Workspace
 export { WorkspaceInstance } from "./workspace/instance";
 
-// Mastra-TanStack Adapter
-export {
-  MastraLanguageModel,
-  MastraTextAdapter,
-  StructuredOutputSupport,
-  mastraText,
-  mastraTextWithModel,
-} from "./adapters/mastra-tanstack";
-export type {
-  MastraInputModalities,
-  MastraMessageMetadataByModality,
-  MastraModality,
-  MastraProviderOptions,
-  MastraTextModelId,
-  MastraTextProviderOptions,
-  ProviderCapabilities,
-} from "./adapters/mastra-tanstack";
-
 // Hybrid Agent
 export {
   HybridAgent,
   buildMcpPromptRegistry,
+  createDefaultPromptRegistry,
   createPromptRegistry,
   createZaiHybridAgent,
 } from "./agents/hybrid-agent";

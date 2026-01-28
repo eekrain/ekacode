@@ -3,7 +3,7 @@
  */
 
 import { createLogger } from "@ekacode/logger";
-import { createTool } from "@mastra/core/tools";
+import { tool, zodSchema } from "ai";
 import { nanoid } from "nanoid";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -14,8 +14,7 @@ import { assertExternalDirectory } from "../base/filesystem";
 
 const logger = createLogger("ekacode");
 
-export const editTool = createTool({
-  id: "edit-file",
+export const editTool = tool({
   description: `Edit a file by replacing text.
 
 - Replaces occurrences of oldString with newString
@@ -24,23 +23,28 @@ export const editTool = createTool({
 - Use exact text matching from the source file
 - For multiple edits, use the multiedit tool`,
 
-  inputSchema: z.object({
-    filePath: z.string().describe("Absolute path to the file"),
-    oldString: z.string().describe("Exact text to replace"),
-    newString: z.string().describe("Replacement text"),
-    replaceAll: z.boolean().optional().describe("Replace all occurrences (default: false)"),
-  }),
+  inputSchema: zodSchema(
+    z.object({
+      filePath: z.string().describe("Absolute path to the file"),
+      oldString: z.string().describe("Exact text to replace"),
+      newString: z.string().describe("Replacement text"),
+      replaceAll: z.boolean().optional().describe("Replace all occurrences (default: false)"),
+    })
+  ),
 
-  outputSchema: z.object({
-    success: z.boolean(),
-    filePath: z.string(),
-    replacements: z.number(),
-  }),
+  outputSchema: zodSchema(
+    z.object({
+      success: z.boolean(),
+      filePath: z.string(),
+      replacements: z.number(),
+    })
+  ),
 
-  execute: async ({ filePath, oldString, newString, replaceAll = false }, context) => {
+  execute: async ({ filePath, oldString, newString, replaceAll = false }, options) => {
     const workspace = WorkspaceInstance.getInstance();
     const permissionMgr = PermissionManager.getInstance();
-    const sessionID = (context as { sessionID?: string })?.sessionID || nanoid();
+    const sessionID =
+      (options.experimental_context as { sessionID?: string })?.sessionID || nanoid();
     const toolLogger = logger.child({ module: "tool:edit", tool: "edit", sessionID });
 
     // Resolve path

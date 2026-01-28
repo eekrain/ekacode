@@ -3,7 +3,7 @@
  */
 
 import { createLogger } from "@ekacode/logger";
-import { createTool } from "@mastra/core/tools";
+import { tool, zodSchema } from "ai";
 import { createTwoFilesPatch } from "diff";
 import { nanoid } from "nanoid";
 import fs from "node:fs/promises";
@@ -15,8 +15,7 @@ import { assertExternalDirectory } from "../base/filesystem";
 
 const logger = createLogger("ekacode");
 
-export const writeTool = createTool({
-  id: "write-file",
+export const writeTool = tool({
   description: `Write content to a file.
 
 - Creates parent directories automatically
@@ -24,22 +23,27 @@ export const writeTool = createTool({
 - Requires permission for file modifications
 - Overwrites existing files if they exist`,
 
-  inputSchema: z.object({
-    content: z.string().describe("Content to write to the file"),
-    filePath: z.string().describe("Absolute path to the file"),
-  }),
+  inputSchema: zodSchema(
+    z.object({
+      content: z.string().describe("Content to write to the file"),
+      filePath: z.string().describe("Absolute path to the file"),
+    })
+  ),
 
-  outputSchema: z.object({
-    success: z.boolean(),
-    filePath: z.string(),
-    diff: z.string(),
-    created: z.boolean(),
-  }),
+  outputSchema: zodSchema(
+    z.object({
+      success: z.boolean(),
+      filePath: z.string(),
+      diff: z.string(),
+      created: z.boolean(),
+    })
+  ),
 
-  execute: async ({ content, filePath }, context) => {
+  execute: async ({ content, filePath }, options) => {
     const workspace = WorkspaceInstance.getInstance();
     const permissionMgr = PermissionManager.getInstance();
-    const sessionID = (context as { sessionID?: string })?.sessionID || nanoid();
+    const sessionID =
+      (options.experimental_context as { sessionID?: string })?.sessionID || nanoid();
     const toolLogger = logger.child({ module: "tool:write", tool: "write", sessionID });
 
     // Resolve path

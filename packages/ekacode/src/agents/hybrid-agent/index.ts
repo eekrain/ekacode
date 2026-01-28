@@ -8,7 +8,11 @@
 export { HybridAgent } from "./hybrid-agent";
 
 // Prompt registry
-export { createEmptyPromptRegistry, createPromptRegistry } from "./prompt-registry";
+export {
+  createDefaultPromptRegistry,
+  createEmptyPromptRegistry,
+  createPromptRegistry,
+} from "./prompt-registry";
 
 // Z.ai adapter factory
 export { buildMcpPromptRegistry, createZaiHybridAgent } from "./zai-hybrid-agent";

@@ -3,7 +3,7 @@
  */
 
 import { createLogger } from "@ekacode/logger";
-import { createTool } from "@mastra/core/tools";
+import { tool, zodSchema } from "ai";
 import { nanoid } from "nanoid";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -15,8 +15,7 @@ import { truncateOutput } from "../base/truncation";
 
 const logger = createLogger("ekacode");
 
-export const readTool = createTool({
-  id: "read-file",
+export const readTool = tool({
   description: `Read a file from the local filesystem.
 
 - The filePath should be an absolute path (or relative to workspace root)
@@ -24,26 +23,31 @@ export const readTool = createTool({
 - Binary files are detected and rejected with an error
 - Output uses cat -n format with line numbers`,
 
-  inputSchema: z.object({
-    filePath: z.string().describe("Path to the file to read"),
-    offset: z.coerce.number().min(0).optional().describe("Line offset to start reading"),
-    limit: z.coerce.number().min(1).optional().describe("Maximum number of lines to read"),
-  }),
+  inputSchema: zodSchema(
+    z.object({
+      filePath: z.string().describe("Path to the file to read"),
+      offset: z.coerce.number().min(0).optional().describe("Line offset to start reading"),
+      limit: z.coerce.number().min(1).optional().describe("Maximum number of lines to read"),
+    })
+  ),
 
-  outputSchema: z.object({
-    content: z.string(),
-    metadata: z.object({
-      truncated: z.boolean(),
-      lineCount: z.number(),
-      filePath: z.string(),
-      preview: z.boolean().optional(),
-    }),
-  }),
+  outputSchema: zodSchema(
+    z.object({
+      content: z.string(),
+      metadata: z.object({
+        truncated: z.boolean(),
+        lineCount: z.number(),
+        filePath: z.string(),
+        preview: z.boolean().optional(),
+      }),
+    })
+  ),
 
-  execute: async ({ filePath, offset = 0, limit }, context) => {
+  execute: async ({ filePath, offset = 0, limit }, options) => {
     const workspace = WorkspaceInstance.getInstance();
     const permissionMgr = PermissionManager.getInstance();
-    const sessionID = (context as { sessionID?: string })?.sessionID || nanoid();
+    const sessionID =
+      (options.experimental_context as { sessionID?: string })?.sessionID || nanoid();
     const toolLogger = logger.child({ module: "tool:read", tool: "read", sessionID });
 
     // Resolve path
