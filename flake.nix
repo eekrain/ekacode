@@ -11,48 +11,57 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
-        # Electron runtime libraries for FHS compatibility
+        # All runtime dependencies for Electron
         electronLibs = with pkgs; [
-          gcc.cc.lib
-          vips
-          glibc
-
-          # OpenGL (CRITICAL - Electron ANGLE)
-          libglvnd # libGL.so.1
-          libgbm # libgbm.so.1
-          mesa # libEGL.so.1, libGLESv2.so.2
-          libGL # libGL.so.1
-          libGLU # GL utilities
-          libxkbcommon
-          xorg.libX11
-
-          # UI
+          # Core libraries
           glib
           gtk3
-          gtk4
-          cairo
-          pango
+          nss
+          nspr
+          alsa-lib
+          at-spi2-atk
+          cups
+          dbus
+          expat
+
+          # Graphics/OpenGL
+          libglvnd
+          libgbm
+          mesa
+          libGL
+          libGLU
+          libdrm
+          libxkbcommon
 
           # X11
+          xorg.libX11
           xorg.libXcomposite
           xorg.libXdamage
           xorg.libXext
           xorg.libXfixes
           xorg.libXrandr
+          xorg.libXcursor
+          xorg.libXi
+          xorg.libXScrnSaver
           libxcb
-          expat # libexpat.so.1
 
-          # Audio/UI
-          alsa-lib
-          at-spi2-atk
-          cups
-          dbus
-          nspr
-          nss
+          # Fonts and UI
+          cairo
+          pango
+          liberation_ttf
+
+          # Media
+          ffmpeg
+
+          # System/hardware
+          systemd
+          udev
+
+          # Build tools
+          gcc.cc.lib
+          stdenv.cc.cc
         ];
 
-        # Library path for Electron to find dependencies
-        libPath = pkgs.lib.makeLibraryPath electronLibs;
       in {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
@@ -63,15 +72,28 @@
           ] ++ electronLibs;
 
           shellHook = ''
-            # Set library path for Electron (FHS compatibility)
-            export LD_LIBRARY_PATH="${libPath}:$LD_LIBRARY_PATH"
+            # Library paths
+            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath electronLibs}:$LD_LIBRARY_PATH"
+            export PATH="${pkgs.lib.makeBinPath [pkgs.nodejs_22 pkgs.pnpm pkgs.electron pkgs.git]}:$PATH"
+
+            # Locale
+            export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive"
+
+            # Electron configuration
+            export ELECTRON_DISABLE_SECURITY_WARNINGS=true
+            export ELECTRON_OZONE_PLATFORM_HINT=wayland
+
+            # Glibc compatibility
+            export NIX_LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath electronLibs}"
+            export NIX_LD=${pkgs.glibc}/lib64/ld-linux-x86-64.so.2
 
             echo ""
             echo "🚀 ekacode development environment"
             echo "   Node: $(node --version)"
             echo "   pnpm: $(pnpm --version)"
             echo "   Electron: ${pkgs.electron.version}"
-            echo "   Libraries: ✅ bundled with flake"
+            echo "   Glibc: ${pkgs.glibc.version}"
+            echo "   Platform: wayland"
             echo ""
             echo "Available commands:"
             echo "   pnpm dev        - Start development server"

@@ -10,6 +10,7 @@ Key overrides:
 - Providers: **Z.ai-first**, but keep provider-agnostic AI SDK v6 support.
 - Sessions: **UUIDv7** server-generated; `threadId == sessionId`, `resourceId == userId|local`.
 - Storage: **Mastra Memory + libsql** for recall; **Drizzle + libsql** for app tables.
+- App data paths: **single resolved Ekacode home** for config/state/db/logs; **dev uses `./.ekacode/`**; **prod uses OS user-data**; **repo caches live in OS cache**.
 
 ---
 
@@ -106,10 +107,17 @@ ekacode/ [new]
 | **In-process server + agent** | Simplified IPC, direct tool access | Separate agent service (complexity) |
 | **Electron over Tauri** | Team familiarity, ecosystem | Tauri (smaller bundle) |
 | **Hono for HTTP** | Lightweight, Edge-compatible | Express (heavier) |
+| **Resolved app paths** (home + cache) | Prevent split DBs; self-contained data | Relative DB paths (fragile) |
 
 ---
 
 ## Architecture Overview
+
+### App Data Paths (Canonical)
+- Use a shared **path resolver** (in `packages/shared`) to compute absolute `home/config/state/db/logs/cache` paths.
+- **Resolution order**: `EKACODE_HOME` → dev `./.ekacode/` → prod OS user-data (`app.getPath("userData")` or `env-paths`).
+- **Repo cache** lives under cache (`<cache>/repos/`) to keep clones disposable.
+- DB URLs must be **absolute** (`file:/abs/path/...`) so server + core never diverge.
 
 ### Data Flow: Single Request
 

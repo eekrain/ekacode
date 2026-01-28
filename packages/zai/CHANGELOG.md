@@ -4,7 +4,7 @@
 
 ### Initial Release
 
-First stable release of the Z.ai provider for Vercel AI SDK v3.
+First stable release of the Z.ai provider for Vercel AI SDK v6.
 
 #### Features
 

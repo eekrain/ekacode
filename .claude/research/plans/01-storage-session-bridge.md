@@ -14,11 +14,40 @@ Provide a cohesive storage strategy that:
 - **Mastra Memory** is optional but recommended for semantic recall.
 - **Drizzle/libsql** owns app tables and migrations.
 
+## App Paths & DB URLs (Canonical)
+Use a single resolved **Ekacode home** directory so server + core never diverge.
+
+**Resolution order (self-contained):**
+1) `EKACODE_HOME` (override)
+2) **Dev**: repo-local `./.ekacode/` (Option A)
+3) **Prod**: OS user-data directory (Electron `app.getPath("userData")` or OS defaults via `env-paths("ekacode")`)
+
+**Directory layout:**
+```
+<home>/
+  config/
+  state/
+  db/
+    ekacode.db
+    mastra.db
+  logs/
+```
+
+**Cache + repo cache:**
+- **Prod**: OS cache dir (Electron `app.getPath("cache")` or `env-paths(...).cache`)
+- **Dev**: `./.ekacode/cache/`
+- **Repo cache root**: `<cache>/repos/` (store repo clones/metadata here)
+
+**DB URL requirements:**
+- Use **absolute** file URLs (e.g., `file:/abs/path/ekacode.db`), never relative.
+- Drizzle + Mastra Memory must use **the same resolved paths** to avoid split state.
+
 ## Placement in Current Monorepo
 - `packages/server/src/db`: Drizzle client + schema + migrations config.
 - `packages/server/src/storage`: session/tool-session store helpers.
 - `packages/core`: agent/tool interfaces that accept storage adapters.
 - `packages/shared`: shared session/tool types (optional).
+- `packages/shared`: **path resolver** used by server + core to compute `home/db/cache` paths.
 
 ## Drizzle (Up-to-Date Setup)
 Install:
@@ -33,11 +62,10 @@ DB client:
 import { drizzle } from "drizzle-orm/libsql";
 import { createClient } from "@libsql/client";
 import * as schema from "./schema";
+import { resolveAppPaths } from "@ekacode/shared/paths";
 
-const client = createClient({
-  url: process.env.DATABASE_URL!,
-  authToken: process.env.TURSO_AUTH_TOKEN,
-});
+const paths = resolveAppPaths();
+const client = createClient({ url: paths.ekacodeDbUrl });
 
 export const db = drizzle(client, { schema });
 ```
@@ -46,11 +74,13 @@ Drizzle config:
 ```ts
 // drizzle.config.ts
 import { defineConfig } from "drizzle-kit";
+import { resolveAppPaths } from "@ekacode/shared/paths";
 
+const paths = resolveAppPaths();
 export default defineConfig({
   dialect: "sqlite",
   schema: "./packages/server/src/db/schema.ts",
-  dbCredentials: { url: "file:local.db" },
+  dbCredentials: { url: paths.ekacodeDbUrl },
   out: "./drizzle",
 });
 ```
@@ -99,6 +129,7 @@ export const repoCache = sqliteTable("repo_cache", {
   lastUpdated: integer("last_updated").notNull(),
 });
 ```
+Note: `repo_cache.localPath` should be stored under the resolved **repo cache root** (`<cache>/repos/`).
 
 ## UUIDv7 Generation
 ```ts
@@ -134,14 +165,16 @@ writer.write({
 import { Memory } from "@mastra/memory";
 import { LibSQLStore, LibSQLVector } from "@mastra/libsql";
 import { fastembed } from "@mastra/fastembed";
+import { resolveAppPaths } from "@ekacode/shared/paths";
 
+const paths = resolveAppPaths();
 export const memory = new Memory({
-  storage: new LibSQLStore({ id: "mastra-storage", url: "file:./mastra.db" }),
-  vector: new LibSQLVector({ id: "mastra-vector", url: "file:./mastra.db" }),
+  storage: new LibSQLStore({ id: "mastra-storage", url: paths.mastraDbUrl }),
+  vector: new LibSQLVector({ id: "mastra-vector", url: paths.mastraDbUrl }),
   embedder: fastembed,
   options: {
     lastMessages: 10,
-    semanticRecall: { topK: 4, messageRange: 2 },
+    semanticRecall: { topK: 4, messageRange: 2, scope: "thread" },
   },
 });
 ```

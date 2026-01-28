@@ -5,7 +5,10 @@
  */
 
 // Mastra instance
-export { mastra } from "./mastra";
+export { mastra, memory } from "./memory/mastra";
+
+// Memory
+export { EkacodeMemory, getMemory } from "./memory";
 
 // Agents
 export { buildAgentModel, createRoleAgent } from "./agents";

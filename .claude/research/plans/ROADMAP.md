@@ -2,8 +2,8 @@
 
 Ordered by most applicable tasks. Each task includes a reference to the exact plan lines to read first.
 
-1) Implement storage + session bridge (Drizzle/libsql setup, schemas, UUIDv7 session flow, Mastra Memory wiring).
-   Ref: `01-storage-session-bridge.md:L23-L146`
+1) Implement storage + session bridge (Drizzle/libsql setup, **app path resolver + absolute DB URLs**, schemas, UUIDv7 session flow, Mastra Memory wiring, repo cache in cache).
+   Ref: `01-storage-session-bridge.md:L17-L146`
 
 2) Build core Instance context system (AsyncLocalStorage context, Instance.provide, bootstrap, state, workspace detection).
    Ref: `new-architecture-plan.md:L185-L560`

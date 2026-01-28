@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "electron-vite dev -- --ozone-platform=wayland --enable-features=UseOzonePlatform --force-device-scale-factor=1 --disable-fractional-rp-pixelation",
     "build": "npm run typecheck && electron-vite build",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json"

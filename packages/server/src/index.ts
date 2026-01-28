@@ -9,14 +9,17 @@ import { createLogger } from "@ekacode/shared/logger";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
+import chatRouter from "./routes/chat";
 import eventsRouter from "./routes/events";
 import permissionsRouter from "./routes/permissions";
 import rulesRouter from "./routes/rules";
 
-type Env = {
+export type Env = {
   Variables: {
     requestId: string;
     startTime: number;
+    session?: import("../db/sessions").Session;
+    sessionIsNew?: boolean;
   };
 };
 
@@ -31,7 +34,7 @@ const SERVER_PORT = parseInt(process.env.PORT || "0") || 0; // Random port
 app.use("*", async (c, next) => {
   c.header("Access-Control-Allow-Origin", "*");
   c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Session-ID");
   if (c.req.method === "OPTIONS") {
     return c.newResponse(null, 204);
   }
@@ -98,6 +101,9 @@ app.get("/api/config", c => {
 
 // Mount permission routes
 app.route("/api/permissions", permissionsRouter);
+
+// Mount chat routes (no auth required for demo - add auth in production)
+app.route("/", chatRouter);
 
 // Mount events routes
 app.route("/", eventsRouter);

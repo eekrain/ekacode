@@ -8,6 +8,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
     "test": "vitest",
     "test:watch": "vitest --watch"
   },

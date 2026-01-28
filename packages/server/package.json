@@ -7,18 +7,33 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "drizzle:generate": "drizzle-kit generate:sqlite",
+    "drizzle:push": "drizzle-kit push:sqlite",
+    "drizzle:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@ekacode/core": "workspace:*",
     "@ekacode/shared": "workspace:*",
     "@hono/node-server": "^1.19.9",
+    "@libsql/client": "^0.17.0",
+    "drizzle-orm": "^0.45.1",
     "hono": "^4.11.5",
     "nanoid": "^5.1.6",
+    "uuidv7": "^1.1.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@mastra/core": "^1.0.4",
+    "@mastra/libsql": "^1.0.0",
+    "@mastra/memory": "^1.0.0",
     "@types/node": "^22.19.1",
-    "typescript": "^5.9.3"
+    "drizzle-kit": "^0.31.8",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }

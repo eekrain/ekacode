@@ -25,6 +25,11 @@
 - **Mastra Memory** (`@mastra/memory` + `@mastra/libsql`) is used **only for memory/semantic recall/working memory**.
 - **Drizzle + libsql** is used for **general app tables**: sessions, tool_sessions, repo_cache, etc.
 - Same SQLite/libsql file is allowed; schemas are separate.
+- **App paths (canonical)**:
+  - Resolve a single **Ekacode home** directory (self-contained) for **config/state/db/logs**.
+  - **Resolution order**: `EKACODE_HOME` override → **dev** repo-local `./.ekacode/` (Option A) → **prod** OS user-data (Electron `app.getPath("userData")` or OS defaults via `env-paths`).
+  - **Repo caches live in cache**: OS cache dir in prod (Electron `app.getPath("cache")`) or `./.ekacode/cache/` in dev.
+  - **DB URLs must be absolute** (`file:/abs/path/...`) to avoid split DBs when cwd differs; server + core must use the same resolver.
 
 ### Monorepo Mapping (Current Structure)
 - `packages/core`: agents, tools, HybridAgent, policies.
