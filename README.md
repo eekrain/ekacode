@@ -11,7 +11,7 @@ Offline-first AI coding agent. Your code stays on your machine.
 
 ## Stack
 
-Electron + SolidJS + Mastra + Hono
+Electron + SolidJS + ai sdk + Hono
 
 ## Quick Start
 
@@ -19,7 +19,3 @@ Electron + SolidJS + Mastra + Hono
 pnpm install
 pnpm dev
 ```
-
-## Status
-
-[Phase 2]: Tool infrastructure and filesystem tools complete | Shell & search tools in progress
