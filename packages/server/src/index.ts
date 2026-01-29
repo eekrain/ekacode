@@ -4,7 +4,7 @@
  * Hono server with authentication and permission API
  */
 
-import { initializePermissionRules } from "@ekacode/core";
+import { initializePermissionRules } from "@ekacode/core/server";
 import { createLogger } from "@ekacode/shared/logger";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
@@ -25,7 +25,7 @@ export type Env = {
     startTime: number;
     session?: import("../db/sessions").Session;
     sessionIsNew?: boolean;
-    instanceContext?: import("@ekacode/core").InstanceContext;
+    instanceContext?: import("@ekacode/core/server").InstanceContext;
     parsedBody?: { workspace?: string };
   };
 };

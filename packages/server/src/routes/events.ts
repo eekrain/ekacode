@@ -3,7 +3,7 @@
  * Based on OpenCode's event streaming pattern
  */
 
-import { Instance, PermissionManager } from "@ekacode/core";
+import { Instance, PermissionManager } from "@ekacode/core/server";
 import type { PermissionRequest } from "@ekacode/shared";
 import { createLogger } from "@ekacode/shared/logger";
 import { Hono } from "hono";

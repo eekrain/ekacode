@@ -2,7 +2,7 @@
  * SSE events route tests
  */
 
-import { PermissionManager } from "@ekacode/core";
+import { PermissionManager } from "@ekacode/core/server";
 import { TextDecoder } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 

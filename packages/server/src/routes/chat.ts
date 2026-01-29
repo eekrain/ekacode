@@ -78,6 +78,7 @@ app.post("/api/chat", async c => {
     return createUIMessageStreamResponse({
       stream,
       headers: {
+        "Content-Type": "text/plain; charset=utf-8",
         "x-vercel-ai-ui-message-stream": "v1",
         "Content-Encoding": "none",
         "Cache-Control": "no-cache",

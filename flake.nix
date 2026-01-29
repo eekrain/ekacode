@@ -57,9 +57,14 @@
           systemd
           udev
 
-          # Build tools
+          # C++ runtime for onnxruntime-node / fastembed
           gcc.cc.lib
+          stdenv.cc.cc.lib
           stdenv.cc.cc
+
+          # Additional dependencies for native modules
+          zlib
+          libgcc
         ];
 
       in {
