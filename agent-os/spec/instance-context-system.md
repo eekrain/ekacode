@@ -8,7 +8,7 @@
 
 Replace the singleton `WorkspaceInstance` pattern with AsyncLocalStorage-based context propagation. This enables automatic directory context propagation through async call stacks, per-instance state management, and workspace detection.
 
-**Current State**: Singleton `WorkspaceInstance` with manual session extraction via `experimental_context`
+**Current State**: `WorkspaceInstance.getInstance()` is deprecated. Use `Instance.provide({ directory, fn })`. Tools now access context via `Instance.context` (not `experimental_context`).
 **Target State**: AsyncLocalStorage-based `Instance.provide()` pattern with automatic context propagation
 
 ## Architecture
@@ -265,8 +265,8 @@ const path = workspace.getRelativePath(filePath)
 
 **New Pattern**:
 ```typescript
-const { directory } = Instance.getContext()
-// Use directory directly - relative paths handled by tools
+const { directory } = Instance.context
+const relativePath = path.relative(directory, filePath)
 ```
 
 ### From experimental_context
@@ -278,21 +278,21 @@ const sessionID = options.experimental_context?.sessionID || uuidv7()
 
 **New Pattern**:
 ```typescript
-const { sessionID } = Instance.getContext()
+const { sessionID } = Instance.context
 ```
 
 ## Implementation Status
 
 - [x] Spec documentation
-- [ ] Context store (context.ts)
-- [ ] Instance API (index.ts)
-- [ ] State management (state.ts)
-- [ ] Bootstrap system (bootstrap.ts)
-- [ ] Project detection (project.ts)
-- [ ] VCS integration (vcs.ts)
-- [ ] Tool migration
-- [ ] Server integration
-- [ ] Deprecation of WorkspaceInstance
+- [x] Context store (context.ts)
+- [x] Instance API (index.ts)
+- [x] State management (state.ts)
+- [x] Bootstrap system (bootstrap.ts)
+- [x] Project detection (project.ts)
+- [x] VCS integration (vcs.ts)
+- [x] Tool migration
+- [x] Server integration
+- [x] Deprecation of WorkspaceInstance
 
 ## Error Handling
 
