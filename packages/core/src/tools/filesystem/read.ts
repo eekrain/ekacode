@@ -8,8 +8,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { v7 as uuidv7 } from "uuid";
 import { z } from "zod";
+import { Instance } from "../../instance";
 import { PermissionManager } from "../../security/permission-manager";
-import { WorkspaceInstance } from "../../workspace/instance";
 import { assertExternalDirectory, detectBinaryFile } from "../base/filesystem";
 import { truncateOutput } from "../base/truncation";
 
@@ -43,27 +43,28 @@ export const readTool = tool({
     })
   ),
 
-  execute: async ({ filePath, offset = 0, limit }, options) => {
-    const workspace = WorkspaceInstance.getInstance();
+  execute: async ({ filePath, offset = 0, limit }, _options) => {
+    // Get context from Instance instead of experimental_context
+    const { directory, sessionID } = Instance.context;
     const permissionMgr = PermissionManager.getInstance();
-    const sessionID =
-      (options.experimental_context as { sessionID?: string })?.sessionID || uuidv7();
     const toolLogger = logger.child({ module: "tool:read", tool: "read", sessionID });
 
     // Resolve path
     let absolutePath = filePath;
     if (!path.isAbsolute(filePath)) {
-      absolutePath = path.join(workspace.root, filePath);
+      absolutePath = path.join(directory, filePath);
     }
 
+    const relativePath = path.relative(directory, absolutePath);
+
     toolLogger.debug("Reading file", {
-      path: workspace.getRelativePath(absolutePath),
+      path: relativePath,
       offset,
       limit,
     });
 
     // Check external directory permission
-    await assertExternalDirectory(absolutePath, workspace.root, async (permission, patterns) => {
+    await assertExternalDirectory(absolutePath, directory, async (permission, patterns) => {
       return permissionMgr.requestApproval({
         id: uuidv7(),
         permission,
@@ -84,7 +85,7 @@ export const readTool = tool({
 
     if (!readApproved) {
       toolLogger.warn("Read permission denied", {
-        path: workspace.getRelativePath(absolutePath),
+        path: relativePath,
       });
       throw new Error(`Permission denied: Cannot read ${filePath}`);
     }
@@ -96,7 +97,7 @@ export const readTool = tool({
     const isBinary = await detectBinaryFile(absolutePath, buffer);
     if (isBinary) {
       toolLogger.warn("Binary file detected", {
-        path: workspace.getRelativePath(absolutePath),
+        path: relativePath,
       });
       throw new Error(`Cannot read binary file: ${filePath}`);
     }
@@ -124,7 +125,7 @@ export const readTool = tool({
       .join("\n");
 
     toolLogger.info("File read successfully", {
-      path: workspace.getRelativePath(absolutePath),
+      path: relativePath,
       lineCount: totalLines,
       truncated,
     });
@@ -134,7 +135,7 @@ export const readTool = tool({
       metadata: {
         truncated,
         lineCount: totalLines,
-        filePath: workspace.getRelativePath(absolutePath),
+        filePath: relativePath,
         preview: totalLines < 50,
       },
     };

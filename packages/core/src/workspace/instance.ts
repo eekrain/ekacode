@@ -1,10 +1,26 @@
 /**
  * Workspace instance management
+ *
+ * @deprecated Use Instance.provide() instead
+ *
+ * Migration Guide:
+ * Old: WorkspaceInstance.getInstance()
+ * New: Instance.provide({ directory, fn })
+ *
+ * Old: const workspace = WorkspaceInstance.getInstance();
+ *      workspace.root;
+ * New: const { directory } = Instance.context;
+ *
+ * Old: workspace.getRelativePath(filePath);
+ * New: path.relative(Instance.directory, filePath);
  */
 
 import type { WorkspaceConfig } from "@ekacode/shared";
 import path from "node:path";
 
+/**
+ * @deprecated Use Instance.provide() instead
+ */
 export class WorkspaceInstance {
   private static current: WorkspaceInstance | null = null;
 
@@ -13,6 +29,9 @@ export class WorkspaceInstance {
     public readonly worktree: string
   ) {}
 
+  /**
+   * @deprecated Use Instance.provide({ directory, fn }) instead
+   */
   static initialize(config: WorkspaceConfig): WorkspaceInstance {
     this.current = new WorkspaceInstance(
       path.resolve(config.root),
@@ -21,6 +40,9 @@ export class WorkspaceInstance {
     return this.current;
   }
 
+  /**
+   * @deprecated Use Instance.directory instead
+   */
   static getInstance(): WorkspaceInstance {
     if (!this.current) {
       throw new Error("Workspace not initialized. Call WorkspaceInstance.initialize() first.");

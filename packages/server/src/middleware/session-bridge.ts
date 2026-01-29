@@ -3,9 +3,13 @@
  *
  * Handles session generation, validation, and context injection for Hono.
  * Generates UUIDv7 session IDs server-side and persists sessions to the database.
+ *
+ * Integrates Instance.provide() for automatic context propagation to tools.
  */
 
+import { Instance } from "@ekacode/core";
 import type { Context, Next } from "hono";
+import { v7 as uuidv7 } from "uuid";
 import type { Session } from "../../db/sessions";
 import { createSession, getSession, touchSession } from "../../db/sessions";
 import type { Env } from "../index";
@@ -18,6 +22,8 @@ import type { Env } from "../index";
  * - If present: validates session exists, touches lastAccessed, makes it available via context
  *
  * The session is available to request handlers via `c.get("session")`.
+ *
+ * Establishes Instance.provide() context for automatic workspace propagation to tools.
  */
 export async function sessionBridge(c: Context<Env>, next: Next): Promise<Response | void> {
   const sessionId = c.req.header("X-Session-ID");
@@ -30,10 +36,21 @@ export async function sessionBridge(c: Context<Env>, next: Next): Promise<Respon
     c.set("session", session);
     c.set("sessionIsNew", true);
 
-    // Note: In production, you'd emit `data-session` in the UIMessage stream
-    // This would be handled by the chat endpoint that streams responses
+    // Detect workspace directory from request
+    const workspace = await detectWorkspaceFromRequest(c);
+    const messageId = uuidv7();
 
-    await next();
+    // Establish Instance context for all downstream operations
+    await Instance.provide({
+      directory: workspace,
+      sessionID: session.sessionId,
+      messageID: messageId,
+      async fn() {
+        // Set instance context in Hono context for reference
+        c.set("instanceContext", Instance.context);
+        await next();
+      },
+    });
   } else {
     // Session ID provided - validate and retrieve
     const session = await getSession(sessionId);
@@ -50,8 +67,68 @@ export async function sessionBridge(c: Context<Env>, next: Next): Promise<Respon
     c.set("session", session);
     c.set("sessionIsNew", false);
 
-    await next();
+    // Detect workspace directory from request
+    const workspace = await detectWorkspaceFromRequest(c);
+    const messageId = uuidv7();
+
+    // Establish Instance context for all downstream operations
+    await Instance.provide({
+      directory: workspace,
+      sessionID: session.sessionId,
+      messageID: messageId,
+      async fn() {
+        // Set instance context in Hono context for reference
+        c.set("instanceContext", Instance.context);
+        await next();
+      },
+    });
   }
+}
+
+/**
+ * Detect workspace directory from request
+ *
+ * Prefers query string (directory/workspace), then body, then headers.
+ * Falls back to current working directory if not specified.
+ */
+async function detectWorkspaceFromRequest(c: Context<Env>): Promise<string> {
+  // Try query string (preferred for GET/streaming requests)
+  const queryWorkspace = c.req.query("directory") || c.req.query("workspace");
+  if (queryWorkspace) {
+    return queryWorkspace;
+  }
+
+  // Try to get workspace from request body (for chat requests)
+  const cachedBody = c.get("parsedBody") as { workspace?: string } | undefined;
+  if (cachedBody?.workspace) {
+    return cachedBody.workspace;
+  }
+
+  // Attempt to parse JSON body without consuming the original stream
+  const contentType = c.req.header("content-type") || "";
+  if (contentType.includes("application/json")) {
+    try {
+      const clone = c.req.raw.clone();
+      const parsed = (await clone.json()) as { workspace?: string } | undefined;
+      if (parsed && typeof parsed === "object") {
+        c.set("parsedBody", parsed);
+        if (parsed.workspace) {
+          return parsed.workspace;
+        }
+      }
+    } catch {
+      // Ignore body parsing failures
+    }
+  }
+
+  // Try X-Workspace header
+  const headerWorkspace = c.req.header("X-Workspace") || c.req.header("X-Directory");
+  if (headerWorkspace) {
+    return headerWorkspace;
+  }
+
+  // Fallback to current working directory
+  return process.cwd();
 }
 
 /**

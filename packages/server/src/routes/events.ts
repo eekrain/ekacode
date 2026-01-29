@@ -3,21 +3,19 @@
  * Based on OpenCode's event streaming pattern
  */
 
-import { PermissionManager } from "@ekacode/core";
+import { Instance, PermissionManager } from "@ekacode/core";
 import type { PermissionRequest } from "@ekacode/shared";
 import { createLogger } from "@ekacode/shared/logger";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-
-type Env = {
-  Variables: {
-    requestId: string;
-    startTime: number;
-  };
-};
+import type { Env } from "../index";
+import { sessionBridge } from "../middleware/session-bridge";
 
 const app = new Hono<Env>();
 const logger = createLogger("server");
+
+// Ensure session + workspace context for SSE connections
+app.use("*", sessionBridge);
 
 /**
  * SSE endpoint for real-time permission request streaming
@@ -31,7 +29,14 @@ const logger = createLogger("server");
  * });
  */
 app.get("/api/events", async c => {
+  c.header("Cache-Control", "no-cache");
+  c.header("Connection", "keep-alive");
+  c.header("X-Accel-Buffering", "no");
+  c.header("Content-Encoding", "none");
   const requestId = c.get("requestId");
+  const session = c.get("session");
+  const sessionId = session?.sessionId;
+  const directory = Instance.directory;
   const permissionMgr = PermissionManager.getInstance();
 
   logger.info("SSE client connected", {
@@ -46,11 +51,14 @@ app.get("/api/events", async c => {
       data: JSON.stringify({
         timestamp: Date.now(),
         message: "Connected to ekacode events",
+        sessionId,
+        directory,
       }),
     });
 
     // Set up event handlers
     const permissionHandler = (request: PermissionRequest) => {
+      if (sessionId && request.sessionID !== sessionId) return;
       stream
         .writeSSE({
           event: "permission:request",
@@ -108,7 +116,14 @@ app.get("/api/events", async c => {
  * for clients that prefer WebSocket connections
  */
 app.get("/api/events/permissions", c => {
+  c.header("Cache-Control", "no-cache");
+  c.header("Connection", "keep-alive");
+  c.header("X-Accel-Buffering", "no");
+  c.header("Content-Encoding", "none");
   const requestId = c.get("requestId");
+  const session = c.get("session");
+  const sessionId = session?.sessionId;
+  const directory = Instance.directory;
   const permissionMgr = PermissionManager.getInstance();
 
   logger.info("Permission events client connected", {
@@ -118,17 +133,22 @@ app.get("/api/events/permissions", c => {
 
   return streamSSE(c, async stream => {
     // Send initial state
-    const pending = permissionMgr.getPendingRequests();
+    const pending = permissionMgr
+      .getPendingRequests()
+      .filter(request => !sessionId || request.sessionID === sessionId);
     await stream.writeSSE({
       event: "init",
       data: JSON.stringify({
         timestamp: Date.now(),
+        sessionId,
+        directory,
         pending,
       }),
     });
 
     // Subscribe to permission request events
     const permissionHandler = (request: PermissionRequest) => {
+      if (sessionId && request.sessionID !== sessionId) return;
       stream.writeSSE({
         event: "permission:request",
         data: JSON.stringify(request),

@@ -5,8 +5,8 @@
  */
 
 import { createLogger } from "@ekacode/shared/logger";
+import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import { Hono } from "hono";
-import { streamSSE } from "hono/streaming";
 import { v7 as uuidv7 } from "uuid";
 import type { Env } from "../index";
 import { createSessionMessage, sessionBridge } from "../middleware/session-bridge";
@@ -26,6 +26,8 @@ app.use("*", sessionBridge);
  * POST /api/chat
  * Headers:
  *   - X-Session-ID: <session-id> (optional, will be created if missing)
+ * Query:
+ *   - directory: <absolute path> (preferred workspace selector)
  *   - Content-Type: application/json
  * Body:
  *   {
@@ -56,26 +58,31 @@ app.post("/api/chat", async c => {
   // For now, echo back the message with session info
   // In production, this would invoke the AI agent
   if (shouldStream) {
-    c.header("x-vercel-ai-ui-message-stream", "v1");
-    return streamSSE(c, async stream => {
-      const writePart = async (part: Record<string, unknown>) => {
-        await stream.writeSSE({
-          data: JSON.stringify(part),
+    const stream = createUIMessageStream({
+      execute: async ({ writer }) => {
+        if (sessionIsNew) {
+          writer.write(createSessionMessage(session));
+        }
+
+        const messageId = uuidv7();
+        writer.write({
+          type: "text-delta",
+          id: messageId,
+          delta: `Echo: You said "${message}"`,
         });
-      };
 
-      if (sessionIsNew) {
-        await writePart(createSessionMessage(session));
-      }
+        writer.write({ type: "finish", finishReason: "stop" });
+      },
+    });
 
-      const messageId = uuidv7();
-      await writePart({
-        type: "text-delta",
-        messageId,
-        text: `Echo: You said "${message}"`,
-      });
-
-      await writePart({ type: "finish" });
+    return createUIMessageStreamResponse({
+      stream,
+      headers: {
+        "x-vercel-ai-ui-message-stream": "v1",
+        "Content-Encoding": "none",
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+      },
     });
   } else {
     return c.json({

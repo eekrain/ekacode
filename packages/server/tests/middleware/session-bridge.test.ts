@@ -6,6 +6,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Test files use any for simplicity */
 
+import { Instance } from "@ekacode/core";
 import { Hono } from "hono";
 import { v7 as uuidv7 } from "uuid";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -54,6 +55,7 @@ describe("session bridge middleware", () => {
       return c.json({
         hasSession: !!session,
         sessionId: session?.sessionId,
+        directory: Instance.directory,
       });
     });
   });
@@ -88,6 +90,24 @@ describe("session bridge middleware", () => {
       const data = await response.json();
 
       expect(data.hasSession).toBe(true);
+    });
+
+    it("uses query directory for workspace selection", async () => {
+      const response = await mockApp.request("/test?directory=/tmp/query-workspace");
+      const data = await response.json();
+
+      expect(data.directory).toBe("/tmp/query-workspace");
+    });
+
+    it("prefers query directory over header", async () => {
+      const response = await mockApp.request("/test?directory=/tmp/query-workspace", {
+        headers: {
+          "X-Workspace": "/tmp/header-workspace",
+        },
+      });
+      const data = await response.json();
+
+      expect(data.directory).toBe("/tmp/query-workspace");
     });
   });
 

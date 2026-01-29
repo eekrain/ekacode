@@ -10,8 +10,8 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { v7 as uuidv7 } from "uuid";
 import { z } from "zod";
+import { Instance } from "../../instance";
 import { PermissionManager } from "../../security/permission-manager";
-import { WorkspaceInstance } from "../../workspace/instance";
 import { assertExternalDirectory } from "../base/filesystem";
 import { getRipgrepPath } from "./ripgrep";
 
@@ -44,26 +44,24 @@ Features:
     }),
   }),
 
-  execute: async ({ pattern, path: searchPath, include }, context) => {
-    const workspace = WorkspaceInstance.getInstance();
+  execute: async ({ pattern, path: searchPath, include }) => {
+    const { directory, sessionID } = Instance.context;
     const permissionMgr = PermissionManager.getInstance();
-    const sessionID = (context as { sessionID?: string })?.sessionID || uuidv7();
     const toolLogger = logger.child({ module: "tool:grep", sessionID });
 
     // Resolve search path
-    let targetPath = searchPath || workspace.root;
-    targetPath = path.isAbsolute(targetPath)
-      ? targetPath
-      : path.resolve(workspace.root, targetPath);
+    let targetPath = searchPath || directory;
+    targetPath = path.isAbsolute(targetPath) ? targetPath : path.resolve(directory, targetPath);
+    const relativePath = path.relative(directory, targetPath);
 
     toolLogger.debug("Searching files", {
       pattern,
-      path: workspace.getRelativePath(targetPath),
+      path: relativePath,
       include,
     });
 
     // Check external directory permission
-    await assertExternalDirectory(targetPath, workspace.root, async (perm, patterns) => {
+    await assertExternalDirectory(targetPath, directory, async (perm, patterns) => {
       return permissionMgr.requestApproval({
         id: uuidv7(),
         permission: perm,

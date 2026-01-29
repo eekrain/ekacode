@@ -6,7 +6,7 @@ import { createTool } from "@mastra/core/tools";
 import { glob } from "glob";
 import path from "node:path";
 import { z } from "zod";
-import { WorkspaceInstance } from "../../workspace/instance";
+import { Instance } from "../../instance";
 
 export const globTool = createTool({
   id: "glob-files",
@@ -34,10 +34,10 @@ export const globTool = createTool({
   }),
 
   execute: async ({ pattern, limit = 100 }) => {
-    const workspace = WorkspaceInstance.getInstance();
+    const { directory } = Instance.context;
 
     const files = await glob(pattern, {
-      cwd: workspace.root,
+      cwd: directory,
       absolute: false,
     });
 
@@ -45,7 +45,7 @@ export const globTool = createTool({
     const limitedFiles = files.slice(0, limit);
 
     return {
-      files: limitedFiles.map(f => path.relative(workspace.root, f)),
+      files: limitedFiles.map(f => path.relative(directory, f)),
       count: limitedFiles.length,
       pattern,
     };

@@ -7,8 +7,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { v7 as uuidv7 } from "uuid";
 import { z } from "zod";
+import { Instance } from "../../instance";
 import { PermissionManager } from "../../security/permission-manager";
-import { WorkspaceInstance } from "../../workspace/instance";
 
 export const applyPatchTool = tool({
   description: `Apply a unified diff patch to files.
@@ -37,11 +37,10 @@ export const applyPatchTool = tool({
     })
   ),
 
-  execute: async ({ patchText }, options) => {
-    const workspace = WorkspaceInstance.getInstance();
+  execute: async ({ patchText }, _options) => {
+    // Get context from Instance instead of experimental_context
+    const { directory, sessionID } = Instance.context;
     const permissionMgr = PermissionManager.getInstance();
-    const sessionID =
-      (options.experimental_context as { sessionID?: string })?.sessionID || uuidv7();
 
     // Parse patch (simplified - use proper diff parser in production)
     const lines = patchText.split("\n");
@@ -68,13 +67,14 @@ export const applyPatchTool = tool({
       throw new Error("Invalid patch format");
     }
 
-    const filePath = path.resolve(workspace.root, currentFile);
+    const filePath = path.resolve(directory, currentFile);
+    const relativePath = path.relative(directory, filePath);
 
     // Check permissions
     await permissionMgr.requestApproval({
       id: uuidv7(),
       permission: "edit",
-      patterns: [workspace.getRelativePath(filePath)],
+      patterns: [relativePath],
       always: [],
       sessionID,
       metadata: { patchText },
@@ -91,7 +91,7 @@ export const applyPatchTool = tool({
       filesModified: 1,
       files: [
         {
-          path: workspace.getRelativePath(filePath),
+          path: relativePath,
           action: "update",
         },
       ],

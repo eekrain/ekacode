@@ -17,13 +17,13 @@
     "drizzle:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "ai": "^6.0.58",
     "@ekacode/core": "workspace:*",
     "@ekacode/shared": "workspace:*",
     "@hono/node-server": "^1.19.9",
     "@libsql/client": "^0.17.0",
     "drizzle-orm": "^0.45.1",
     "hono": "^4.11.7",
-    "nanoid": "^5.1.6",
     "uuid": "^13.0.0",
     "zod": "^4.3.6"
   },

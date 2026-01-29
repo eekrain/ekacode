@@ -6,7 +6,7 @@ import { tool, zodSchema } from "ai";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { WorkspaceInstance } from "../../workspace/instance";
+import { Instance } from "../../instance";
 
 export const lsTool = tool({
   description: `List directory contents.
@@ -36,8 +36,8 @@ export const lsTool = tool({
   ),
 
   execute: async ({ dirPath, recursive = false }) => {
-    const workspace = WorkspaceInstance.getInstance();
-    const absolutePath = path.isAbsolute(dirPath) ? dirPath : path.join(workspace.root, dirPath);
+    const { directory } = Instance.context;
+    const absolutePath = path.isAbsolute(dirPath) ? dirPath : path.join(directory, dirPath);
 
     const entries: Array<{
       name: string;
@@ -53,7 +53,7 @@ export const lsTool = tool({
           const fullPath = path.join(currentPath, item.name);
           entries.push({
             name: item.name,
-            path: workspace.getRelativePath(fullPath),
+            path: path.relative(directory, fullPath),
             type: item.isDirectory() ? "directory" : "file",
           });
 

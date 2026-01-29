@@ -7,10 +7,11 @@
 import { createLogger } from "@ekacode/shared/logger";
 import { createTool } from "@mastra/core/tools";
 import { spawn, type ChildProcess } from "node:child_process";
+import path from "node:path";
 import { v7 as uuidv7 } from "uuid";
 import { z } from "zod";
+import { Instance } from "../../instance";
 import { PermissionManager } from "../../security/permission-manager";
-import { WorkspaceInstance } from "../../workspace/instance";
 import { assertExternalDirectory } from "../base/filesystem";
 import { truncateOutput } from "../base/truncation";
 import { parseCommand } from "./parser";
@@ -53,13 +54,12 @@ Supports common operations like git, npm, ls, cat, etc.
   }),
 
   execute: async ({ command, timeout = DEFAULT_TIMEOUT, workdir, description }, context) => {
-    const workspace = WorkspaceInstance.getInstance();
+    const { directory, sessionID } = Instance.context;
     const permissionMgr = PermissionManager.getInstance();
-    const sessionID = (context as { sessionID?: string })?.sessionID || uuidv7();
     const toolLogger = logger.child({ module: "tool:bash", sessionID });
 
     // Resolve working directory
-    const cwd = workdir || workspace.root;
+    const cwd = workdir || directory;
 
     // Validate timeout
     if (timeout < 0) {
@@ -68,7 +68,7 @@ Supports common operations like git, npm, ls, cat, etc.
 
     toolLogger.debug("Executing bash command", {
       command,
-      cwd: workspace.getRelativePath(cwd),
+      cwd: path.relative(directory, cwd),
       timeout,
     });
 
@@ -77,7 +77,7 @@ Supports common operations like git, npm, ls, cat, etc.
 
     // Request external directory permission if needed
     for (const dir of directories) {
-      await assertExternalDirectory(dir, workspace.root, async (perm, patterns) => {
+      await assertExternalDirectory(dir, directory, async (perm, patterns) => {
         return permissionMgr.requestApproval({
           id: uuidv7(),
           permission: perm,

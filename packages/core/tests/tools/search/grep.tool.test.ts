@@ -6,6 +6,7 @@
 
 import { Readable } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Instance } from "../../../src/instance";
 
 // Mock the dependencies
 const mockRequestApproval = vi.fn().mockResolvedValue(true);
@@ -15,17 +16,6 @@ vi.mock("../../../src/security/permission-manager", () => ({
   PermissionManager: {
     getInstance: vi.fn(() => ({
       requestApproval: (args: any) => mockRequestApproval(args),
-    })),
-  },
-}));
-
-vi.mock("../../../src/workspace/instance", () => ({
-  WorkspaceInstance: {
-    getInstance: vi.fn(() => ({
-      root: "/workspace",
-      worktree: "/workspace",
-      containsPath: vi.fn(() => true),
-      getRelativePath: vi.fn((p: string) => p),
     })),
   },
 }));
@@ -44,6 +34,13 @@ describe("grepTool", () => {
   let mockProc: any;
   let mockStdout: Readable;
   let mockStderr: Readable;
+  const runInInstance = <R>(fn: () => Promise<R>) =>
+    Instance.provide({
+      directory: "/workspace",
+      sessionID: "test-session",
+      messageID: "test-message",
+      fn,
+    });
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -85,20 +82,15 @@ describe("grepTool", () => {
   });
 
   it("should spawn ripgrep with correct arguments", async () => {
-    const mockContext = {
-      sessionID: "test-session",
-    };
-
     mockStdout.push("file.txt:1: match line");
     mockStdout.push(null);
     mockStderr.push(null);
 
-    await grepTool.execute(
-      {
+    await runInInstance(async () => {
+      await grepTool.execute({
         pattern: "test",
-      },
-      mockContext
-    );
+      });
+    });
 
     expect(mockSpawn).toHaveBeenCalledWith(
       "/usr/bin/rg",
@@ -116,20 +108,15 @@ describe("grepTool", () => {
   });
 
   it("should request grep permission", async () => {
-    const mockContext = {
-      sessionID: "test-session",
-    };
-
     mockStdout.push("file.txt:1: match line");
     mockStdout.push(null);
     mockStderr.push(null);
 
-    await grepTool.execute(
-      {
+    await runInInstance(async () => {
+      await grepTool.execute({
         pattern: "test",
-      },
-      mockContext
-    );
+      });
+    });
 
     expect(mockRequestApproval).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -140,20 +127,15 @@ describe("grepTool", () => {
   });
 
   it("should handle include pattern correctly", async () => {
-    const mockContext = {
-      sessionID: "test-session",
-    };
-
     mockStdout.push(null);
     mockStderr.push(null);
 
-    await grepTool.execute(
-      {
+    await runInInstance(async () => {
+      await grepTool.execute({
         pattern: "test",
         include: "*.ts",
-      },
-      mockContext
-    );
+      });
+    });
 
     expect(mockSpawn).toHaveBeenCalledWith(
       "/usr/bin/rg",
@@ -170,28 +152,19 @@ describe("grepTool", () => {
       return mockProc;
     });
 
-    const mockContext = {
-      sessionID: "test-session",
-    };
-
     mockStdout.push(null);
     mockStderr.push(null);
 
-    const result = await grepTool.execute(
-      {
+    const result = await runInInstance(async () => {
+      return grepTool.execute({
         pattern: "nonexistent",
-      },
-      mockContext
-    );
+      });
+    });
 
     expect(result.content).toBe("No files found");
   });
 
   it("should parse and format matches correctly", async () => {
-    const mockContext = {
-      sessionID: "test-session",
-    };
-
     // Need to delay exit to allow data processing
     let exitCallback: (() => void) | null = null;
     mockProc.once = vi.fn((event: string, callback: any) => {
@@ -207,12 +180,11 @@ describe("grepTool", () => {
     mockStdout.push(null);
     mockStderr.push(null);
 
-    const resultPromise = grepTool.execute(
-      {
+    const resultPromise = runInInstance(async () => {
+      return grepTool.execute({
         pattern: "test",
-      },
-      mockContext
-    );
+      });
+    });
 
     // Trigger exit after data is pushed
     setTimeout(() => {
@@ -227,10 +199,6 @@ describe("grepTool", () => {
   });
 
   it("should limit results to 100 matches", async () => {
-    const mockContext = {
-      sessionID: "test-session",
-    };
-
     // Generate 150 matches
     for (let i = 1; i <= 150; i++) {
       mockStdout.push(`file.txt:${i}: match ${i}\n`);
@@ -238,31 +206,25 @@ describe("grepTool", () => {
     mockStdout.push(null);
     mockStderr.push(null);
 
-    const result = await grepTool.execute(
-      {
+    const result = await runInInstance(async () => {
+      return grepTool.execute({
         pattern: "test",
-      },
-      mockContext
-    );
+      });
+    });
 
     expect(result.metadata.matches).toBeLessThanOrEqual(100);
   });
 
   it("should handle custom path correctly", async () => {
-    const mockContext = {
-      sessionID: "test-session",
-    };
-
     mockStdout.push(null);
     mockStderr.push(null);
 
-    await grepTool.execute(
-      {
+    await runInInstance(async () => {
+      await grepTool.execute({
         pattern: "test",
         path: "/custom/path",
-      },
-      mockContext
-    );
+      });
+    });
 
     expect(mockSpawn).toHaveBeenCalledWith(
       "/usr/bin/rg",
@@ -274,25 +236,15 @@ describe("grepTool", () => {
   });
 
   it("should request external directory permission for paths outside workspace", async () => {
-    const { WorkspaceInstance } = await import("../../../src/workspace/instance");
-    const mockWorkspace = WorkspaceInstance.getInstance();
-
-    vi.mocked(mockWorkspace.containsPath).mockReturnValue(false);
-
-    const mockContext = {
-      sessionID: "test-session",
-    };
-
     mockStdout.push(null);
     mockStderr.push(null);
 
-    await grepTool.execute(
-      {
+    await runInInstance(async () => {
+      await grepTool.execute({
         pattern: "test",
         path: "/etc/passwd",
-      },
-      mockContext
-    );
+      });
+    });
 
     expect(mockRequestApproval).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -309,20 +261,15 @@ describe("grepTool", () => {
       return mockProc;
     });
 
-    const mockContext = {
-      sessionID: "test-session",
-    };
-
     mockStdout.push("file.txt:1: match");
     mockStdout.push(null);
     mockStderr.push("Error: permission denied");
 
-    const result = await grepTool.execute(
-      {
+    const result = await runInInstance(async () => {
+      return grepTool.execute({
         pattern: "test",
-      },
-      mockContext
-    );
+      });
+    });
 
     // Should still return matches even with errors
     expect(result).toBeDefined();

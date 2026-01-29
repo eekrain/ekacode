@@ -8,7 +8,7 @@ import { initializePermissionRules } from "@ekacode/core";
 import { createLogger } from "@ekacode/shared/logger";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
-import { nanoid } from "nanoid";
+import { randomBytes } from "node:crypto";
 import { v7 as uuidv7 } from "uuid";
 import chatRouter from "./routes/chat";
 import eventsRouter from "./routes/events";
@@ -21,21 +21,27 @@ export type Env = {
     startTime: number;
     session?: import("../db/sessions").Session;
     sessionIsNew?: boolean;
+    instanceContext?: import("@ekacode/core").InstanceContext;
+    parsedBody?: { workspace?: string };
   };
 };
 
 const app = new Hono<Env>();
 const logger = createLogger("server");
 
-// Generated at startup
-const SERVER_TOKEN = nanoid(32);
+// Generated at startup);
+
+const SERVER_TOKEN = randomBytes(16).toString("hex"); // 32 characters
 const SERVER_PORT = parseInt(process.env.PORT || "0") || 0; // Random port
 
 // CORS for localhost
 app.use("*", async (c, next) => {
   c.header("Access-Control-Allow-Origin", "*");
   c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Session-ID");
+  c.header(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Session-ID, X-Workspace, X-Directory"
+  );
   if (c.req.method === "OPTIONS") {
     return c.newResponse(null, 204);
   }

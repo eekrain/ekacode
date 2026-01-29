@@ -7,8 +7,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { v7 as uuidv7 } from "uuid";
 import { z } from "zod";
+import { Instance } from "../../instance";
 import { PermissionManager } from "../../security/permission-manager";
-import { WorkspaceInstance } from "../../workspace/instance";
 import { assertExternalDirectory } from "../base/filesystem";
 
 export const multieditTool = tool({
@@ -47,16 +47,16 @@ export const multieditTool = tool({
     })
   ),
 
-  execute: async ({ filePath, edits }, options) => {
-    const workspace = WorkspaceInstance.getInstance();
+  execute: async ({ filePath, edits }, _options) => {
+    // Get context from Instance instead of experimental_context
+    const { directory, sessionID } = Instance.context;
     const permissionMgr = PermissionManager.getInstance();
-    const sessionID =
-      (options.experimental_context as { sessionID?: string })?.sessionID || uuidv7();
 
     // Resolve path
-    const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(workspace.root, filePath);
+    const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(directory, filePath);
+    const relativePath = path.relative(directory, absolutePath);
 
-    await assertExternalDirectory(absolutePath, workspace.root, async (perm, patterns) => {
+    await assertExternalDirectory(absolutePath, directory, async (perm, patterns) => {
       return permissionMgr.requestApproval({
         id: uuidv7(),
         permission: perm,
@@ -70,7 +70,7 @@ export const multieditTool = tool({
     await permissionMgr.requestApproval({
       id: uuidv7(),
       permission: "edit",
-      patterns: [workspace.getRelativePath(absolutePath)],
+      patterns: [relativePath],
       always: [],
       sessionID,
     });
@@ -109,7 +109,7 @@ export const multieditTool = tool({
 
     return {
       success: true,
-      filePath: workspace.getRelativePath(absolutePath),
+      filePath: relativePath,
       totalReplacements,
       results,
     };

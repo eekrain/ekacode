@@ -9,8 +9,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { v7 as uuidv7 } from "uuid";
 import { z } from "zod";
+import { Instance } from "../../instance";
 import { PermissionManager } from "../../security/permission-manager";
-import { WorkspaceInstance } from "../../workspace/instance";
 import { assertExternalDirectory } from "../base/filesystem";
 
 const logger = createLogger("ekacode");
@@ -39,18 +39,18 @@ export const writeTool = tool({
     })
   ),
 
-  execute: async ({ content, filePath }, options) => {
-    const workspace = WorkspaceInstance.getInstance();
+  execute: async ({ content, filePath }, _options) => {
+    // Get context from Instance instead of experimental_context
+    const { directory, sessionID } = Instance.context;
     const permissionMgr = PermissionManager.getInstance();
-    const sessionID =
-      (options.experimental_context as { sessionID?: string })?.sessionID || uuidv7();
     const toolLogger = logger.child({ module: "tool:write", tool: "write", sessionID });
 
     // Resolve path
-    const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(workspace.root, filePath);
+    const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(directory, filePath);
+    const relativePath = path.relative(directory, absolutePath);
 
     // Check external directory permission
-    await assertExternalDirectory(absolutePath, workspace.root, async (permission, patterns) => {
+    await assertExternalDirectory(absolutePath, directory, async (permission, patterns) => {
       return permissionMgr.requestApproval({
         id: uuidv7(),
         permission,
@@ -71,7 +71,7 @@ export const writeTool = tool({
     const diff = createTwoFilesPatch(absolutePath, absolutePath, oldContent, content);
 
     toolLogger.debug("Requesting write permission", {
-      path: workspace.getRelativePath(absolutePath),
+      path: relativePath,
       created: !exists,
     });
 
@@ -79,7 +79,7 @@ export const writeTool = tool({
     const editApproved = await permissionMgr.requestApproval({
       id: uuidv7(),
       permission: "edit",
-      patterns: [workspace.getRelativePath(absolutePath)],
+      patterns: [relativePath],
       always: [],
       sessionID,
       metadata: { diff, filepath: absolutePath },
@@ -87,7 +87,7 @@ export const writeTool = tool({
 
     if (!editApproved) {
       toolLogger.warn("Write permission denied", {
-        path: workspace.getRelativePath(absolutePath),
+        path: relativePath,
       });
       throw new Error(`Permission denied: Cannot write to ${filePath}`);
     }
@@ -99,14 +99,14 @@ export const writeTool = tool({
     await fs.writeFile(absolutePath, content, "utf-8");
 
     toolLogger.info("File written successfully", {
-      path: workspace.getRelativePath(absolutePath),
+      path: relativePath,
       created: !exists,
       size: content.length,
     });
 
     return {
       success: true,
-      filePath: workspace.getRelativePath(absolutePath),
+      filePath: relativePath,
       diff,
       created: !exists,
     };
