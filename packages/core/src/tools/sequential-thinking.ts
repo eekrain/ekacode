@@ -9,6 +9,7 @@
  */
 
 import { tool, zodSchema } from "ai";
+import { v7 as uuidv7 } from "uuid";
 import { z } from "zod";
 
 // ============================================================================
@@ -45,10 +46,17 @@ export type Session = {
 // SESSION STORE (In-memory, replaceable with Redis/DB/etc)
 // ============================================================================
 
+// TODO: Replace in-memory Map with Drizzle persistence for production.
+// The spec calls for tool_sessions table storage to survive server restarts.
+// Current implementation is suitable for development and single-instance deployments.
 const sessions = new Map<string, Session>();
 
 // Auto-cleanup old sessions (30 minute TTL)
 const SESSION_TTL_MS = 30 * 60 * 1000;
+
+// Session limits for defensive programming
+const MAX_THOUGHTS_PER_SESSION = 1000;
+const MAX_THOUGHT_LENGTH = 50000;
 
 // Use Node.js timer for cleanup
 let cleanupTimer: ReturnType<typeof setInterval> | null = null;
@@ -62,6 +70,16 @@ if (typeof clearInterval !== "undefined" && typeof setInterval !== "undefined") 
       }
     }
   }, SESSION_TTL_MS);
+
+  // Register cleanup handlers for graceful shutdown
+  if (typeof process !== "undefined") {
+    const shutdownHandler = () => {
+      stopCleanupTimer();
+    };
+    process.on("beforeExit", shutdownHandler);
+    process.on("SIGINT", shutdownHandler);
+    process.on("SIGTERM", shutdownHandler);
+  }
 }
 
 // ============================================================================
@@ -188,11 +206,8 @@ You should:
       if (sessionId && sessions.has(sessionId)) {
         session = sessions.get(sessionId)!;
       } else {
-        // Use crypto.randomUUID if available (Node.js 19+), otherwise fallback
-        sessionId =
-          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-            ? crypto.randomUUID()
-            : `session-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+        // Generate UUIDv7 for time-ordered, sortable session IDs
+        sessionId = uuidv7();
 
         session = {
           id: sessionId,
@@ -201,6 +216,14 @@ You should:
           branches: new Set(),
         };
         sessions.set(sessionId, session);
+      }
+
+      // Validate session limits (defensive programming)
+      if (session.thoughts.length >= MAX_THOUGHTS_PER_SESSION) {
+        throw new Error(`Session exceeds maximum thoughts limit: ${MAX_THOUGHTS_PER_SESSION}`);
+      }
+      if (args.thought.length > MAX_THOUGHT_LENGTH) {
+        throw new Error(`Thought exceeds maximum length: ${MAX_THOUGHT_LENGTH} characters`);
       }
 
       // Track branches

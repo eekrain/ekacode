@@ -8,6 +8,9 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// RFC 4122 UUID validation regex (works for both UUIDv4 and UUIDv7)
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 describe("sequentialThinking tool", () => {
   let sequentialThinking: any;
   let clearAllSessions: () => void;
@@ -34,7 +37,7 @@ describe("sequentialThinking tool", () => {
       });
 
       expect(result.sessionId).toBeDefined();
-      expect(result.sessionId).toMatch(/^[0-9a-f-]{36}$/);
+      expect(result.sessionId).toMatch(UUID_REGEX);
       expect(result.thoughtHistoryLength).toBe(1);
       expect(result.thoughtHistory).toHaveLength(1);
       expect(result.thoughtHistory[0]).toEqual({
@@ -390,7 +393,7 @@ describe("sequentialThinking tool", () => {
       )) as { sessionId: string };
 
       // Without sessionId in args, should use the tool's default
-      expect(result.sessionId).toMatch(/^[0-9a-f-]{36}$/);
+      expect(result.sessionId).toMatch(UUID_REGEX);
     });
   });
 
@@ -430,8 +433,36 @@ describe("sequentialThinking tool", () => {
       });
 
       // Should create new session
-      expect(result.sessionId).toMatch(/^[0-9a-f-]{36}$/);
+      expect(result.sessionId).toMatch(UUID_REGEX);
       expect(result.thoughtHistoryLength).toBe(1);
+    });
+
+    it("rejects thoughts exceeding maximum length", async () => {
+      const tooLongThought = "A".repeat(50001); // MAX_THOUGHT_LENGTH + 1
+
+      await expect(
+        sequentialThinking.execute({
+          thought: tooLongThought,
+          thoughtNumber: 1,
+          totalThoughts: 1,
+          nextThoughtNeeded: false,
+        })
+      ).rejects.toThrow("exceeds maximum length");
+    });
+
+    it("generates UUIDv7 format session IDs", async () => {
+      const result = await sequentialThinking.execute({
+        thought: "Test",
+        thoughtNumber: 1,
+        totalThoughts: 1,
+        nextThoughtNeeded: false,
+      });
+
+      // UUIDv7 has the format: xxxxxxxx-xxxx-7xxx-xxxx-xxxxxxxxxxxx
+      // where the 13th character (version) is '7'
+      expect(result.sessionId).toMatch(UUID_REGEX);
+      const parts = result.sessionId.split("-");
+      expect(parts[2]).toMatch(/^7/); // Version 7
     });
   });
 });
