@@ -10,8 +10,11 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { randomBytes } from "node:crypto";
 import { v7 as uuidv7 } from "uuid";
+import { authMiddleware } from "./middleware/auth";
+import { errorHandler } from "./middleware/error-handler";
 import chatRouter from "./routes/chat";
 import eventsRouter from "./routes/events";
+import healthRouter from "./routes/health";
 import permissionsRouter from "./routes/permissions";
 import rulesRouter from "./routes/rules";
 
@@ -72,45 +75,21 @@ app.use("*", async (c, next) => {
   });
 });
 
-// Auth middleware for /api/* routes
-app.use("/api/*", async (c, next) => {
-  const auth = c.req.header("Authorization");
-  const requestId = c.get("requestId");
+// Auth middleware (Basic Auth)
+// Uses app.onError() for error handling
+app.use("*", authMiddleware);
 
-  if (!auth?.startsWith(`Bearer ${SERVER_TOKEN}`)) {
-    logger.warn("Unauthorized access attempt", {
-      module: "api:auth",
-      requestId,
-      authPresent: !!auth,
-    });
-    return c.json({ error: "Unauthorized" }, 401);
-  }
+// Error handler (must be after routes are defined)
+app.onError(errorHandler);
 
-  logger.debug("Request authenticated", { module: "api:auth", requestId });
-  return next();
-});
+// Mount health check route (public - auth middleware skips /api/health)
+app.route("/", healthRouter);
 
-// System status (no auth required)
-app.get("/system/status", c => {
-  return c.json({
-    status: "ok",
-    version: "0.0.1",
-  });
-});
-
-// Server config endpoint (for renderer - no auth required)
-app.get("/api/config", c => {
-  return c.json({
-    token: SERVER_TOKEN,
-    baseUrl: `http://127.0.0.1:${SERVER_PORT}`,
-  });
-});
-
-// Mount permission routes
+// Mount permission routes (protected by auth)
 app.route("/api/permissions", permissionsRouter);
 
-// Mount chat routes (no auth required for demo - add auth in production)
-app.route("/", chatRouter);
+// Mount chat routes (protected by auth)
+app.route("/api/chat", chatRouter);
 
 // Mount events routes
 app.route("/", eventsRouter);
@@ -118,10 +97,17 @@ app.route("/", eventsRouter);
 // Mount rules routes
 app.route("/", rulesRouter);
 
-// Health check
-app.route("/", eventsRouter);
+let currentPort = SERVER_PORT;
 
-// Health check
+// Server config endpoint (for renderer - protected by auth)
+app.get("/api/config", c => {
+  return c.json({
+    authType: "basic",
+    baseUrl: `http://127.0.0.1:${currentPort}`,
+  });
+});
+
+// Root endpoint
 app.get("/", c => {
   return c.text("ekacode server running");
 });
@@ -140,11 +126,12 @@ export async function startServer() {
   const address = server.address();
   const port = typeof address === "object" && address ? address.port : SERVER_PORT;
 
+  currentPort = port;
   logger.info(`Server started on http://127.0.0.1:${port}`, {
     module: "server:lifecycle",
     port,
   });
-  logger.debug(`Server token: ${SERVER_TOKEN}`, {
+  logger.debug(`Server auth: Basic Auth (username: ${process.env.EKACODE_USERNAME || "admin"})`, {
     module: "server:lifecycle",
   });
 

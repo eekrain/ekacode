@@ -9,8 +9,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest",
-    "test:run": "vitest run",
+    "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
@@ -31,6 +30,7 @@
     "tree-sitter-bash": "^0.25.1",
     "turndown": "^7.2.2",
     "uuid": "^13.0.0",
+    "xstate": "^5.18.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
