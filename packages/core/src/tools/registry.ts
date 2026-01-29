@@ -12,6 +12,7 @@ import {
   writeTool,
 } from "./index";
 import { grepTool } from "./search/grep.tool";
+import { sequentialThinking } from "./sequential-thinking";
 import { bashTool } from "./shell/bash.tool";
 
 export const toolRegistry = {
@@ -24,6 +25,7 @@ export const toolRegistry = {
   glob: globTool,
   bash: bashTool,
   grep: grepTool,
+  sequentialthinking: sequentialThinking,
 
   getAll(): Record<string, unknown> {
     const { getAll: _getAll, getToolNames: _getToolNames, ...tools } = this;

@@ -19,5 +19,15 @@ export { bashTool } from "./shell/bash.tool";
 export { grepTool } from "./search/grep.tool";
 export { webfetchTool } from "./search/webfetch.tool";
 
+// AI Agent tools
+export {
+  clearAllSessions,
+  createSequentialThinkingTool,
+  getAllSessions,
+  getSession,
+  sequentialThinking,
+  type Session,
+} from "./sequential-thinking";
+
 // Re-export base utilities
 export * from "./base";

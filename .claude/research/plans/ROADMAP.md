@@ -29,8 +29,9 @@ Ordered by most applicable tasks. Each task includes a reference to the exact pl
 8) ✅ Wire Plan/Build agents to HybridAgent (multimodal routing, directory-aware tools).
    Ref: `new-architecture-plan.md:L1770-L1793`
 
-9) ⏳ Implement Sequential Thinking tool and integrate into agent loops.
+9) ✅ Implement Sequential Thinking tool and integrate into agent loops.
    Ref: `new-sequential-thinking.md:L91-L180`, `new-sequential-thinking.md:L489-L540`
+   **Note:** Implemented with 21 passing tests, session-based state management, and tool registry integration.
 
 10) ⏳ Implement search_docs / better-context tool stack (core infra → AST → supporting tools → sub-agent → main tool).
     Ref: `new-better-context.md:L1230-L1272`
@@ -92,7 +93,7 @@ The implementation deviates from the original plan in the following ways:
 | 6 | XState actors | ✅ Complete |
 | 7 | Doom-loop detection | ✅ Complete |
 | 8 | Plan/Build → HybridAgent | ✅ Complete |
-| 9 | Sequential Thinking | ⏳ Pending |
+| 9 | Sequential Thinking | ✅ Complete |
 | 10 | search_docs / better-context | ⏳ Pending |
 | 11 | Electron main + preload | ⏳ Pending |
 | 12 | Solid UIMessage UI | ⏳ Pending |
