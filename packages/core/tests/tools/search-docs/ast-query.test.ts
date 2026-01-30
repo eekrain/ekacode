@@ -6,6 +6,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Test files use any for simplicity */
 
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("ast-query tool", () => {
@@ -16,7 +17,9 @@ describe("ast-query tool", () => {
 
     // Import the module after mocks are set up
     const module = await import("../../../src/tools/search-docs/ast-query");
-    astQuery = module.astQuery;
+    module._testProject.reset();
+    const repoPath = path.resolve(__dirname, "../../fixtures/ast-query");
+    astQuery = module.createAstQueryTool({ repoPath });
   });
 
   describe("find_functions", () => {

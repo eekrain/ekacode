@@ -6,6 +6,7 @@
  */
 
 import { tool, zodSchema } from "ai";
+import fs from "node:fs";
 import path from "node:path";
 import { Project, ScriptTarget, SyntaxKind } from "ts-morph";
 import { z } from "zod";
@@ -66,9 +67,22 @@ export function getOrCreateProject(repoPath: string): Project {
   const alreadyAdded = sourceFiles.some(sf => sf.getFilePath().startsWith(repoPath));
 
   if (!alreadyAdded) {
-    projectInstance.addSourceFilesAtPaths(path.join(repoPath, "**/*.ts"));
-    projectInstance.addSourceFilesAtPaths(path.join(repoPath, "**/*.tsx"));
-    projectInstance.addSourceFilesAtPaths(path.join(repoPath, "**/*.d.ts"));
+    const excludes = [
+      "!" + path.join(repoPath, "**/node_modules/**"),
+      "!" + path.join(repoPath, "**/dist/**"),
+      "!" + path.join(repoPath, "**/build/**"),
+      "!" + path.join(repoPath, "**/.turbo/**"),
+      "!" + path.join(repoPath, "**/.next/**"),
+      "!" + path.join(repoPath, "**/coverage/**"),
+      "!" + path.join(repoPath, "**/out/**"),
+      "!" + path.join(repoPath, "**/.git/**"),
+    ];
+    projectInstance.addSourceFilesAtPaths([
+      path.join(repoPath, "**/*.ts"),
+      path.join(repoPath, "**/*.tsx"),
+      path.join(repoPath, "**/*.d.ts"),
+      ...excludes,
+    ]);
   }
 
   return projectInstance;
@@ -87,6 +101,28 @@ export function resetTestProject(): void {
 export const _testProject = {
   reset: resetTestProject,
 };
+
+function resolveFileArg(repoPath: string, target?: string, file?: string): string | undefined {
+  if (file) {
+    return path.isAbsolute(file) ? file : path.resolve(repoPath, file);
+  }
+
+  if (!target || target === ".") {
+    return undefined;
+  }
+
+  const resolved = path.isAbsolute(target) ? target : path.resolve(repoPath, target);
+  try {
+    const stat = fs.statSync(resolved);
+    if (stat.isFile()) {
+      return resolved;
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+}
 
 // ============================================================================
 // AST QUERY FUNCTIONS
@@ -603,27 +639,28 @@ Query types:
       const repoPath = options.repoPath || process.cwd();
 
       const project = getOrCreateProject(repoPath);
+      const fileArg = resolveFileArg(repoPath, args.target, args.file);
 
       let result: ASTQueryOutput;
       switch (args.queryType) {
         case "find_functions":
-          result = await findFunctions(project, repoPath, args.file);
+          result = await findFunctions(project, repoPath, fileArg);
           break;
 
         case "find_classes":
-          result = await findClasses(project, repoPath, args.file);
+          result = await findClasses(project, repoPath, fileArg);
           break;
 
         case "find_interfaces":
-          result = await findInterfaces(project, repoPath, args.file);
+          result = await findInterfaces(project, repoPath, fileArg);
           break;
 
         case "find_types":
-          result = await findTypes(project, repoPath, args.file);
+          result = await findTypes(project, repoPath, fileArg);
           break;
 
         case "find_exports":
-          result = await findExports(project, repoPath, args.file);
+          result = await findExports(project, repoPath, fileArg);
           break;
 
         case "get_signature":

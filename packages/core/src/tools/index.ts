@@ -21,13 +21,27 @@ export { webfetchTool } from "./search/webfetch.tool";
 
 // AI Agent tools
 export {
-  clearAllSessions,
   createSequentialThinkingTool,
-  getAllSessions,
-  getSession,
+  createSequentialThinkingToolWithDb,
   sequentialThinking,
+  type DatabaseStorageConfig,
+  type SequentialThinkingStorage,
   type Session,
+  type SessionSerialized,
+  type ThoughtEntry,
 } from "./sequential-thinking";
+
+// Sequential thinking storage
+export {
+  MemoryStorage,
+  createDatabaseStorage,
+  createSession,
+  deserializeSession,
+  serializeSession,
+} from "./sequential-thinking-storage";
+
+// Code research tools (search-docs)
+export * from "./search-docs";
 
 // Re-export base utilities
 export * from "./base";

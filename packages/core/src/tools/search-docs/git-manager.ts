@@ -6,8 +6,8 @@
 
 import { execSync } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
+import { Instance } from "../../instance";
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -89,16 +89,24 @@ function parseGitError(stderr: string): GitError {
 // ============================================================================
 
 class GitManager {
-  private cacheDir: string;
+  private _cacheDir: string | null = null;
   private allowedHosts: Set<string>;
 
   constructor() {
-    // Use system temp directory for cache
-    this.cacheDir = path.join(tmpdir(), "search-docs-cache");
     this.allowedHosts = new Set(["github.com", "gitlab.com", "bitbucket.org", "gist.github.com"]);
+  }
 
-    // Ensure cache directory exists
-    this.ensureCacheDir();
+  /**
+   * Get cache directory (resolves lazily using Instance.directory)
+   */
+  private get cacheDir(): string {
+    if (!this._cacheDir) {
+      // Use workspace directory for cache
+      const workspaceDir = Instance.directory;
+      this._cacheDir = path.join(workspaceDir, ".ekacode", "search-docs-cache");
+      this.ensureCacheDir();
+    }
+    return this._cacheDir;
   }
 
   /**

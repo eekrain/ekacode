@@ -21,11 +21,46 @@
 export type MessageRole = "system" | "user" | "assistant" | "tool";
 
 /**
+ * Image content part for multimodal messages
+ */
+export interface ImageContent {
+  type: "image";
+  image: URL | string;
+}
+
+/**
+ * Content part types for multimodal messages
+ */
+export interface TextContentPart {
+  type: "text";
+  text: string;
+}
+
+export interface ImageContentPart {
+  type: "image";
+  image: URL | { url: string };
+}
+
+export type ContentPart =
+  | TextContentPart
+  | ImageContentPart
+  | { type: string; [key: string]: unknown };
+
+/**
  * Base message interface (compatible with AI SDK v6)
+ * Content is always a string for system, assistant, and tool messages
  */
 export interface BaseMessage {
   role: MessageRole;
   content: string;
+}
+
+/**
+ * User message can have multimodal content (text + images)
+ */
+export interface UserMessage {
+  role: "user";
+  content: string | Array<ContentPart>;
 }
 
 /**
@@ -67,8 +102,11 @@ export interface ToolMessage extends BaseMessage {
  *
  * This is our internal message format used by the state machine.
  * For AI SDK v6 compatibility, we convert to/from CoreMessage when needed.
+ *
+ * Note: User messages can have multimodal content (array of content parts).
+ * System, assistant, and tool messages always have string content.
  */
-export type Message = BaseMessage | AssistantMessage | ToolMessage;
+export type Message = BaseMessage | AssistantMessage | ToolMessage | UserMessage;
 
 // ============================================================================
 // RUNTIME TYPES
@@ -91,9 +129,19 @@ export interface AgentRuntime {
 
 /**
  * Convert our internal Message type to AI SDK v6 CoreMessage format
+ * Handles multimodal content including images
  */
 export function toCoreMessages(messages: Array<Message>): Array<Record<string, unknown>> {
   return messages.map(msg => {
+    // For user messages with multimodal content, preserve the array format
+    if (msg.role === "user") {
+      const userMsg = msg as UserMessage;
+      return {
+        role: "user",
+        content: userMsg.content,
+      };
+    }
+
     const base = {
       role: msg.role,
       content: msg.content,
@@ -120,6 +168,59 @@ export function toCoreMessages(messages: Array<Message>): Array<Record<string, u
 
     return base;
   });
+}
+
+/**
+ * Check if messages contain image content
+ *
+ * Returns true if any user message contains image URLs or image content parts.
+ */
+export function hasImageContent(messages: Array<Message>): boolean {
+  for (const msg of messages) {
+    if (msg.role === "user") {
+      const content = (msg as UserMessage).content;
+      if (typeof content === "string") {
+        // Check for image URLs in text content
+        return (
+          /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(content) ||
+          content.startsWith("data:image/") ||
+          (content.startsWith("http") && /\.(jpg|jpeg|png|gif|webp|bmp|svg)/i.test(content))
+        );
+      }
+      // Check for image content parts in array format
+      if (Array.isArray(content)) {
+        return content.some(
+          part =>
+            part.type === "image" ||
+            part.type === "image_url" ||
+            (part.type === "file" &&
+              typeof part.mediaType === "string" &&
+              part.mediaType.startsWith("image/"))
+        );
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Extract text content from a message
+ *
+ * Returns the text content from a message, handling both
+ * string and multimodal array formats.
+ */
+export function getTextContent(message: Message): string {
+  const content = message.content;
+  if (typeof content === "string") {
+    return content;
+  }
+  if (Array.isArray(content)) {
+    return content
+      .filter(part => part.type === "text")
+      .map(part => (part as TextContentPart).text)
+      .join("\n");
+  }
+  return "";
 }
 
 // ============================================================================
@@ -219,6 +320,16 @@ export interface RLMMachineContext {
    * Runtime controls for execution (test mode, cancellation).
    */
   runtime?: AgentRuntime;
+
+  /**
+   * Doom loop tracking: implement → validate transition count
+   */
+  buildOscillationCount: number;
+
+  /**
+   * Doom loop tracking: start time of build phase
+   */
+  startTime: number;
 }
 
 // ============================================================================

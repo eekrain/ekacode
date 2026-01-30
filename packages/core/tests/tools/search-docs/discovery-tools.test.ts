@@ -10,21 +10,40 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Test files use any for simplicity */
 
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Instance } from "../../../src/instance";
 
 // Set up mocks before importing the module
 const mockExecSync = vi.fn();
+const mockExec = vi.fn();
 
 vi.doMock("node:child_process", () => ({
   execSync: mockExecSync,
+  exec: mockExec,
 }));
 
 describe("discovery-tools", () => {
   let discoveryTools: any;
   let resetDiscoveryTools: any;
+  let testWorkspaceDir: string;
+
+  // Helper to run a test function within Instance context
+  const withInstance = async <T>(fn: () => Promise<T>): Promise<T> => {
+    return Instance.provide({
+      directory: testWorkspaceDir,
+      fn,
+    });
+  };
 
   beforeEach(async () => {
     vi.clearAllMocks();
+
+    // Create temporary workspace directory
+    testWorkspaceDir = path.join(os.tmpdir(), `ekacode-discovery-test-${Date.now()}`);
+    await fs.mkdir(testWorkspaceDir, { recursive: true });
 
     // Set up default mock behavior for git operations
     mockExecSync.mockImplementation((command: string) => {
@@ -47,6 +66,33 @@ def456\trefs/heads/master
         }
       }
       return "";
+    });
+
+    // Set up default mock behavior for exec (promisified)
+    mockExec.mockImplementation((command: string, callback: any) => {
+      try {
+        let result = "";
+
+        if (command.includes("ls-remote")) {
+          if (command.includes("--tags")) {
+            result = `
+abc123\trefs/tags/v5.0.0
+def456\trefs/tags/v4.38.3
+ghi789\trefs/tags/v4.37.1
+jkl012\trefs/tags/v3.0.0
+`;
+          } else if (command.includes("--heads")) {
+            result = `
+abc123\trefs/heads/main
+def456\trefs/heads/master
+`;
+          }
+        }
+
+        callback(null, { stdout: result, stderr: "" });
+      } catch (error) {
+        callback(error, { stdout: "", stderr: (error as Error).message });
+      }
     });
 
     // Import the module after mocks are set up
@@ -130,10 +176,12 @@ def456\trefs/heads/master
   describe("gitClone", () => {
     it("clones a repository at main branch", async () => {
       // Note: This test may try to actually clone, so we mock the git manager
-      const result = await discoveryTools.gitClone.execute({
-        url: "https://github.com/statelyai/xstate",
-        version: "main",
-      });
+      const result = await withInstance(() =>
+        discoveryTools.gitClone.execute({
+          url: "https://github.com/statelyai/xstate",
+          version: "main",
+        })
+      );
 
       // In mocked environment, we just verify the structure
       expect(result).toHaveProperty("success");
@@ -141,10 +189,12 @@ def456\trefs/heads/master
     });
 
     it("clones a repository at specific version", async () => {
-      const result = await discoveryTools.gitClone.execute({
-        url: "https://github.com/statelyai/xstate",
-        version: "v4.38.3",
-      });
+      const result = await withInstance(() =>
+        discoveryTools.gitClone.execute({
+          url: "https://github.com/statelyai/xstate",
+          version: "v4.38.3",
+        })
+      );
 
       expect(result).toHaveProperty("success");
       if (result.success) {
@@ -153,11 +203,13 @@ def456\trefs/heads/master
     });
 
     it("supports sparse checkout with searchPath", async () => {
-      const result = await discoveryTools.gitClone.execute({
-        url: "https://github.com/vercel/ai",
-        version: "main",
-        searchPath: "packages/ai",
-      });
+      const result = await withInstance(() =>
+        discoveryTools.gitClone.execute({
+          url: "https://github.com/vercel/ai",
+          version: "main",
+          searchPath: "packages/ai",
+        })
+      );
 
       expect(result).toHaveProperty("success");
     });

@@ -16,6 +16,7 @@ const mockGenerateText = vi.fn();
 
 vi.mock("ai", () => ({
   generateText: mockGenerateText,
+  stepCountIs: vi.fn((count: number) => ({ type: "stepCountIs", count })),
 }));
 
 // Mock @ai-sdk/zai
@@ -56,25 +57,25 @@ describe("sub-agent", () => {
       steps: [
         {
           stepType: "tools",
-          toolCalls: [
+          toolResults: [
             {
               toolName: "file_read",
-              args: { path: "src/actor.ts" },
-              result: {
+              input: { path: "src/actor.ts" },
+              output: {
                 content: "export function actor() { /* implementation */ }",
               },
             },
             {
               toolName: "ast_query",
-              args: { query: "actor" },
-              result: {
+              input: { query: "actor" },
+              output: {
                 signature: "function actor(): void",
               },
             },
           ],
         },
       ],
-      messages: [],
+      response: { messages: [] },
     });
 
     // Import the module after mocks are set up

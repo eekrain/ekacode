@@ -7,24 +7,28 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Test files use any for simplicity */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryStorage } from "../../src/tools/sequential-thinking-storage";
 
 // RFC 4122 UUID validation regex (works for both UUIDv4 and UUIDv7)
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 describe("sequentialThinking tool", () => {
   let sequentialThinking: any;
-  let clearAllSessions: () => void;
+  let storage: MemoryStorage;
 
   beforeEach(async () => {
     vi.clearAllMocks();
 
-    // Import the tool after mocks are set up
+    // Create a fresh storage instance for each test
+    storage = new MemoryStorage();
+
+    // Import the tool with custom storage
     const module = await import("../../src/tools/sequential-thinking");
-    sequentialThinking = module.sequentialThinking;
-    clearAllSessions = module.clearAllSessions;
+    const { createSequentialThinkingTool } = module;
+    sequentialThinking = createSequentialThinkingTool({ storage });
 
     // Clear all sessions before each test for isolation
-    clearAllSessions();
+    await storage.clear();
   });
 
   describe("session management", () => {
@@ -306,7 +310,7 @@ describe("sequentialThinking tool", () => {
         nextThoughtNeeded: true,
       });
 
-      clearAllSessions();
+      await storage.clear();
 
       // New call should create fresh session (but same UUID due to mock)
       const result = await sequentialThinking.execute({
@@ -321,8 +325,6 @@ describe("sequentialThinking tool", () => {
     });
 
     it("getSession returns session state", async () => {
-      const { getSession } = await import("../../src/tools/sequential-thinking");
-
       const first = await sequentialThinking.execute({
         thought: "Test thought",
         thoughtNumber: 1,
@@ -330,16 +332,14 @@ describe("sequentialThinking tool", () => {
         nextThoughtNeeded: true,
       });
 
-      const session = getSession(first.sessionId);
+      const session = await storage.get(first.sessionId);
       expect(session).toBeDefined();
       expect(session?.thoughts).toHaveLength(1);
       expect(session?.branches.size).toBe(0);
     });
 
     it("getSession returns undefined for non-existent session", async () => {
-      const { getSession } = await import("../../src/tools/sequential-thinking");
-
-      const session = getSession("non-existent-id");
+      const session = await storage.get("non-existent-id");
       expect(session).toBeUndefined();
     });
   });

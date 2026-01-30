@@ -9,7 +9,13 @@ import type { ActorRefFrom } from "xstate";
 import { createActor } from "xstate";
 import { createAbortError } from "../actors/runtime";
 import { rlmMachine } from "../machine";
-import type { AgentRuntime, HierarchicalState, Message, RLMMachineContext } from "../types";
+import type {
+  AgentRuntime,
+  ContentPart,
+  HierarchicalState,
+  Message,
+  RLMMachineContext,
+} from "../types";
 
 /**
  * RLM workflow configuration
@@ -22,8 +28,9 @@ export interface RLMConfig {
 
   /**
    * Initial messages for the conversation
+   * Content can be a string or an array of content parts (for multimodal support)
    */
-  messages?: Array<{ role: string; content: string }>;
+  messages?: Array<{ role: string; content: string | Array<ContentPart> }>;
 
   /**
    * Maximum iterations before doom loop protection

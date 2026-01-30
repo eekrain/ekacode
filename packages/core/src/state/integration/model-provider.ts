@@ -46,6 +46,14 @@ export const buildModel: LanguageModelV3 = zai("glm-4.7-flash");
  */
 export const exploreModel: LanguageModelV3 = zai("glm-4.7-flashx");
 
+/**
+ * Vision model - uses glm-4.6v for multimodal (image) understanding
+ *
+ * Supports image analysis and visual understanding capabilities.
+ * Use this model when messages contain image content.
+ */
+export const visionModel: LanguageModelV3 = zai("glm-4.6v");
+
 // ============================================================================
 // OPENAI PROVIDER (Fallback)
 // ============================================================================
@@ -123,4 +131,56 @@ export function getExploreModel(): LanguageModelV3 {
   throw new Error(
     "No model provider available. Set ZAI_API_KEY or OPENAI_API_KEY environment variable."
   );
+}
+
+/**
+ * Get the vision model for multimodal (image) support.
+ *
+ * Only Z.ai supports vision models currently.
+ */
+export function getVisionModel(): LanguageModelV3 {
+  // Vision requires Z.ai provider
+  if (process.env.ZAI_API_KEY || process.env.ZAI_BASE_URL) {
+    return visionModel;
+  }
+  throw new Error("Vision model requires Z.ai provider. Set ZAI_API_KEY environment variable.");
+}
+
+/**
+ * Check if a message contains image content
+ *
+ * Detects when messages have image URLs or base64 image data
+ * that should trigger vision model routing.
+ */
+export function messageHasImage(
+  messages: Array<{
+    role: string;
+    content: string | Array<{ type: string; [key: string]: unknown }>;
+  }>
+): boolean {
+  for (const msg of messages) {
+    if (msg.role === "user") {
+      const content = msg.content;
+      if (typeof content === "string") {
+        // Check for image URLs in text content
+        return (
+          /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(content) ||
+          content.startsWith("data:image/") ||
+          content.startsWith("http")
+        );
+      }
+      // Check for image content parts in array format
+      if (Array.isArray(content)) {
+        return content.some(
+          part =>
+            part.type === "image" ||
+            part.type === "image_url" ||
+            (part.type === "file" &&
+              typeof part.mediaType === "string" &&
+              part.mediaType.startsWith("image/"))
+        );
+      }
+    }
+  }
+  return false;
 }

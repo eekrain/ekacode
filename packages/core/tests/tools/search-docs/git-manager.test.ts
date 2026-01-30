@@ -7,22 +7,41 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Test files use any for simplicity */
 
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Instance } from "../../../src/instance";
 
 // Set up mock before importing the module
 const mockExecSync = vi.fn();
+const mockExec = vi.fn();
 
 vi.doMock("node:child_process", () => ({
   execSync: mockExecSync,
+  exec: mockExec,
 }));
 
 describe("git-manager", () => {
   let gitManager: any;
+  let testWorkspaceDir: string;
+
+  // Helper to run a test function within Instance context
+  const withInstance = async <T>(fn: () => Promise<T>): Promise<T> => {
+    return Instance.provide({
+      directory: testWorkspaceDir,
+      fn,
+    });
+  };
 
   beforeEach(async () => {
     vi.clearAllMocks();
 
-    // Set up default mock behavior
+    // Create temporary workspace directory
+    testWorkspaceDir = path.join(os.tmpdir(), `ekacode-git-test-${Date.now()}`);
+    await fs.mkdir(testWorkspaceDir, { recursive: true });
+
+    // Set up default mock behavior for execSync
     mockExecSync.mockImplementation((command: string) => {
       // Check for invalid repo first
       if (command.includes("nonexistent-repo-xyz-123")) {
@@ -59,6 +78,30 @@ jkl012\trefs/tags/v3.0.0
       return "";
     });
 
+    // Set up default mock behavior for exec (promisified)
+    mockExec.mockImplementation((command: string, callback: any) => {
+      // Simple sync implementation for the exec mock
+      // The callback is used by promisify
+      try {
+        let result = "";
+
+        if (command.includes("ls-remote")) {
+          result = `
+abc123\trefs/tags/v5.0.0
+def456\trefs/tags/v4.38.3
+ghi789\trefs/tags/v4.37.1
+jkl012\trefs/tags/v3.0.0
+`;
+        } else if (command.includes("rev-parse")) {
+          result = "abc123def456\n";
+        }
+
+        callback(null, { stdout: result, stderr: "" });
+      } catch (error) {
+        callback(error, { stdout: "", stderr: (error as Error).message });
+      }
+    });
+
     // Import the module after mocks are set up
     const module = await import("../../../src/tools/search-docs/git-manager");
     gitManager = module.gitManager;
@@ -66,13 +109,15 @@ jkl012\trefs/tags/v3.0.0
 
   describe("clone", () => {
     it("clones a repository to a local path", async () => {
-      const result = await gitManager.clone({
-        url: "https://github.com/vercel/ai",
-        branch: "main",
-        searchPaths: [],
-        depth: 1,
-        quiet: true,
-      });
+      const result = await withInstance(() =>
+        gitManager.clone({
+          url: "https://github.com/vercel/ai",
+          branch: "main",
+          searchPaths: [],
+          depth: 1,
+          quiet: true,
+        })
+      );
 
       expect(result.success).toBe(true);
       expect(result.path).toBeDefined();
@@ -81,26 +126,30 @@ jkl012\trefs/tags/v3.0.0
     });
 
     it("supports sparse checkout for monorepos", async () => {
-      const result = await gitManager.clone({
-        url: "https://github.com/vercel/ai",
-        branch: "main",
-        searchPaths: ["packages/ai"],
-        depth: 1,
-        quiet: true,
-      });
+      const result = await withInstance(() =>
+        gitManager.clone({
+          url: "https://github.com/vercel/ai",
+          branch: "main",
+          searchPaths: ["packages/ai"],
+          depth: 1,
+          quiet: true,
+        })
+      );
 
       expect(result.success).toBe(true);
       expect(result.path).toBeDefined();
     });
 
     it("handles invalid URLs gracefully", async () => {
-      const result = await gitManager.clone({
-        url: "https://github.com/nonexistent/repo-xyz-123",
-        branch: "main",
-        searchPaths: [],
-        depth: 1,
-        quiet: true,
-      });
+      const result = await withInstance(() =>
+        gitManager.clone({
+          url: "https://github.com/nonexistent/repo-xyz-123",
+          branch: "main",
+          searchPaths: [],
+          depth: 1,
+          quiet: true,
+        })
+      );
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
@@ -117,25 +166,28 @@ jkl012\trefs/tags/v3.0.0
 
   describe("update", () => {
     it("updates an existing cloned repository", async () => {
-      // First clone
-      const cloneResult = await gitManager.clone({
-        url: "https://github.com/vercel/ai",
-        branch: "main",
-        searchPaths: [],
-        depth: 1,
-        quiet: true,
-      });
-
-      if (cloneResult.success) {
-        const updateResult = await gitManager.update({
-          localPath: cloneResult.path,
+      const result = await withInstance(async () => {
+        // First clone
+        const cloneResult = await gitManager.clone({
+          url: "https://github.com/vercel/ai",
           branch: "main",
+          searchPaths: [],
+          depth: 1,
           quiet: true,
         });
 
-        expect(updateResult.success).toBe(true);
-        expect(updateResult.commit).toBe("abc123def456");
-      }
+        if (cloneResult.success) {
+          return await gitManager.update({
+            localPath: cloneResult.path,
+            branch: "main",
+            quiet: true,
+          });
+        }
+        return { success: false };
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.commit).toBe("abc123def456");
     });
   });
 
@@ -167,7 +219,9 @@ jkl012\trefs/tags/v3.0.0
 
   describe("fetchTags", () => {
     it("fetches available tags from remote repository", async () => {
-      const tags = await gitManager.fetchTags("https://github.com/statelyai/xstate");
+      const tags = await withInstance(() =>
+        gitManager.fetchTags("https://github.com/statelyai/xstate")
+      );
 
       expect(Array.isArray(tags)).toBe(true);
       expect(tags.length).toBeGreaterThan(0);
@@ -175,7 +229,9 @@ jkl012\trefs/tags/v3.0.0
     });
 
     it("handles invalid repository URLs gracefully", async () => {
-      const tags = await gitManager.fetchTags("https://github.com/nonexistent-repo-xyz-123");
+      const tags = await withInstance(() =>
+        gitManager.fetchTags("https://github.com/nonexistent-repo-xyz-123")
+      );
 
       expect(Array.isArray(tags)).toBe(true);
       expect(tags.length).toBe(0);

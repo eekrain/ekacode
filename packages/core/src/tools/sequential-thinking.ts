@@ -4,107 +4,66 @@
  * Provides multi-turn reasoning capability for AI agents with support for
  * revision, branching, and iterative refinement.
  *
- * **IMPORTANT:** This file contains the IN-MEMORY version of the tool.
- * For production use with database persistence (survives server restarts),
- * import from `./sequential-thinking-db` instead:
- *
- * ```ts
- * // For development/testing (in-memory, lost on restart)
- * import { sequentialThinking } from "@ekacode/core/tools";
- *
- * // For production (database-backed, persists across restarts)
- * import { sequentialThinkingDb } from "@ekacode/core/tools/sequential-thinking-db";
- * ```
+ * **Storage Pattern:**
+ * - Default: In-memory storage (ephemeral, for development/testing)
+ * - Production: Database-backed storage via storage adapter (persists across restarts)
  *
  * Session Pattern: Agent owns sessionId, tool is stateless between calls.
  * This makes the tool pluggable to any orchestration layer (XState, sub-agents, etc).
+ *
+ * **Usage:**
+ * ```ts
+ * // In-memory storage (default)
+ * import { sequentialThinking } from "@ekacode/core/tools";
+ *
+ * // Database-backed storage (production)
+ * import { sequentialThinking } from "@ekacode/core/tools";
+ * import { createDatabaseStorage } from "@ekacode/core/tools/sequential-thinking-storage";
+ * import { db, toolSessions } from "@ekacode/server/db";
+ *
+ * const storage = createDatabaseStorage({
+ *   getToolSession: async (sessionId) => { ... },
+ *   saveToolSession: async (session) => { ... },
+ *   deleteToolSession: async (sessionId) => { ... },
+ * });
+ *
+ * const tool = createSequentialThinkingTool({ storage });
+ * ```
  */
 
 import { tool, zodSchema } from "ai";
-import { v7 as uuidv7 } from "uuid";
 import { z } from "zod";
 
-// ============================================================================
-// TYPE DEFINITIONS
-// ============================================================================
+// Import types and storage utilities
+import {
+  type SequentialThinkingStorage,
+  type Session,
+  type SessionSerialized,
+  type ThoughtEntry,
+  MemoryStorage,
+  createDatabaseStorage,
+  createSession,
+  deserializeSession,
+  serializeSession,
+} from "./sequential-thinking-storage";
 
-/**
- * A single thought entry in the session history
- */
-type ThoughtEntry = {
-  thoughtNumber: number;
-  thought: string;
-  totalThoughts: number;
-  nextThoughtNeeded: boolean;
-  isRevision?: boolean;
-  revisesThought?: number;
-  branchFromThought?: number;
-  branchId?: string;
-  needsMoreThoughts?: boolean;
-  timestamp: number;
+// Re-export types for external use
+export {
+  MemoryStorage,
+  createDatabaseStorage,
+  createSession,
+  deserializeSession,
+  serializeSession,
 };
-
-/**
- * A sequential thinking session
- */
-export type Session = {
-  id: string;
-  createdAt: number;
-  thoughts: ThoughtEntry[];
-  branches: Set<string>;
-};
+export type { SequentialThinkingStorage, Session, SessionSerialized, ThoughtEntry };
 
 // ============================================================================
-// SESSION STORE (In-memory, replaceable with Redis/DB/etc)
+// CONFIGURATION
 // ============================================================================
-
-// NOTE: This is the in-memory version for development/testing.
-// For production use with database persistence, import from:
-// `./sequential-thinking-db` which uses Drizzle and the tool_sessions table.
-//
-// The database version:
-// - Persists sessions across server restarts
-// - Scales across multiple instances
-// - Uses the tool_sessions table in libsql
-// - Is fully compatible with the in-memory API
-//
-// To migrate to the database version:
-// 1. Import: import { sequentialThinkingDb } from "./sequential-thinking-db";
-// 2. Use: sequentialThinkingDb instead of sequentialThinking
-// 3. Ensure sessionId is provided by the agent/orchestration layer
-
-const sessions = new Map<string, Session>();
-
-// Auto-cleanup old sessions (30 minute TTL)
-const SESSION_TTL_MS = 30 * 60 * 1000;
 
 // Session limits for defensive programming
 const MAX_THOUGHTS_PER_SESSION = 1000;
 const MAX_THOUGHT_LENGTH = 50000;
-
-// Use Node.js timer for cleanup
-let cleanupTimer: ReturnType<typeof setInterval> | null = null;
-
-if (typeof clearInterval !== "undefined" && typeof setInterval !== "undefined") {
-  cleanupTimer = setInterval(() => {
-    const now = Date.now();
-    for (const [id, session] of sessions.entries()) {
-      if (now - session.createdAt > SESSION_TTL_MS) {
-        sessions.delete(id);
-      }
-    }
-  }, SESSION_TTL_MS);
-
-  // Register cleanup handlers for graceful shutdown
-  if (typeof process !== "undefined") {
-    const shutdownHandler = () => {
-      stopCleanupTimer();
-    };
-    process.on("beforeExit", shutdownHandler);
-    process.on("SIGINT", shutdownHandler);
-    process.on("SIGTERM", shutdownHandler);
-  }
-}
 
 // ============================================================================
 // OUTPUT SCHEMA
@@ -134,14 +93,31 @@ const sequentialThinkingOutputSchema = z.object({
 // ============================================================================
 
 /**
+ * Options for creating a sequential thinking tool
+ */
+export interface CreateSequentialThinkingToolOptions {
+  /**
+   * Initial session ID for continuation
+   */
+  sessionId?: string;
+
+  /**
+   * Storage adapter (defaults to in-memory)
+   */
+  storage?: SequentialThinkingStorage;
+}
+
+/**
  * Creates a sequential thinking tool instance
  *
  * @param options - Optional configuration
- * @param options.sessionId - Initial session ID for continuation
  * @returns AI SDK tool definition
  */
-export const createSequentialThinkingTool = (options: { sessionId?: string } = {}) =>
-  tool({
+export const createSequentialThinkingTool = (options: CreateSequentialThinkingToolOptions = {}) => {
+  // Use provided storage or default to in-memory
+  const storage = options.storage ?? new MemoryStorage();
+
+  return tool({
     description: `A detailed tool for dynamic and reflective problem-solving through thoughts.
 This tool helps analyze problems through a flexible thinking process that can adapt and evolve.
 Each thought can build on, question, or revise previous insights as understanding deepens.
@@ -220,26 +196,27 @@ You should:
 
       // Clear session if requested
       if (args.clearSession && requestedSessionId) {
-        sessions.delete(requestedSessionId);
+        await storage.delete(requestedSessionId);
       }
 
       // Get or create session
-      let sessionId = requestedSessionId;
+      let sessionId: string;
       let session: Session;
 
-      if (sessionId && sessions.has(sessionId)) {
-        session = sessions.get(sessionId)!;
-      } else {
-        // Generate UUIDv7 for time-ordered, sortable session IDs
-        sessionId = uuidv7();
+      // Try to get existing session, but only if we're not clearing
+      const existingSession = args.clearSession
+        ? undefined
+        : await storage.get(requestedSessionId ?? "");
 
-        session = {
-          id: sessionId,
-          createdAt: Date.now(),
-          thoughts: [],
-          branches: new Set(),
-        };
-        sessions.set(sessionId, session);
+      if (requestedSessionId && existingSession) {
+        // Use existing session
+        sessionId = existingSession.id;
+        session = existingSession;
+      } else {
+        // Generate new session (always use UUIDv7)
+        session = createSession(undefined); // Always generate UUIDv7
+        sessionId = session.id;
+        await storage.save(session);
       }
 
       // Validate session limits (defensive programming)
@@ -270,6 +247,9 @@ You should:
       };
       session.thoughts.push(thoughtEntry);
 
+      // Save updated session
+      await storage.save(session);
+
       // Generate summary if session is complete
       let summary: string | undefined;
       if (!args.nextThoughtNeeded) {
@@ -293,57 +273,86 @@ You should:
       });
     },
   });
+};
 
 /**
- * Default sequential thinking tool instance
+ * Default sequential thinking tool instance (in-memory storage)
  */
 export const sequentialThinking = createSequentialThinkingTool();
 
 // ============================================================================
-// CLEANUP UTILITIES
+// STORAGE FACTORY FOR SERVER PACKAGE
 // ============================================================================
 
 /**
- * Clear a specific session
+ * Create a database-backed sequential thinking tool
  *
- * @param sessionId - Session ID to clear
- */
-export function clearSession(sessionId: string): void {
-  sessions.delete(sessionId);
-}
-
-/**
- * Clear all sessions (useful for testing)
- */
-export function clearAllSessions(): void {
-  sessions.clear();
-}
-
-/**
- * Get a session by ID
+ * This is a convenience factory for the server package to create
+ * a tool instance that persists sessions to the database.
  *
- * @param sessionId - Session ID to retrieve
- * @returns Session if found, undefined otherwise
- */
-export function getSession(sessionId: string): Session | undefined {
-  return sessions.get(sessionId);
-}
-
-/**
- * Get all sessions (returns a copy)
+ * @param config - Database storage configuration
+ * @returns Tool instance with database backing
  *
- * @returns Map of all sessions
+ * @example
+ * ```ts
+ * import { createSequentialThinkingToolWithDb } from "@ekacode/core/tools";
+ * import { db, toolSessions } from "@ekacode/server/db";
+ * import { eq, and } from "drizzle-orm";
+ * import { v7 as uuidv7 } from "uuid";
+ *
+ * const tool = createSequentialThinkingToolWithDb({
+ *   db,
+ *   getToolSession: async (sessionId) => {
+ *     const result = await db.select().from(toolSessions)
+ *       .where(and(
+ *         eq(toolSessions.session_id, sessionId),
+ *         eq(toolSessions.tool_name, "sequential-thinking"),
+ *         eq(toolSessions.tool_key, "default")
+ *       )).get();
+ *     return result?.data as SessionSerialized | null;
+ *   },
+ *   saveToolSession: async (session) => {
+ *     // Insert or update logic
+ *   },
+ *   deleteToolSession: async (sessionId) => {
+ *     await db.delete(toolSessions).where(...);
+ *   },
+ * });
+ * ```
  */
-export function getAllSessions(): Map<string, Session> {
-  return new Map(sessions);
+export interface DatabaseStorageConfig {
+  getToolSession(sessionId: string): Promise<SessionSerialized | null>;
+  saveToolSession(session: SessionSerialized): Promise<void>;
+  deleteToolSession(sessionId: string): Promise<void>;
+  listToolSessions?(): Promise<string[]>;
+  clearToolSessions?(): Promise<void>;
 }
 
-/**
- * Stop the cleanup timer (useful for clean shutdown)
- */
-export function stopCleanupTimer(): void {
-  if (cleanupTimer !== null) {
-    clearInterval(cleanupTimer);
-    cleanupTimer = null;
-  }
+export function createSequentialThinkingToolWithDb(
+  config: DatabaseStorageConfig,
+  options?: Omit<CreateSequentialThinkingToolOptions, "storage">
+) {
+  const storage = createDatabaseStorage
+    ? createDatabaseStorage(config)
+    : // Fallback if createDatabaseStorage not imported (circular dependency check)
+      ({
+        async get(sessionId: string) {
+          const data = await config.getToolSession(sessionId);
+          return data ? deserializeSession(data) : undefined;
+        },
+        async save(session: Session) {
+          await config.saveToolSession(serializeSession(session));
+        },
+        async delete(sessionId: string) {
+          await config.deleteToolSession(sessionId);
+        },
+        async list() {
+          return config.listToolSessions?.() ?? [];
+        },
+        async clear() {
+          await config.clearToolSessions?.();
+        },
+      } satisfies SequentialThinkingStorage);
+
+  return createSequentialThinkingTool({ ...options, storage });
 }

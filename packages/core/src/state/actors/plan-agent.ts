@@ -11,11 +11,11 @@
 import type { LanguageModelV3Message } from "@ai-sdk/provider";
 import { streamText } from "ai";
 import { fromPromise } from "xstate";
-import { planModel } from "../integration/model-provider";
+import { planModel, visionModel } from "../integration/model-provider";
 import { PLAN_PHASE_NOTICES } from "../prompts/plan-prompts";
 import { getAnalyzeCodeToolMap, getDesignToolMap, getResearchToolMap } from "../tools/phase-tools";
 import type { AgentRuntime, Message, MessageRole, PlanPhase } from "../types";
-import { PHASE_SAFETY_LIMITS, toCoreMessages } from "../types";
+import { hasImageContent, PHASE_SAFETY_LIMITS, toCoreMessages } from "../types";
 import { isTestMode, throwIfAborted } from "./runtime";
 
 /**
@@ -53,17 +53,26 @@ function getToolMapForPhase(phase: PlanPhase): Record<string, unknown> {
 /**
  * Convert CoreMessage back to our Message type
  * Handles both LanguageModelV3Message and ResponseMessage types
+ * Preserves multimodal content for user messages
  */
 function fromCoreMessages(messages: unknown): Array<Message> {
   const msgs = messages as Array<{
     role: string;
-    content: string | unknown;
+    content: string | Array<unknown>;
     toolCalls?: Array<{ toolCallId: string; toolName: string; args: Record<string, unknown> }>;
     toolCallId?: string;
     result?: unknown;
   }>;
 
   return msgs.map(msg => {
+    // For user messages, preserve multimodal content
+    if (msg.role === "user" && Array.isArray(msg.content)) {
+      return {
+        role: "user" as const,
+        content: msg.content as Array<{ type: string; [key: string]: unknown }>,
+      };
+    }
+
     const base = {
       role: msg.role as MessageRole,
       content: String(msg.content ?? ""),
@@ -122,6 +131,14 @@ export const runPlanAgent = fromPromise(async ({ input }: { input: PlanAgentInpu
   // Get system prompt for the phase
   const systemPrompt = PLAN_PHASE_NOTICES[phase];
 
+  // Check if messages contain image content - use vision model if so
+  const hasImages = hasImageContent(messages);
+  const model = hasImages ? visionModel : planModel;
+
+  if (hasImages) {
+    console.log("[Plan Agent] Using vision model for image-containing messages");
+  }
+
   let currentMessages = [...messages, { role: "system" as const, content: systemPrompt }];
   let iterationCount = 0;
   let finishReason: string | null | undefined = null;
@@ -137,7 +154,7 @@ export const runPlanAgent = fromPromise(async ({ input }: { input: PlanAgentInpu
 
     // Call the model with streamText
     const result = await streamText({
-      model: planModel,
+      model,
       messages: coreMessages,
       tools: toolMap as any, // eslint-disable-line @typescript-eslint/no-explicit-any -- AI SDK ToolSet type incompatibility
     });

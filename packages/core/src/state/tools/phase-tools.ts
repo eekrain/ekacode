@@ -21,18 +21,15 @@ export function getExploreToolMap(): Record<string, unknown> {
     grep: toolRegistry.grep,
     glob: toolRegistry.glob,
     ls: toolRegistry.ls,
+    "ast-query": toolRegistry["ast-query"],
   };
-  // Add astParse when available in registry (TODO: implement astParse tool)
-  // if ("astParse" in toolRegistry) {
-  //   tools.astParse = toolRegistry.astParse;
-  // }
   return tools;
 }
 
 /**
  * Get tools available for analyze_code phase
  *
- * Plan phase: read + planning tools only, no write access.
+ * Plan phase: read + AST analysis tools for code understanding.
  *
  * @returns Tool map for analyze_code phase
  */
@@ -42,18 +39,15 @@ export function getAnalyzeCodeToolMap(): Record<string, unknown> {
     grep: toolRegistry.grep,
     glob: toolRegistry.glob,
     ls: toolRegistry.ls,
+    "ast-query": toolRegistry["ast-query"],
   };
-  // Add astParse when available in registry (TODO: implement astParse tool)
-  // if ("astParse" in toolRegistry) {
-  //   tools.astParse = toolRegistry.astParse;
-  // }
   return tools;
 }
 
 /**
  * Get tools available for research phase
  *
- * Plan phase: read + research tools, no write access.
+ * Plan phase: read + research tools for external documentation lookup.
  *
  * @returns Tool map for research phase
  */
@@ -63,18 +57,21 @@ export function getResearchToolMap(): Record<string, unknown> {
     grep: toolRegistry.grep,
     glob: toolRegistry.glob,
     ls: toolRegistry.ls,
+    // Code research tools
+    "search-docs": toolRegistry["search-docs"],
+    "ast-query": toolRegistry["ast-query"],
+    "grep-search": toolRegistry["grep-search"],
+    "file-read-docs": toolRegistry["file-read-docs"],
+    // Multi-turn reasoning
+    sequentialthinking: toolRegistry["sequentialthinking"],
   };
-  // Add astParse when available in registry (TODO: implement astParse tool)
-  // if ("astParse" in toolRegistry) {
-  //   tools.astParse = toolRegistry.astParse;
-  // }
   return tools;
 }
 
 /**
  * Get tools available for design phase
  *
- * Plan phase: read + research + planning tools, no write access.
+ * Plan phase: read + sequential thinking for complex planning.
  *
  * @returns Tool map for design phase
  */
@@ -84,11 +81,9 @@ export function getDesignToolMap(): Record<string, unknown> {
     grep: toolRegistry.grep,
     glob: toolRegistry.glob,
     ls: toolRegistry.ls,
+    "ast-query": toolRegistry["ast-query"],
+    sequentialthinking: toolRegistry["sequentialthinking"],
   };
-  // Add astParse when available in registry (TODO: implement astParse tool)
-  // if ("astParse" in toolRegistry) {
-  //   tools.astParse = toolRegistry.astParse;
-  // }
   return tools;
 }
 

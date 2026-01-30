@@ -9,7 +9,7 @@ import type { DoneActorEvent } from "xstate";
 import { assign, setup } from "xstate";
 import type { BuildAgentOutput, ExploreAgentOutput, PlanAgentOutput } from "./actors";
 import { runBuildAgent, runPlanAgent, spawnExploreAgent } from "./actors";
-import { hasValidationErrors as checkValidationErrors } from "./guards/doom-loop";
+import { hasValidationErrors as checkValidationErrors, doomLoopGuard } from "./guards/doom-loop";
 import type { Message, RLMMachineContext, RLMMachineEvent } from "./types";
 
 /**
@@ -95,6 +95,25 @@ const machineSetup = setup({
         return ctx.toolExecutionCount + 1;
       },
     }),
+    startBuildTimer: assign({
+      startTime: () => {
+        const now = Date.now();
+        if (!process.env.NODE_ENV?.includes("test")) {
+          console.log(`Build timer started: ${new Date(now).toISOString()}`);
+        }
+        return now;
+      },
+    }),
+    trackOscillation: assign({
+      buildOscillationCount: context => {
+        const ctx = context as unknown as RLMMachineContext;
+        const newCount = ctx.buildOscillationCount + 1;
+        if (!ctx.runtime?.testMode) {
+          console.log(`Build oscillation: ${newCount}`);
+        }
+        return newCount;
+      },
+    }),
   },
   actors: {
     spawnExploreAgent,
@@ -126,6 +145,17 @@ const machineSetup = setup({
       }
       return !checkValidationErrors(lastMessage.content);
     },
+    doomLoopDetected: context => {
+      const ctx = context as unknown as RLMMachineContext;
+      if (ctx.runtime?.testMode) {
+        return false;
+      }
+      const result = doomLoopGuard(ctx);
+      if (result.isDoomLoop && !ctx.runtime?.testMode) {
+        console.error(`🚨 Doom loop detected: ${result.reason}`);
+      }
+      return result.isDoomLoop;
+    },
   },
 });
 
@@ -140,6 +170,8 @@ const defaultContext: RLMMachineContext = {
   lastState: null,
   toolExecutionCount: 0,
   errorCounts: {},
+  buildOscillationCount: 0,
+  startTime: 0,
 };
 
 const buildValidateActions = [
@@ -315,6 +347,9 @@ export const rlmMachine = machineSetup.createMachine({
     // ==========================================================================
     build: {
       initial: "implement",
+      entry: {
+        type: "startBuildTimer",
+      },
       states: {
         // ------------------------------------------------------------------------
         // PHASE 1: Implement (run build agent)
@@ -384,17 +419,22 @@ export const rlmMachine = machineSetup.createMachine({
                 actions: buildValidateActions,
               },
               {
+                target: "#rlm.failed",
+                guard: "doomLoopDetected",
+                actions: buildValidateActions,
+              },
+              {
                 target: "implement",
                 guard: ({ event }) => {
                   const output = (event as { output?: BuildAgentOutput }).output;
                   const content = output?.output ?? "";
                   return checkValidationErrors(content);
                 },
-                actions: buildValidateActions,
+                actions: [...buildValidateActions, { type: "trackOscillation" }],
               },
               {
                 target: "implement",
-                actions: buildValidateActions,
+                actions: [...buildValidateActions, { type: "trackOscillation" }],
               },
             ],
           },
