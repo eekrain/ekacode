@@ -182,12 +182,33 @@ app.post("/api/chat", async c => {
 
         const messageId = uuidv7();
         let lastTextDelta = "";
+        let lastAssistantText = "";
+        let didWriteTextDelta = false;
+        let lastStateSent: string | null = null;
         let finishWritten = false;
         let isComplete = false;
 
         // Subscribe to state changes
         const subscription = actor.subscribe({
           next: snapshot => {
+            const stateLabel =
+              snapshot.context.lastState ??
+              (typeof snapshot.value === "string"
+                ? snapshot.value
+                : JSON.stringify(snapshot.value));
+            if (stateLabel && stateLabel !== lastStateSent) {
+              writer.write({
+                type: "data-state",
+                id: "state",
+                data: {
+                  state: stateLabel,
+                  iteration: snapshot.context.iterationCount,
+                  toolExecutionCount: snapshot.context.toolExecutionCount,
+                },
+              });
+              lastStateSent = stateLabel;
+            }
+
             // Extract assistant messages
             const messages = snapshot.context.messages;
             const lastMessage = messages[messages.length - 1];
@@ -196,6 +217,7 @@ app.post("/api/chat", async c => {
               // Check for new text delta
               // Assistant messages always have string content
               const content = getTextContent(lastMessage);
+              lastAssistantText = content;
               const newDelta = content.slice(lastTextDelta.length);
               if (newDelta.length > 0) {
                 writer.write({
@@ -203,6 +225,7 @@ app.post("/api/chat", async c => {
                   id: messageId,
                   delta: newDelta,
                 });
+                didWriteTextDelta = true;
                 lastTextDelta = content;
               }
             }
@@ -211,6 +234,15 @@ app.post("/api/chat", async c => {
             if (!finishWritten && (snapshot.matches("done") || snapshot.matches("failed"))) {
               finishWritten = true;
               isComplete = true;
+              if (!didWriteTextDelta) {
+                writer.write({
+                  type: "text-delta",
+                  id: messageId,
+                  delta: lastAssistantText,
+                });
+                didWriteTextDelta = true;
+                lastTextDelta = lastAssistantText;
+              }
               writer.write({
                 type: "finish",
                 finishReason: snapshot.matches("done") ? "stop" : "error",

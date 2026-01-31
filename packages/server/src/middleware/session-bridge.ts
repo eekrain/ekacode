@@ -11,7 +11,7 @@ import { Instance } from "@ekacode/core/server";
 import type { Context, Next } from "hono";
 import { v7 as uuidv7 } from "uuid";
 import type { Session } from "../../db/sessions";
-import { createSession, getSession, touchSession } from "../../db/sessions";
+import { createSession, createSessionWithId, getSession, touchSession } from "../../db/sessions";
 import type { Env } from "../index";
 
 /**
@@ -40,24 +40,30 @@ export async function sessionBridge(c: Context<Env>, next: Next): Promise<Respon
     const workspace = await detectWorkspaceFromRequest(c);
     const messageId = uuidv7();
 
-    // Establish Instance context for all downstream operations
-    await Instance.provide({
-      directory: workspace,
-      sessionID: session.sessionId,
-      messageID: messageId,
-      async fn() {
-        // Set instance context in Hono context for reference
-        c.set("instanceContext", Instance.context);
-        await next();
-      },
-    });
+    if (workspace) {
+      // Establish Instance context for all downstream operations
+      await Instance.provide({
+        directory: workspace,
+        sessionID: session.sessionId,
+        messageID: messageId,
+        async fn() {
+          // Set instance context in Hono context for reference
+          c.set("instanceContext", Instance.context);
+          await next();
+        },
+      });
+      return;
+    }
+
+    await next();
   } else {
     // Session ID provided - validate and retrieve
-    const session = await getSession(sessionId);
+    let session = await getSession(sessionId);
 
+    let sessionIsNew = false;
     if (!session) {
-      // Invalid session ID
-      return c.json({ error: "Invalid session" }, 401);
+      session = await createSessionWithId("local", sessionId);
+      sessionIsNew = true;
     }
 
     // Update lastAccessed timestamp
@@ -65,23 +71,28 @@ export async function sessionBridge(c: Context<Env>, next: Next): Promise<Respon
 
     // Make session available to handlers
     c.set("session", session);
-    c.set("sessionIsNew", false);
+    c.set("sessionIsNew", sessionIsNew);
 
     // Detect workspace directory from request
     const workspace = await detectWorkspaceFromRequest(c);
     const messageId = uuidv7();
 
-    // Establish Instance context for all downstream operations
-    await Instance.provide({
-      directory: workspace,
-      sessionID: session.sessionId,
-      messageID: messageId,
-      async fn() {
-        // Set instance context in Hono context for reference
-        c.set("instanceContext", Instance.context);
-        await next();
-      },
-    });
+    if (workspace) {
+      // Establish Instance context for all downstream operations
+      await Instance.provide({
+        directory: workspace,
+        sessionID: session.sessionId,
+        messageID: messageId,
+        async fn() {
+          // Set instance context in Hono context for reference
+          c.set("instanceContext", Instance.context);
+          await next();
+        },
+      });
+      return;
+    }
+
+    await next();
   }
 }
 
@@ -91,7 +102,7 @@ export async function sessionBridge(c: Context<Env>, next: Next): Promise<Respon
  * Prefers query string (directory/workspace), then body, then headers.
  * Falls back to current working directory if not specified.
  */
-async function detectWorkspaceFromRequest(c: Context<Env>): Promise<string> {
+async function detectWorkspaceFromRequest(c: Context<Env>): Promise<string | undefined> {
   // Try query string (preferred for GET/streaming requests)
   const queryWorkspace = c.req.query("directory") || c.req.query("workspace");
   if (queryWorkspace) {
@@ -127,8 +138,7 @@ async function detectWorkspaceFromRequest(c: Context<Env>): Promise<string> {
     return headerWorkspace;
   }
 
-  // Fallback to current working directory
-  return process.cwd();
+  return undefined;
 }
 
 /**

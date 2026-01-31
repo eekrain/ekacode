@@ -11,7 +11,9 @@ import { Hono } from "hono";
 import { randomBytes } from "node:crypto";
 import { v7 as uuidv7 } from "uuid";
 import { authMiddleware } from "./middleware/auth";
+import { cacheMiddleware } from "./middleware/cache";
 import { errorHandler } from "./middleware/error-handler";
+import { rateLimitMiddleware } from "./middleware/rate-limit";
 import chatRouter from "./routes/chat";
 import eventsRouter from "./routes/events";
 import healthRouter from "./routes/health";
@@ -75,6 +77,13 @@ app.use("*", async (c, next) => {
     status: c.res.status,
   });
 });
+
+// Rate limiting middleware (before auth to avoid wasting resources)
+app.use("*", rateLimitMiddleware);
+
+// Cache middleware (after rate limit, before auth)
+// Only caches GET requests, skips excluded paths
+app.use("*", cacheMiddleware);
 
 // Auth middleware (Basic Auth)
 // Uses app.onError() for error handling

@@ -50,6 +50,35 @@ export async function createSession(resourceId: string): Promise<Session> {
 }
 
 /**
+ * Create a new session with a provided session ID
+ *
+ * @param resourceId - User ID or "local" for single-user desktop
+ * @param sessionId - Explicit session ID to use
+ * @returns The created session
+ */
+export async function createSessionWithId(resourceId: string, sessionId: string): Promise<Session> {
+  const now = new Date();
+
+  const session = {
+    session_id: sessionId,
+    resource_id: resourceId,
+    thread_id: sessionId,
+    created_at: now,
+    last_accessed: now,
+  };
+
+  await db.insert(sessions).values(session);
+
+  return {
+    sessionId: session.session_id,
+    resourceId: session.resource_id,
+    threadId: session.thread_id,
+    createdAt: session.created_at,
+    lastAccessed: session.last_accessed,
+  };
+}
+
+/**
  * Get a session by ID
  *
  * @param sessionId - The session ID to retrieve

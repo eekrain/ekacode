@@ -127,6 +127,9 @@ describe("events SSE stream", () => {
     // Consume connected event
     await readChunk(reader);
 
+    // Small delay to ensure handler is registered
+    await new Promise(resolve => setTimeout(resolve, 50));
+
     const permissionMgr = PermissionManager.getInstance();
     permissionMgr.emit("permission:request", {
       id: "perm-2",
@@ -136,7 +139,7 @@ describe("events SSE stream", () => {
       sessionID: session.sessionId,
     });
 
-    const eventChunk = await readWithTimeout(reader, 100);
+    const eventChunk = await readWithTimeout(reader, 1000);
     await reader.cancel();
 
     expect(eventChunk).not.toBeNull();

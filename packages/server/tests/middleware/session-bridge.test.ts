@@ -6,7 +6,6 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- Test files use any for simplicity */
 
-import { Instance } from "@ekacode/core";
 import { Hono } from "hono";
 import { v7 as uuidv7 } from "uuid";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -52,10 +51,11 @@ describe("session bridge middleware", () => {
     // Add a test endpoint
     mockApp.get("/test", c => {
       const session = c.get("session");
+      const instanceContext = c.get("instanceContext");
       return c.json({
         hasSession: !!session,
         sessionId: session?.sessionId,
-        directory: Instance.directory,
+        directory: instanceContext?.directory,
       });
     });
   });
@@ -156,14 +156,17 @@ describe("session bridge middleware", () => {
       );
     });
 
-    it("should reject invalid session", async () => {
+    it("should create new session when provided sessionId does not exist", async () => {
       const response = await mockApp.request("/test", {
         headers: {
-          "X-Session-ID": "invalid-session-id",
+          "X-Session-ID": "new-session-id",
         },
       });
 
-      expect(response.status).toBe(401);
+      const data = await response.json();
+      expect(response.status).toBe(200);
+      expect(data.hasSession).toBe(true);
+      expect(data.sessionId).toBe("new-session-id");
     });
   });
 

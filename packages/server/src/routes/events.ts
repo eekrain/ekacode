@@ -3,7 +3,7 @@
  * Based on OpenCode's event streaming pattern
  */
 
-import { Instance, PermissionManager } from "@ekacode/core/server";
+import { PermissionManager } from "@ekacode/core/server";
 import type { PermissionRequest } from "@ekacode/shared";
 import { createLogger } from "@ekacode/shared/logger";
 import { Hono } from "hono";
@@ -36,7 +36,7 @@ app.get("/api/events", async c => {
   const requestId = c.get("requestId");
   const session = c.get("session");
   const sessionId = session?.sessionId;
-  const directory = Instance.directory;
+  const directory = c.get("instanceContext")?.directory;
   const permissionMgr = PermissionManager.getInstance();
 
   logger.info("SSE client connected", {
@@ -123,7 +123,7 @@ app.get("/api/events/permissions", c => {
   const requestId = c.get("requestId");
   const session = c.get("session");
   const sessionId = session?.sessionId;
-  const directory = Instance.directory;
+  const directory = c.get("instanceContext")?.directory;
   const permissionMgr = PermissionManager.getInstance();
 
   logger.info("Permission events client connected", {
