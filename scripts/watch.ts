@@ -94,6 +94,7 @@ async function watchMain(renderer: ViteDevServer) {
             "electron",
             [
               ".",
+              "--remote-debugging-port=9222",
               "--ozone-platform=wayland",
               "--enable-features=UseOzonePlatform",
               "--force-device-scale-factor=1",

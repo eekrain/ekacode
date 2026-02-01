@@ -9,6 +9,11 @@ const config: UserConfig = {
   mode: process.env.MODE,
   root: PACKAGE_ROOT,
   envDir: PROJECT_ROOT,
+  ssr: {
+    // Force @electron-toolkit/preload to be bundled, not externalized
+    // Preload scripts can't require() npm packages in sandbox
+    noExternal: ["@electron-toolkit/preload"],
+  },
   build: {
     ssr: true,
     sourcemap: "inline",
@@ -21,6 +26,8 @@ const config: UserConfig = {
       formats: ["cjs"], // Preload must be CommonJS
     },
     rollupOptions: {
+      // Only externalize 'electron' - everything else must be bundled
+      // because preload scripts run in sandbox and can't require() npm packages
       external: ["electron"],
       output: {
         entryFileNames: "[name].cjs",

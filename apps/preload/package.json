@@ -11,12 +11,12 @@
     }
   },
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && pnpm run fix-node-prefix",
     "dev": "vite build --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "fix-node-prefix": "node scripts/fix-node-prefix.cjs"
   },
   "dependencies": {
-    "@ekacode/shared": "workspace:*",
     "@electron-toolkit/preload": "^3.0.2"
   },
   "devDependencies": {

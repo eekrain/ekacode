@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join } from "path";
 import type { UserConfig } from "vite";
 
 const PACKAGE_ROOT = __dirname;

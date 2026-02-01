@@ -26,6 +26,9 @@ declare global {
         openExternal: (url: string) => Promise<void>;
         showItemInFolder: (fullPath: string) => Promise<void>;
       };
+      workspace: {
+        clone: (options: { url: string; branch: string }) => Promise<string>;
+      };
       app: {
         getVersion: () => Promise<string>;
         getPlatform: () => Promise<string>;

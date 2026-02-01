@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 
 // Import IPC handlers module
 import { setupIPCHandlers } from "./ipc";
+import { setupLogHandler } from "./modules/log";
 
 // ESM equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -126,6 +127,9 @@ app.whenReady().then(async () => {
 
   // Initialize server
   await initServer();
+
+  // Setup log handler for renderer logs
+  setupLogHandler();
 
   // Setup IPC handlers with server config
   if (serverConfig) {

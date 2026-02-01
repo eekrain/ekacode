@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ekacode is a privacy-focused, offline-first AI coding agent that runs locally as an Electron application. It uses a monorepo architecture with 5 packages coordinated by pnpm workspaces and Turbo for build orchestration.
+ekacode is a privacy-focused, offline-first AI coding agent that runs locally as an Electron application. It uses a monorepo architecture with **apps/** (Electron tiers) and **packages/** (business logic) coordinated by pnpm workspaces and Turbo for build orchestration.
+
+**Architecture:** Migrated from `electron-vite` to **plain Vite** with custom watch orchestration (`scripts/watch.ts`). Packages build to `dist/` and are consumed by apps via `workspace:*` protocol.
 
 ## Development Commands
 
@@ -22,12 +24,24 @@ pnpm format:check     # Check formatting
 
 ### Package-Specific Commands
 
-**Desktop (Electron + SolidJS):**
+**Desktop (Renderer - SolidJS):**
 
 ```bash
-pnpm --filter @ekacode/desktop dev
-pnpm --filter @ekacode/desktop build
+pnpm --filter @ekacode/desktop dev      # Vite dev server (HMR on port 5173)
+pnpm --filter @ekacode/desktop build    # Build renderer only
 pnpm --filter @ekacode/desktop typecheck
+```
+
+**Electron (Main Process):**
+
+```bash
+pnpm --filter @ekacode/electron build   # Build main process
+```
+
+**Preload (Context Bridge):**
+
+```bash
+pnpm --filter @ekacode/preload build    # Build preload scripts
 ```
 
 **Server (Hono API):**
@@ -62,6 +76,24 @@ pnpm --filter @ekacode/core test --testNamePattern "permission"
 
 ## Architecture
 
+### Directory Structure (Post-Migration)
+
+```
+ekacode/
+├── apps/                    # Electron application tier
+│   ├── electron/           # Main process (Node.js)
+│   ├── preload/            # Preload scripts (context bridge)
+│   └── desktop/            # Renderer process (SolidJS UI)
+├── packages/                # Shared business logic tier
+│   ├── core/               # Core agents, tools, security, Instance context
+│   ├── server/             # Hono REST API server
+│   ├── shared/             # Shared types, logger, utilities
+│   └── zai/                # Z.ai provider integration
+├── scripts/                 # Build orchestration scripts
+│   └── watch.ts            # Dev watch script (multi-process coordination)
+└── docs/                    # Documentation
+```
+
 ### Three-Tier Structure
 
 ```
@@ -95,24 +127,35 @@ pnpm --filter @ekacode/core test --testNamePattern "permission"
 
 **1. Monorepo Structure (pnpm workspaces)**
 
-- All packages reference each other via `workspace:*` protocol
-- Turbo orchestrates builds with caching and dependency ordering
-- Packages: `@ekacode/desktop`, `@ekacode/server`, `@ekacode/core`, `@ekacode/shared`, `@ekacode/zai`
+- **apps/** and **packages/** reference each other via `workspace:*` protocol
+- Turbo orchestrates builds with caching and dependency ordering (`turbo.json`)
+- Packages build to `dist/` before apps can consume them
+- Native modules handled via regex externals at every level
+- Version catalog in `pnpm-workspace.yaml` manages shared versions
 
-**2. IPC Communication (Electron)**
+**2. Plain Vite Architecture (migrated from electron-vite)**
+
+- Separate Vite configs: `apps/electron/vite.config.ts`, `apps/preload/vite.config.ts`, `apps/desktop/vite.config.ts`
+- Custom watch script (`scripts/watch.ts`) orchestrates multi-process dev mode:
+  - Renderer: Vite dev server with HMR (port 5173)
+  - Preload: Vite build watcher → triggers full renderer reload on change
+  - Main: Vite build watcher → kills/restarts Electron on change
+- Electron starts with Wayland optimizations: `--ozone-platform=wayland`
+
+**3. IPC Communication (Electron)**
 
 - Main → Preload → Renderer with context isolation
 - Key IPC channels: `get-server-config`, `permission:response`, `fs:watch-*`
 - Preload scripts expose safe APIs to renderer via context bridge
 
-**3. Session Management**
+**4. Session Management**
 
 - Session Bridge middleware manages sessions via `X-Session-ID` header
 - UUIDv7 identifiers for time-ordered session IDs
 - Database persistence in libsql (sessions table)
 - Mastra memory integration for long-term context storage
 
-**4. Permission System**
+**5. Permission System**
 
 - Rule-based: `allow` > `deny` > `ask` (default)
 - Configuration sources (priority order): env vars → `ekacode.config.json` → `package.json` → defaults
@@ -120,20 +163,43 @@ pnpm --filter @ekacode/core test --testNamePattern "permission"
 - Event-driven approval flow with 30s timeout
 - Git tools are auto-allowed, all others require permission
 
-**5. Tool System**
+**6. Tool System**
 
 - Tools wrapped in `ai.tool()` for AI SDK integration
 - Registry exports all available tools for agent access
 - Permission checks on every tool execution
 - Workspace validation ensures operations stay within allowed directories
 
-**6. Workspace Management**
+**7. Instance Context System (AsyncLocalStorage)**
 
-- Singleton `WorkspaceInstance` manages root directory and worktrees
+- Replaces singleton `WorkspaceInstance` pattern
+- Automatic context propagation through async call stacks
+- `Instance.provide({ directory, fn })` establishes context boundary
+- `Instance.context` provides `{ directory, sessionID, messageID, agent, abort }`
+- `Instance.state.get/set()` for state management keyed by directory
+- `Instance.bootstrap()` detects project info and VCS (git branch, etc.)
+- Session Bridge middleware injects context for automatic workspace propagation
+
+**8. Workspace Management**
+
 - Path resolution with relative/absolute conversion
 - External directory protection prevents escaping workspace
+- Workspace detection from query/header/body in Session Bridge
 
-**7. Z.ai Provider Integration**
+**9. XState RLM Workflow (Recursive Language Model)**
+
+- Hierarchical state machine for Plan/Build agent orchestration
+- **Plan phase**: `analyze_code` → `research` → `design` (linear progression)
+  - `analyze_code`: spawns Explore subagent for codebase analysis
+  - `research`: multi-turn for web search + docs lookup
+  - `design`: multi-turn for sequential thinking
+- **Build phase**: `implement` ⇄ `validate` (recursive loop)
+  - `implement`: runs Build agent for code changes
+  - `validate`: runs Build agent with LSP tools for validation
+  - Doom loop detection monitors oscillations and prevents infinite loops
+- **Terminal states**: `done` (success) or `failed` (doom loop detected)
+
+**10. Z.ai Provider Integration**
 
 - Custom provider for Z.ai models (chat + vision)
 - Hybrid Agent uses both text and vision models
@@ -160,10 +226,37 @@ Tool Request → PermissionManager → Rule Evaluation
 
 ```
 Request → Session Bridge (X-Session-ID header)
-  → getSession/createSession → DB Persist → Context Set → Handler
+  → getSession/createSession → DB Persist → Instance.provide() → Handler
+```
+
+**Instance Context Propagation:**
+
+```
+Instance.provide({ directory, sessionID, fn })
+  → AsyncLocalStorage context set
+  → Tool executes with Instance.context available
+  → { directory, sessionID, messageID, project, vcs } accessible
 ```
 
 ## Code Organization
+
+### App Structure (Electron Tiers)
+
+```
+apps/
+├── electron/             # Main process
+│   ├── src/
+│   │   └── index.ts      # Electron main entry
+│   └── vite.config.ts    # SSR build config
+├── preload/              # Preload scripts
+│   ├── src/
+│   │   └── index.ts      # Context bridge (ekacodeAPI)
+│   └── vite.config.ts    # CJS build config
+└── desktop/              # Renderer (UI)
+    ├── src/              # SolidJS components
+    ├── index.html
+    └── vite.config.ts    # Client build config
+```
 
 ### Package Structure
 
@@ -171,21 +264,18 @@ Request → Session Bridge (X-Session-ID header)
 packages/
 ├── core/                 # Core business logic
 │   ├── agents/           # AI agents (Hybrid, Coder, Planner)
-│   ├── tools/            # Filesystem, shell, search tools
+│   ├── tools/            # Filesystem, shell, search, sequential-thinking
 │   ├── security/         # Permission system (PermissionManager)
-│   ├── memory/           # Mastra memory integration
-│   └── workspace/        # Workspace management
+│   ├── instance/         # Instance context system (AsyncLocalStorage)
+│   ├── state/            # XState RLM workflow machine
+│   └── memory/           # Mastra memory integration
 ├── server/               # Hono REST API
-│   ├── db/               # libsql database (sessions, tool_sessions)
-│   ├── middleware/       # Session bridge, CORS
-│   └── routes/           # Chat, permissions, events, rules
-├── desktop/              # Electron app
-│   └── src/
-│       ├── main/         # Main process IPC handlers
-│       ├── preload/      # Context bridge scripts
-│       └── renderer/     # SolidJS UI components
+│   ├── db/               # libsql database (sessions, tool_sessions, sequential-thinking)
+│   ├── lib/              # Sequential-thinking DB helpers
+│   ├── middleware/       # Session bridge, CORS, rate-limit, cache
+│   └── routes/           # Chat, permissions, events, rules, workspace
 ├── shared/               # Shared types & utilities
-│   ├── logger/           # Pino logger wrapper
+│   ├── logger/           # Pino structured logger
 │   ├── paths.ts          # App path resolution
 │   └── types.ts          # Shared type definitions
 └── zai/                  # Z.ai provider integration
@@ -202,9 +292,9 @@ packages/
 
 ## Technologies
 
-**Frontend:** Electron 39, SolidJS 1.9, Electron Vite 5, Tailwind CSS 4
+**Frontend:** Electron 39, SolidJS 1.9, Vite 7.2, Tailwind CSS 4
 **Backend:** Hono 4.11, @hono/node-server, libsql, Drizzle ORM 0.45, Zod 4.3
-**AI:** AI SDK 6, Mastra Core, Mastra Memory, @mastra/fastembed
+**AI:** AI SDK 6, Mastra Core, Mastra Memory, XState 5, @mastra/fastembed
 **Tools:** Vitest 4, Pino 9, Turbo 2, UUID v7, diff 8, tree-sitter, Glob 13
 **Runtime:** Node.js 22, pnpm 10
 
@@ -219,9 +309,15 @@ packages/
 
 **libsql (SQLite):**
 
-- Tables: `sessions` (UUIDv7, thread_id, resource_id), `tool_sessions`
-- Drizzle ORM with schema in `packages/server/db/`
+- Tables: `sessions` (UUIDv7, thread_id, resource_id), `tool_sessions`, `sequential-thinking`
+- Drizzle ORM with schema in `packages/server/src/db/schema.ts`
 - Migrations via `drizzle:generate` and `drizzle:push`
+
+**Sequential Thinking Storage:**
+
+- Session-based storage with UUIDv7 identifiers
+- Session limits enforced (max sessions per user)
+- Database persistence in `sequential-thinking` table
 
 **Mastra Storage:**
 
@@ -230,9 +326,12 @@ packages/
 
 ## Important Notes
 
-- Privacy-focused: All operations are local-only by default
-- Git tools are automatically allowed; all other tools require permission approval
-- External directories are protected via workspace validation
-- Electron app uses Wayland optimizations (via `--ozone-platform=wayland` flag)
-- Session IDs use UUIDv7 for time-ordered, sortable identifiers
-- The Hybrid Agent supports both text and vision capabilities via Z.ai provider
+- **Migration completed:** Plain Vite architecture (not electron-vite)
+- **Privacy-focused:** All operations are local-only by default
+- **Git tools** are automatically allowed; all other tools require permission approval
+- **External directories** are protected via workspace validation
+- **Wayland optimizations:** Electron starts with `--ozone-platform=wayland` flag
+- **UUIDv7 identifiers:** Time-ordered, sortable session and message IDs
+- **Instance context:** Use `Instance.provide()` for context-aware operations, not singleton pattern
+- **Doom loop detection:** XState guards prevent infinite build-validate oscillations
+- **Sequential thinking:** Tool with session-based storage and database persistence

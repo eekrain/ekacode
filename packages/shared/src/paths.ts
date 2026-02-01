@@ -7,9 +7,9 @@
  * - Dev mode uses repo-local ./.ekacode (Option A)
  */
 
-import os from "node:os";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
+import os from "os";
+import path from "path";
+import { pathToFileURL } from "url";
 
 export type AppMode = "dev" | "prod";
 

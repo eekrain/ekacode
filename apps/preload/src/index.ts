@@ -7,11 +7,71 @@
  * renderer via contextBridge.
  */
 
-import { createLogger } from "@ekacode/shared/logger";
 import { electronAPI } from "@electron-toolkit/preload";
 import { contextBridge, ipcRenderer } from "electron";
 
-const logger = createLogger("desktop:preload");
+// Simple console-based logger for preload (sandbox-safe, no external dependencies)
+// Logs are prefixed and sent to main process via IPC when available
+const logger = {
+  debug: (...args: unknown[]) => {
+    console.debug("[desktop:preload]", ...args);
+  },
+  info: (...args: unknown[]) => {
+    console.info("[desktop:preload]", ...args);
+  },
+  warn: (...args: unknown[]) => {
+    console.warn("[desktop:preload]", ...args);
+  },
+  error: (...args: unknown[]) => {
+    console.error("[desktop:preload]", ...args);
+  },
+};
+
+/**
+ * Send log message to main process via IPC
+ */
+function sendLog(
+  level: "debug" | "info" | "warn" | "error",
+  message: string,
+  context?: Record<string, unknown>
+) {
+  try {
+    ipcRenderer.send("log:message", {
+      level,
+      message,
+      context: { package: "desktop:renderer", ...context },
+      timestamp: new Date().toISOString(),
+    });
+  } catch {
+    // IPC might not be ready, fall back to console
+  }
+}
+
+/**
+ * Create a logger for the renderer process
+ */
+function createRendererLogger(packageName: string, baseContext: Record<string, unknown> = {}) {
+  const prefix = `[${packageName}]`;
+
+  return {
+    debug: (msg: string, context?: Record<string, unknown>) => {
+      console.debug(prefix, msg);
+      sendLog("debug", `${prefix} ${msg}`, { ...baseContext, ...context });
+    },
+    info: (msg: string, context?: Record<string, unknown>) => {
+      console.info(prefix, msg);
+      sendLog("info", `${prefix} ${msg}`, { ...baseContext, ...context });
+    },
+    warn: (msg: string, context?: Record<string, unknown>) => {
+      console.warn(prefix, msg);
+      sendLog("warn", `${prefix} ${msg}`, { ...baseContext, ...context });
+    },
+    error: (msg: string, err?: Error, context?: Record<string, unknown>) => {
+      console.error(prefix, msg, err);
+      sendLog("error", `${prefix} ${msg}`, { ...baseContext, ...context, error: err?.message });
+    },
+  };
+}
 
 /**
  * Ekacode API exposed to renderer process
@@ -29,6 +89,18 @@ const ekacodeAPI = {
   // Electron Toolkit APIs
   // ============================================================
   electron: electronAPI,
+
+  // ============================================================
+  // Logger API (for renderer process)
+  // ============================================================
+  logger: {
+    /**
+     * Create a logger instance for the renderer
+     * @param packageName - Package name for the logger (e.g., 'desktop:renderer')
+     * @returns Logger instance with debug, info, warn, error methods
+     */
+    create: (packageName: string) => createRendererLogger(packageName),
+  },
 
   // ============================================================
   // Server APIs
@@ -81,6 +153,19 @@ const ekacodeAPI = {
      * @param fullPath - The full path to the file
      */
     showItemInFolder: (fullPath: string) => ipcRenderer.invoke("shell:showItemInFolder", fullPath),
+  },
+
+  // ============================================================
+  // Workspace APIs
+  // ============================================================
+  workspace: {
+    /**
+     * Clone a git repository to a local directory
+     * @param options - Clone options with url and branch
+     * @returns Promise resolving to cloned directory path
+     */
+    clone: (options: { url: string; branch: string }) =>
+      ipcRenderer.invoke("workspace:clone", options),
   },
 
   // ============================================================
@@ -184,7 +269,7 @@ if (process.contextIsolated) {
     // Expose Ekacode APIs
     contextBridge.exposeInMainWorld("ekacodeAPI", ekacodeAPI);
   } catch (error) {
-    logger.error("Failed to expose APIs to renderer", error as Error);
+    logger.error("Failed to expose APIs to renderer", error);
   }
 } else {
   // Fallback for when context isolation is disabled (not recommended)
