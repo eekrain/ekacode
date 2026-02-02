@@ -11,10 +11,10 @@ export { mastra, memory } from "./memory/mastra";
 export { EkacodeMemory, getMemory } from "./memory";
 
 // Agents
-export { buildAgentModel, createRoleAgent } from "./agents";
-export type { AgentModels, AgentProfile, RoleAgentOverrides } from "./agents";
-export { createCoderAgent } from "./agents/coder";
-export { createPlannerAgent } from "./agents/planner";
+export { buildAgentModel, createRoleAgent } from "./agent";
+export type { AgentModels, AgentProfile, RoleAgentOverrides } from "./agent";
+export { createCoderAgent } from "./agent/coder";
+export { createPlannerAgent } from "./agent/planner";
 
 // Tools
 export {
@@ -146,7 +146,7 @@ export {
   createDefaultPromptRegistry,
   createPromptRegistry,
   createZaiHybridAgent,
-} from "./agents/hybrid-agent";
+} from "./agent/hybrid-agent";
 export type {
   HybridAgentOptions,
   Intent,
@@ -155,9 +155,45 @@ export type {
   PromptRegistry,
   VisionImage,
   VisionRequest,
-} from "./agents/hybrid-agent";
+} from "./agent/hybrid-agent";
 
-// State Machine (XState RLM Workflow)
-export * from "./state";
+// Agent System (new architecture)
+export {
+  PHASE_ITERATION_LIMITS,
+  PHASE_MODELS,
+  createAgent,
+  createBuildAgent,
+  createExploreAgent,
+  createPlanAgent,
+} from "./agent/workflow/factory";
+export {
+  buildModel,
+  exploreModel,
+  getBuildModel,
+  getExploreModel,
+  getPlanModel,
+  getVisionModel,
+  planModel,
+  visionModel,
+} from "./agent/workflow/model-provider";
+export { PHASE_PROMPTS } from "./agent/workflow/prompts";
+export {
+  AgentConfig,
+  AgentEvent,
+  AgentInput,
+  AgentResult,
+  AgentType,
+} from "./agent/workflow/types";
+export { AgentProcessor } from "./session/processor";
+
+// Session Management (new architecture)
+export { SessionController } from "./session/controller";
+export { SessionManager } from "./session/manager";
+export { ShutdownHandler } from "./session/shutdown";
+export { Checkpoint, SessionConfig, SessionPhase, SessionStatus } from "./session/types";
+
+// Workflow (new architecture)
+export { WorkflowEngine } from "./workflow/engine";
+export { type CheckpointSaver, type WorkflowConfig, type WorkflowResults } from "./workflow/types";
 
 export const ekacodeVersion = "0.0.1";

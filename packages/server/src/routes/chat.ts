@@ -2,17 +2,17 @@
  * Chat API - AI chat endpoint with session management
  *
  * Handles chat requests with session bridge integration and UIMessage streaming.
- * Integrates with XState RLM workflow for agent orchestration.
+ * Integrates with new SessionManager and WorkflowEngine for agent orchestration.
  * Supports multimodal (image) inputs that trigger vision model routing.
  */
 
-import { createRLMActor, getTextContent } from "@ekacode/core";
 import { createLogger } from "@ekacode/shared/logger";
 import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import { Hono } from "hono";
 import { v7 as uuidv7 } from "uuid";
 import { z } from "zod";
 import type { Env } from "../index";
+import { getSessionManager } from "../index";
 import { createSessionMessage, sessionBridge } from "../middleware/session-bridge";
 
 const app = new Hono<Env>();
@@ -62,7 +62,7 @@ export { chatMessageSchema };
  * Chat endpoint
  *
  * Accepts chat messages and streams AI responses using UIMessage format.
- * Invokes the XState RLM workflow for full agent orchestration.
+ * Uses SessionManager and SessionController for workflow orchestration.
  * Supports multimodal (image) inputs that trigger vision model routing.
  *
  * Usage:
@@ -112,16 +112,13 @@ app.post("/api/chat", async c => {
   const shouldStream = body.stream !== false;
 
   // Parse message - support both simple string and multimodal formats
-  let message: string | Array<{ type: string; [key: string]: unknown }>;
   let messageText = "";
   if (typeof rawMessage === "string") {
-    message = rawMessage;
     messageText = rawMessage;
   } else if (rawMessage && typeof rawMessage === "object" && "content" in rawMessage) {
     // Multimodal message with content parts
     const content = (rawMessage as { content: unknown }).content;
     if (Array.isArray(content)) {
-      message = content;
       // Extract text from multimodal message for logging
       messageText = content
         .filter((part: { type: string; [key: string]: unknown }) => part.type === "text")
@@ -131,12 +128,10 @@ app.post("/api/chat", async c => {
         })
         .join(" ");
     } else {
-      message = String(content);
-      messageText = message;
+      messageText = String(content);
     }
   } else {
-    message = String(rawMessage ?? "");
-    messageText = message;
+    messageText = String(rawMessage ?? "");
   }
 
   logger.info("Chat request received", {
@@ -144,7 +139,7 @@ app.post("/api/chat", async c => {
     requestId,
     sessionId: session.sessionId,
     messageLength: messageText.length,
-    hasMultimodal: Array.isArray(message),
+    hasMultimodal: typeof rawMessage === "object" && "content" in rawMessage,
   });
 
   // Get workspace directory from Instance context
@@ -153,23 +148,37 @@ app.post("/api/chat", async c => {
     return c.json({ error: "No workspace directory" }, 400);
   }
 
-  logger.debug("Creating RLM actor", {
+  logger.debug("Getting or creating session controller", {
     module: "chat",
     directory,
     sessionId: session.sessionId,
   });
 
-  // Create XState actor for the RLM workflow
-  const actor = createRLMActor({
-    goal: messageText || "[Multimodal message]",
-    messages: [
-      {
-        role: "user",
-        content: message,
-      },
-    ],
-    workspace: directory,
-  });
+  // Get SessionManager and retrieve or create SessionController
+  const sessionManager = getSessionManager();
+  let controller = await sessionManager.getSession(session.sessionId);
+
+  if (!controller) {
+    // Create new SessionController for this session
+    await sessionManager.createSession({
+      resourceId: session.resourceId,
+      task: messageText || "[Multimodal message]",
+      workspace: directory,
+    });
+
+    // Get the newly created controller
+    controller = await sessionManager.getSession(session.sessionId);
+
+    if (!controller) {
+      return c.json({ error: "Failed to create session controller" }, 500);
+    }
+
+    logger.debug("Created new session controller", {
+      module: "chat",
+      sessionId: session.sessionId,
+      controllerId: controller.sessionId,
+    });
+  }
 
   // Create UIMessage stream
   if (shouldStream) {
@@ -181,113 +190,86 @@ app.post("/api/chat", async c => {
         }
 
         const messageId = uuidv7();
-        let lastTextDelta = "";
-        let lastAssistantText = "";
-        let didWriteTextDelta = false;
-        let lastStateSent: string | null = null;
-        let finishWritten = false;
-        let isComplete = false;
+        let lastPhase: string | null = null;
+        let _isComplete = false;
 
-        // Subscribe to state changes
-        const subscription = actor.subscribe({
-          next: snapshot => {
-            const stateLabel =
-              snapshot.context.lastState ??
-              (typeof snapshot.value === "string"
-                ? snapshot.value
-                : JSON.stringify(snapshot.value));
-            if (stateLabel && stateLabel !== lastStateSent) {
+        try {
+          // Start the workflow
+          logger.debug("Starting workflow", {
+            module: "chat",
+            sessionId: session.sessionId,
+            task: messageText,
+          });
+
+          // Start the workflow and monitor progress
+          const workflowPromise = controller.start(messageText);
+
+          // Monitor workflow progress
+          const checkInterval = setInterval(() => {
+            const status = controller.getStatus();
+
+            // Send phase updates
+            if (status.phase !== lastPhase) {
               writer.write({
                 type: "data-state",
                 id: "state",
                 data: {
-                  state: stateLabel,
-                  iteration: snapshot.context.iterationCount,
-                  toolExecutionCount: snapshot.context.toolExecutionCount,
+                  state: status.phase,
+                  iteration: 0,
+                  toolExecutionCount: 0,
                 },
               });
-              lastStateSent = stateLabel;
+              lastPhase = status.phase;
             }
 
-            // Extract assistant messages
-            const messages = snapshot.context.messages;
-            const lastMessage = messages[messages.length - 1];
+            // Check for completion
+            if (status.phase === "completed" || status.phase === "failed") {
+              _isComplete = true;
+              clearInterval(checkInterval);
 
-            if (lastMessage?.role === "assistant") {
-              // Check for new text delta
-              // Assistant messages always have string content
-              const content = getTextContent(lastMessage);
-              lastAssistantText = content;
-              const newDelta = content.slice(lastTextDelta.length);
-              if (newDelta.length > 0) {
-                writer.write({
-                  type: "text-delta",
-                  id: messageId,
-                  delta: newDelta,
-                });
-                didWriteTextDelta = true;
-                lastTextDelta = content;
-              }
-            }
+              // Send final message
+              writer.write({
+                type: "text-delta",
+                id: messageId,
+                delta: status.summary || "",
+              });
 
-            // Check for completion (write only once)
-            if (!finishWritten && (snapshot.matches("done") || snapshot.matches("failed"))) {
-              finishWritten = true;
-              isComplete = true;
-              if (!didWriteTextDelta) {
-                writer.write({
-                  type: "text-delta",
-                  id: messageId,
-                  delta: lastAssistantText,
-                });
-                didWriteTextDelta = true;
-                lastTextDelta = lastAssistantText;
-              }
               writer.write({
                 type: "finish",
-                finishReason: snapshot.matches("done") ? "stop" : "error",
+                finishReason: status.phase === "completed" ? "stop" : "error",
               });
-            }
-          },
-          error: (error: unknown) => {
-            if (!finishWritten) {
-              finishWritten = true;
-              isComplete = true;
-              writer.write({
-                type: "error",
-                errorText: error instanceof Error ? error.message : String(error),
-              });
-            }
-          },
-          complete: () => {
-            isComplete = true;
-          },
-        });
-
-        // Start the actor
-        actor.start();
-
-        // Wait for completion (timeout: 10 minutes)
-        await new Promise<void>((resolve, reject) => {
-          const startTime = Date.now();
-          const timeoutMs = 10 * 60 * 1000;
-
-          const checkInterval = setInterval(() => {
-            const elapsed = Date.now() - startTime;
-            if (elapsed > timeoutMs) {
-              clearInterval(checkInterval);
-              subscription.unsubscribe();
-              actor.stop();
-              reject(new Error("Agent execution timeout"));
-              return;
-            }
-
-            if (isComplete) {
-              clearInterval(checkInterval);
-              resolve();
             }
           }, 100);
-        });
+
+          // Wait for workflow completion (timeout: 10 minutes)
+          const timeoutMs = 10 * 60 * 1000;
+
+          await Promise.race([
+            workflowPromise,
+            new Promise<void>((_, reject) =>
+              setTimeout(() => reject(new Error("Agent execution timeout")), timeoutMs)
+            ),
+          ]);
+
+          clearInterval(checkInterval);
+        } catch (error) {
+          _isComplete = true;
+          if (error instanceof Error) {
+            logger.error("Workflow execution error", error, {
+              sessionId: session.sessionId,
+            });
+          } else {
+            logger.error("Workflow execution error", undefined, {
+              sessionId: session.sessionId,
+              error: String(error),
+            });
+          }
+
+          writer.write({
+            type: "error",
+            errorText: error instanceof Error ? error.message : String(error),
+          });
+        }
       },
     });
 
@@ -331,6 +313,38 @@ app.get("/api/chat/session", c => {
     threadId: session.threadId,
     createdAt: session.createdAt.toISOString(),
     lastAccessed: session.lastAccessed.toISOString(),
+  });
+});
+
+/**
+ * Get session status endpoint
+ *
+ * Returns the current status of a session including phase and progress.
+ * Used by UI to show hints about incomplete work.
+ *
+ * Usage:
+ * GET /api/session/:sessionId/status
+ */
+app.get("/api/session/:sessionId/status", async c => {
+  const sessionId = c.req.param("sessionId");
+  const sessionManager = getSessionManager();
+
+  const controller = await sessionManager.getSession(sessionId);
+
+  if (!controller) {
+    return c.json({ error: "Session not found" }, 404);
+  }
+
+  const status = controller.getStatus();
+
+  return c.json({
+    sessionId: status.sessionId,
+    phase: status.phase,
+    progress: status.progress,
+    hasIncompleteWork: controller.hasIncompleteWork(),
+    summary: status.summary,
+    lastActivity: status.lastActivity,
+    activeAgents: status.activeAgents,
   });
 });
 

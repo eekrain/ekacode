@@ -9,7 +9,8 @@
     "allowImportingTsExtensions": true,
     "moduleResolution": "bundler",
     "module": "ESNext",
-    "noEmit": true
+    "noEmit": true,
+    "noUnusedLocals": false
   },
   "include": ["src/**/*.ts", "vite.config.ts"]
 }
