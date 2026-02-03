@@ -103,6 +103,10 @@ const logger = createLogger("server");
 const SERVER_TOKEN = randomBytes(16).toString("hex"); // 32 characters
 const SERVER_PORT = parseInt(process.env.PORT || "0") || 0; // Random port
 
+export function getServerToken(): string {
+  return SERVER_TOKEN;
+}
+
 // CORS for localhost
 app.use("*", async (c, next) => {
   c.header("Access-Control-Allow-Origin", "*");

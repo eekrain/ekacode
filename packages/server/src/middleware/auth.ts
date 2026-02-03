@@ -13,22 +13,6 @@ import type { ErrorResponse } from "../types";
 const logger = createLogger("server:auth");
 
 /**
- * Get credentials from environment
- *
- * Reads fresh from environment each call to support test env changes.
- */
-function getCredentials(): { username: string; password: string } {
-  const username = process.env.EKACODE_USERNAME;
-  const password = process.env.EKACODE_PASSWORD;
-
-  if (!username || !password) {
-    throw new Error("EKACODE_USERNAME and EKACODE_PASSWORD must be set");
-  }
-
-  return { username, password };
-}
-
-/**
  * Parse Basic Auth credentials from header
  *
  * @param authHeader - The Authorization header value
@@ -87,6 +71,7 @@ function createUnauthorizedResponse(requestId: string, message: string): ErrorRe
  * @param c - Hono context
  * @param next - Next middleware in chain
  */
+// Basic Auth middleware
 export async function authMiddleware(c: Context<Env>, next: Next): Promise<Response | void> {
   const requestId = c.get("requestId");
 
@@ -100,66 +85,53 @@ export async function authMiddleware(c: Context<Env>, next: Next): Promise<Respo
     return next();
   }
 
-  let configuredCredentials: { username: string; password: string };
-  try {
-    configuredCredentials = getCredentials();
-  } catch {
-    logger.error("Auth configuration missing", undefined, {
-      module: "auth",
-      requestId,
-      path: c.req.path,
-    });
-    return c.json(
-      {
-        error: {
-          code: "CONFIG_ERROR",
-          message: "Server authentication is not configured",
-          requestId,
-        },
-      },
-      500
-    );
-  }
-
   // Check for Authorization header
   const authHeader = c.req.header("Authorization");
+  const queryToken = c.req.query("token");
 
-  if (!authHeader) {
-    logger.warn("Missing Authorization header", {
-      module: "auth",
-      requestId,
-      path: c.req.path,
-    });
+  // Get server token for validation
+  const serverToken = (await import("../index")).getServerToken();
 
-    return c.json(createUnauthorizedResponse(requestId, "Missing credentials"), 401);
+  // Case 1: Authorization Header (Standard)
+  if (authHeader) {
+    if (!authHeader.startsWith("Basic ")) {
+      logger.warn("Invalid Authorization format", {
+        module: "auth",
+        requestId,
+        path: c.req.path,
+      });
+      return c.json(createUnauthorizedResponse(requestId, "Missing credentials"), 401);
+    }
+
+    const credentials = parseBasicAuth(authHeader);
+    if (!credentials || credentials.password !== serverToken) {
+      logger.warn("Invalid credentials", {
+        module: "auth",
+        requestId,
+        path: c.req.path,
+      });
+      return c.json(createUnauthorizedResponse(requestId, "Invalid credentials"), 401);
+    }
   }
-
-  // Check for Basic Auth format (must start with "Basic ")
-  if (!authHeader.startsWith("Basic ")) {
-    logger.warn("Invalid Authorization format", {
-      module: "auth",
-      requestId,
-      path: c.req.path,
-    });
-
-    return c.json(createUnauthorizedResponse(requestId, "Missing credentials"), 401);
+  // Case 2: Query Parameter (SSE/EventSource)
+  else if (queryToken) {
+    if (queryToken !== serverToken) {
+      logger.warn("Invalid token parameter", {
+        module: "auth",
+        requestId,
+        path: c.req.path,
+      });
+      return c.json(createUnauthorizedResponse(requestId, "Invalid token"), 401);
+    }
   }
-
-  // Parse and validate credentials
-  const credentials = parseBasicAuth(authHeader);
-
-  if (
-    !credentials ||
-    credentials.username !== configuredCredentials.username ||
-    credentials.password !== configuredCredentials.password
-  ) {
-    logger.warn("Invalid credentials", {
+  // Case 3: Missing Credentials
+  else {
+    logger.warn("Missing credentials", {
       module: "auth",
       requestId,
       path: c.req.path,
     });
-
-    return c.json(createUnauthorizedResponse(requestId, "Invalid credentials"), 401);
+    return c.json(createUnauthorizedResponse(requestId, "Missing credentials"), 401);
   }
 
   // Credentials are valid

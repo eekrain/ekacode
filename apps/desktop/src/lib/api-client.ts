@@ -330,6 +330,7 @@ export class EkacodeApiClient {
   connectToEvents(workspace: string, sessionId?: string): EventSource {
     const url = new URL(`${this.config.baseUrl}/api/events`);
     url.searchParams.set("directory", workspace);
+    url.searchParams.set("token", this.config.token);
     if (sessionId) {
       url.searchParams.set("sessionId", sessionId);
     }
@@ -347,6 +348,7 @@ export class EkacodeApiClient {
     const url = new URL(`${this.config.baseUrl}/api/events/permissions`);
     url.searchParams.set("directory", workspace);
     url.searchParams.set("sessionId", sessionId);
+    url.searchParams.set("token", this.config.token);
     return new EventSource(url.toString());
   }
 
