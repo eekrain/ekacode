@@ -22,7 +22,7 @@ export const AgentConfig = z.object({
   type: AgentType,
   model: z.string(),
   systemPrompt: z.string(),
-  tools: z.array(z.any()), // Tool<any, any>[]
+  tools: z.record(z.string(), z.any()), // Tools as object with named keys (AI SDK format)
   maxIterations: z.number().default(50),
   temperature: z.number().optional(),
 });
@@ -60,12 +60,14 @@ export const AgentEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("text"), text: z.string(), agentId: z.string() }),
   z.object({
     type: z.literal("tool-call"),
+    toolCallId: z.string(),
     toolName: z.string(),
     args: z.any(),
     agentId: z.string(),
   }),
   z.object({
     type: z.literal("tool-result"),
+    toolCallId: z.string(),
     toolName: z.string(),
     result: z.any(),
     agentId: z.string(),

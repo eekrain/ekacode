@@ -192,8 +192,4 @@ export { SessionManager } from "./session/manager";
 export { ShutdownHandler } from "./session/shutdown";
 export { Checkpoint, SessionConfig, SessionPhase, SessionStatus } from "./session/types";
 
-// Workflow (new architecture)
-export { WorkflowEngine } from "./workflow/engine";
-export { type CheckpointSaver, type WorkflowConfig, type WorkflowResults } from "./workflow/types";
-
 export const ekacodeVersion = "0.0.1";

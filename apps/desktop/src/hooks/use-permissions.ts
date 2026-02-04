@@ -9,10 +9,14 @@
  * - Session-filtered permission requests
  * - Approve/deny methods with API calls
  * - Connection status tracking
+ * - Comprehensive logging
  */
 import { createEffect, createSignal, onCleanup, type Accessor } from "solid-js";
 import type { EkacodeApiClient } from "../lib/api-client";
+import { createLogger } from "../lib/logger";
 import type { PermissionRequestData } from "../types/ui-message";
+
+const logger = createLogger("desktop:permissions");
 
 /**
  * Options for usePermissions hook
@@ -82,27 +86,40 @@ export interface UsePermissionsResult {
 export function usePermissions(options: UsePermissionsOptions): UsePermissionsResult {
   const { client, workspace, sessionId, onRequest } = options;
 
+  logger.debug("usePermissions hook initialized");
+
   const [pending, setPending] = createSignal<PermissionRequestData[]>([]);
   const [isConnected, setIsConnected] = createSignal(false);
 
   let eventSource: EventSource | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let reconnectAttempts = 0;
 
   /**
    * Connect to SSE endpoint
    */
   const connect = () => {
     const ws = workspace();
-    if (!ws) return;
+    if (!ws) {
+      logger.debug("Cannot connect - no workspace");
+      return;
+    }
 
     // Clean up existing connection
     disconnect();
+
+    logger.info("Connecting to permission events", {
+      workspace: ws,
+      sessionId: sessionId() ?? undefined,
+    });
 
     try {
       eventSource = client.connectToEvents(ws, sessionId() ?? undefined);
 
       eventSource.onopen = () => {
+        logger.info("Permission events connected", { workspace: ws });
         setIsConnected(true);
+        reconnectAttempts = 0;
       };
 
       // Handle permission request events
@@ -113,11 +130,16 @@ export function usePermissions(options: UsePermissionsOptions): UsePermissionsRe
           // Filter by session if we have one
           const sid = sessionId();
           if (!sid || request.sessionID === sid) {
+            logger.info("Permission request received", {
+              id: request.id,
+              toolName: request.toolName,
+              sessionId: request.sessionID,
+            });
             setPending(prev => [...prev, request]);
             onRequest?.(request);
           }
         } catch (e) {
-          console.error("Failed to parse permission request:", e);
+          logger.error("Failed to parse permission request", e as Error);
         }
       });
 
@@ -126,18 +148,22 @@ export function usePermissions(options: UsePermissionsOptions): UsePermissionsRe
         try {
           const data = JSON.parse(event.data) as { id: string; resolved: boolean };
           if (data.resolved) {
+            logger.debug("Permission resolved via update", { id: data.id });
             setPending(prev => prev.filter(p => p.id !== data.id));
           }
         } catch (e) {
-          console.error("Failed to parse permission update:", e);
+          logger.error("Failed to parse permission update", e as Error);
         }
       });
 
       eventSource.onerror = () => {
+        logger.warn("Permission events connection error");
         setIsConnected(false);
 
         // Auto-reconnect after delay
         if (!reconnectTimer) {
+          reconnectAttempts++;
+          logger.debug("Scheduling reconnect", { attempt: reconnectAttempts });
           reconnectTimer = setTimeout(() => {
             reconnectTimer = null;
             connect();
@@ -145,7 +171,7 @@ export function usePermissions(options: UsePermissionsOptions): UsePermissionsRe
         }
       };
     } catch (e) {
-      console.error("Failed to connect to events:", e);
+      logger.error("Failed to connect to permission events", e as Error);
       setIsConnected(false);
     }
   };
@@ -159,6 +185,7 @@ export function usePermissions(options: UsePermissionsOptions): UsePermissionsRe
       reconnectTimer = null;
     }
     if (eventSource) {
+      logger.debug("Disconnecting permission events");
       eventSource.close();
       eventSource = null;
     }
@@ -169,14 +196,17 @@ export function usePermissions(options: UsePermissionsOptions): UsePermissionsRe
   createEffect(() => {
     const ws = workspace();
     if (ws) {
+      logger.debug("Workspace changed, reconnecting", { workspace: ws });
       connect();
     } else {
+      logger.debug("Workspace cleared, disconnecting");
       disconnect();
     }
   });
 
   // Cleanup on unmount
   onCleanup(() => {
+    logger.debug("usePermissions cleanup");
     disconnect();
   });
 
@@ -184,12 +214,14 @@ export function usePermissions(options: UsePermissionsOptions): UsePermissionsRe
    * Approve a permission request
    */
   const approve = async (id: string, patterns?: string[]): Promise<void> => {
+    logger.info("Approving permission", { id, patterns });
     try {
       await client.approvePermission(id, true, patterns);
       // Remove from pending immediately (optimistic)
       setPending(prev => prev.filter(p => p.id !== id));
+      logger.info("Permission approved", { id });
     } catch (e) {
-      console.error("Failed to approve permission:", e);
+      logger.error("Failed to approve permission", e as Error, { id });
       throw e;
     }
   };
@@ -198,12 +230,14 @@ export function usePermissions(options: UsePermissionsOptions): UsePermissionsRe
    * Deny a permission request
    */
   const deny = async (id: string): Promise<void> => {
+    logger.info("Denying permission", { id });
     try {
       await client.approvePermission(id, false);
       // Remove from pending immediately (optimistic)
       setPending(prev => prev.filter(p => p.id !== id));
+      logger.info("Permission denied", { id });
     } catch (e) {
-      console.error("Failed to deny permission:", e);
+      logger.error("Failed to deny permission", e as Error, { id });
       throw e;
     }
   };

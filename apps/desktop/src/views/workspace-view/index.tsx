@@ -137,8 +137,13 @@ function WorkspaceViewContent() {
   };
 
   // Get chat data for rendering
-  const messages = () => ctx.chat()?.messages ?? [];
+  const messages = () => {
+    const chat = ctx.chat();
+    if (!chat) return [];
+    return chat.messages();
+  };
   const isGenerating = () => ctx.chat()?.isLoading() ?? false;
+  const chatError = () => ctx.chat()?.error() ?? null;
   const activeSession = () => {
     const id = ctx.activeSessionId();
     return ctx.sessions().find(s => s.sessionId === id);
@@ -204,6 +209,7 @@ function WorkspaceViewContent() {
             messages={messages()}
             isGenerating={isGenerating()}
             thinkingContent={""}
+            error={chatError()}
             onSend={handleSendMessage}
             onModelChange={handleModelChange}
             selectedModel="claude-sonnet"

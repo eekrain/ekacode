@@ -42,7 +42,6 @@ export const editTool = tool({
     // Get context with enhanced error message
     const { directory, sessionID } = getContextOrThrow();
     const permissionMgr = PermissionManager.getInstance();
-    const toolLogger = logger.child({ module: "tool:edit", tool: "edit", sessionID });
 
     // Validate path operation and get safe paths
     const { absolutePath, relativePath } = await validatePathOperation(
@@ -70,7 +69,10 @@ export const editTool = tool({
     }
 
     if (replacements === 0) {
-      toolLogger.warn("String not found in file", {
+      logger.warn("String not found in file", {
+        module: "tool:edit",
+        tool: "edit",
+        sessionID,
         path: relativePath,
         search: oldString.slice(0, 50),
       });
@@ -79,7 +81,10 @@ export const editTool = tool({
 
     await fs.writeFile(absolutePath, content, "utf-8");
 
-    toolLogger.info("File edited successfully", {
+    logger.info("File edited successfully", {
+      module: "tool:edit",
+      tool: "edit",
+      sessionID,
       path: relativePath,
       replacements,
       replaceAll,

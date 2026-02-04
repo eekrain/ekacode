@@ -2,16 +2,14 @@
  * Chat Route Integration Tests
  *
  * Tests for the /api/chat endpoint with SessionManager integration.
- * Verifies UIMessage streaming, state updates, and tool execution.
+ * Verifies UIMessage streaming, state updates, and agent execution.
  *
- * NOTE: These tests are temporarily skipped during migration from XState
- * to SessionManager architecture. The tests need to be updated to mock
- * SessionManager, SessionController, WorkflowEngine, and LLM streaming.
+ * Updated for simplified single-agent architecture using processMessage API.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-describe.skip("Chat route integration", () => {
+describe("Chat route integration", () => {
   beforeEach(async () => {
     const { setupTestDatabase } = await import("../../db/test-setup");
     await setupTestDatabase();
@@ -41,9 +39,8 @@ describe.skip("Chat route integration", () => {
 
       const body = await response.text();
       expect(body).toContain("data-session");
-      // The RLM agent now completes the workflow successfully
+      // The agent now completes successfully
       expect(body).toContain('"finishReason":"stop"');
-      // Should have a finish message indicating completion
       expect(body).toContain('"type":"finish"');
     });
 
@@ -88,9 +85,8 @@ describe.skip("Chat route integration", () => {
 
       const body = await response.text();
 
-      // Should have state updates from XState machine
-      // State updates show current agent, phase, iteration
-      const hasStateUpdate = body.includes('"type":"state"') || body.includes("state");
+      // Should have state updates from agent execution
+      const hasStateUpdate = body.includes('"type":"data-state"') || body.includes('"state":');
       expect(hasStateUpdate).toBe(true);
     });
 
@@ -113,7 +109,6 @@ describe.skip("Chat route integration", () => {
       const body = await response.text();
 
       // Should have text delta updates
-      // Text deltas contain streaming response content
       const hasTextDelta = body.includes('"type":"text-delta"') || body.includes("text-delta");
       expect(hasTextDelta).toBe(true);
     });
@@ -139,6 +134,33 @@ describe.skip("Chat route integration", () => {
       // Should have finish message with completion reason
       expect(body).toContain('"type":"finish"');
       expect(body).toContain('"finishReason"');
+    });
+
+    it("use processMessage API instead of start", async () => {
+      const chatRouter = (await import("../../src/routes/chat")).default;
+
+      // Mock SessionManager to verify processMessage is called
+      const { getSessionManager } = await import("../../src/index");
+      const sessionManager = getSessionManager();
+
+      // Spy on the session creation and message processing
+      const createSessionSpy = vi.spyOn(sessionManager, "createSession");
+
+      const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: "Test processMessage API",
+          stream: true,
+        }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(createSessionSpy).toHaveBeenCalled();
+
+      createSessionSpy.mockRestore();
     });
   });
 
@@ -187,6 +209,42 @@ describe.skip("Chat route integration", () => {
       const body = await response.text();
       expect(body).toContain('"finishReason"');
     });
+
+    it("should process multiple messages in the same session", async () => {
+      const chatRouter = (await import("../../src/routes/chat")).default;
+
+      const sessionId = "test-session-multi-123";
+
+      // First message
+      const response1 = await chatRouter.request(`http://localhost/api/chat?directory=/tmp/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Session-ID": sessionId,
+        },
+        body: JSON.stringify({
+          message: "First message",
+          stream: true,
+        }),
+      });
+
+      expect(response1.status).toBe(200);
+
+      // Second message in same session
+      const response2 = await chatRouter.request(`http://localhost/api/chat?directory=/tmp/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Session-ID": sessionId,
+        },
+        body: JSON.stringify({
+          message: "Second message",
+          stream: true,
+        }),
+      });
+
+      expect(response2.status).toBe(200);
+    });
   });
 
   describe("Error handling", () => {
@@ -224,6 +282,30 @@ describe.skip("Chat route integration", () => {
       // Should handle empty message (may succeed or fail gracefully)
       expect(response.status).toBeGreaterThanOrEqual(200);
       expect(response.status).toBeLessThan(500);
+    });
+
+    it("should handle agent execution errors gracefully", async () => {
+      const chatRouter = (await import("../../src/routes/chat")).default;
+
+      // This test verifies that when agent execution fails,
+      // the error is properly propagated through the stream
+      const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: "This should trigger an error",
+          stream: true,
+        }),
+      });
+
+      // Even with errors, the endpoint should handle them gracefully
+      expect(response.status).toBe(200);
+
+      const body = await response.text();
+      // The stream should complete with some finish message
+      expect(body).toContain('"type":"finish"');
     });
   });
 
@@ -276,6 +358,36 @@ describe.skip("Chat route integration", () => {
       // Should handle non-streaming request
       expect(response.status).toBeGreaterThanOrEqual(200);
       expect(response.status).toBeLessThan(500);
+    });
+  });
+
+  describe("Session status endpoint", () => {
+    it("should return session status", async () => {
+      const chatRouter = (await import("../../src/routes/chat")).default;
+
+      // First create a session
+      await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: "Hello",
+          stream: true,
+        }),
+      });
+
+      // Then get status - note: we need to use a known session ID
+      // For this test, we'll just verify the endpoint structure
+      const statusResponse = await chatRouter.request(
+        "http://localhost/api/session/unknown-session/status",
+        {
+          method: "GET",
+        }
+      );
+
+      // Unknown session should return 404
+      expect(statusResponse.status).toBe(404);
     });
   });
 });

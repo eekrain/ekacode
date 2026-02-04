@@ -9,8 +9,12 @@
  * - Workspace-scoped session storage
  * - Session restore on page load
  * - Clear session functionality
+ * - Comprehensive logging
  */
 import { createEffect, createSignal, type Accessor } from "solid-js";
+import { createLogger } from "../lib/logger";
+
+const logger = createLogger("desktop:session");
 
 /**
  * Options for useSession hook
@@ -72,12 +76,17 @@ export interface UseSessionResult {
 export function useSession(options: UseSessionOptions): UseSessionResult {
   const { workspace, storageKeyPrefix = "ekacode-session" } = options;
 
+  logger.debug("useSession hook initialized", { storageKeyPrefix });
+
   /**
    * Get storage key for current workspace
    */
   const getStorageKey = () => {
     const ws = workspace();
-    if (!ws) return null;
+    if (!ws) {
+      logger.debug("No workspace for session storage key");
+      return null;
+    }
     // Create a safe key from workspace path
     const safeKey = ws.replace(/[^a-zA-Z0-9]/g, "_");
     return `${storageKeyPrefix}:${safeKey}`;
@@ -90,9 +99,15 @@ export function useSession(options: UseSessionOptions): UseSessionResult {
     const key = getStorageKey();
     if (!key) return null;
     try {
-      return localStorage.getItem(key);
+      const sessionId = localStorage.getItem(key);
+      if (sessionId) {
+        logger.debug("Session loaded from storage", { key, sessionId });
+      } else {
+        logger.debug("No stored session found", { key });
+      }
+      return sessionId;
     } catch (e) {
-      console.warn("Failed to load session from localStorage:", e);
+      logger.error("Failed to load session from localStorage", e as Error, { key });
       return null;
     }
   };
@@ -106,16 +121,23 @@ export function useSession(options: UseSessionOptions): UseSessionResult {
     try {
       if (id) {
         localStorage.setItem(key, id);
+        logger.debug("Session saved to storage", { key, sessionId: id });
       } else {
         localStorage.removeItem(key);
+        logger.debug("Session removed from storage", { key });
       }
     } catch (e) {
-      console.warn("Failed to save session to localStorage:", e);
+      logger.error("Failed to save session to localStorage", e as Error, { key });
     }
   };
 
   // Initialize with stored session
-  const [sessionId, setSessionIdInternal] = createSignal<string | null>(loadSession());
+  const initialSessionId = loadSession();
+  logger.info("Session initialized", {
+    hasSession: !!initialSessionId,
+    sessionId: initialSessionId ?? undefined,
+  });
+  const [sessionId, setSessionIdInternal] = createSignal<string | null>(initialSessionId);
 
   /**
    * Persist to localStorage when session changes
@@ -130,9 +152,13 @@ export function useSession(options: UseSessionOptions): UseSessionResult {
    */
   createEffect(() => {
     // This effect runs when workspace() changes
-    const _ws = workspace();
-    if (_ws) {
+    const ws = workspace();
+    if (ws) {
       const storedId = loadSession();
+      logger.info("Workspace changed, reloading session", {
+        workspace: ws,
+        sessionId: storedId ?? undefined,
+      });
       setSessionIdInternal(storedId);
     }
   });
@@ -141,6 +167,7 @@ export function useSession(options: UseSessionOptions): UseSessionResult {
    * Set session ID (updates both signal and localStorage)
    */
   const setSessionId = (id: string | null) => {
+    logger.info("Setting session ID", { sessionId: id ?? undefined });
     setSessionIdInternal(id);
     // Note: localStorage update happens via createEffect
   };
@@ -149,13 +176,15 @@ export function useSession(options: UseSessionOptions): UseSessionResult {
    * Clear session for current workspace
    */
   const clearSession = () => {
+    logger.info("Clearing session");
     setSessionIdInternal(null);
     const key = getStorageKey();
     if (key) {
       try {
         localStorage.removeItem(key);
+        logger.debug("Session cleared from storage", { key });
       } catch (e) {
-        console.warn("Failed to clear session from localStorage:", e);
+        logger.error("Failed to clear session from localStorage", e as Error, { key });
       }
     }
   };

@@ -4,6 +4,32 @@
  * Hono server with authentication and permission API
  */
 
+// Load environment variables from .env file in development
+import { config } from "dotenv";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+// Try to load .env from project root (works in both dev and production)
+const envPaths = [
+  resolve(process.cwd(), ".env"),
+  resolve(process.cwd(), "../.env"),
+  resolve(process.cwd(), "../../.env"),
+];
+
+for (const envPath of envPaths) {
+  if (existsSync(envPath)) {
+    config({ path: envPath });
+    break;
+  }
+}
+
+// Debug: Log if API keys are loaded (only in development)
+if (process.env.NODE_ENV !== "production") {
+  const hasZai = !!process.env.ZAI_API_KEY;
+  const hasOpenAI = !!process.env.OPENAI_API_KEY;
+  console.log(`[server] Environment loaded - ZAI: ${hasZai}, OpenAI: ${hasOpenAI}`);
+}
+
 import { SessionManager, ShutdownHandler } from "@ekacode/core";
 import { initializePermissionRules } from "@ekacode/core/server";
 import { createLogger } from "@ekacode/shared/logger";
@@ -166,7 +192,8 @@ app.route("/", healthRouter);
 app.route("/api/permissions", permissionsRouter);
 
 // Mount chat routes (protected by auth)
-app.route("/api/chat", chatRouter);
+// Note: chatRouter uses full paths like "/api/chat", so mount at "/"
+app.route("/", chatRouter);
 
 // Mount events routes
 app.route("/", eventsRouter);

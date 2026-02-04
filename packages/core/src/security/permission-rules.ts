@@ -35,7 +35,11 @@ export function globToRegex(glob: string): RegExp {
  */
 export function matchesGlob(pattern: string, str: string): boolean {
   const regex = globToRegex(pattern);
-  return regex.test(str);
+  const matches = regex.test(str);
+  console.log(
+    `[matchesGlob] Pattern "${pattern}" vs string "${str}": ${matches} (regex: ${regex.source})`
+  );
+  return matches;
 }
 
 /**
@@ -65,10 +69,17 @@ export function evaluatePermission(
   pattern: string,
   rules: PermissionRule[]
 ): PermissionAction {
+  console.log(
+    `[evaluatePermission] Checking ${permission}:${pattern} against ${rules.length} rules`
+  );
+
   const match = findMatchingRule(permission, pattern, rules);
 
   if (!match) {
     // Default to "ask" if no rule matches
+    console.log(
+      `[evaluatePermission] No matching rule for ${permission}:${pattern}, defaulting to ask`
+    );
     logger.debug("No matching rule, defaulting to ask", {
       module: "permissions",
       permission,
@@ -77,6 +88,7 @@ export function evaluatePermission(
     return "ask";
   }
 
+  console.log(`[evaluatePermission] Matched rule for ${permission}:${pattern} => ${match.action}`);
   logger.debug("Permission evaluated", {
     module: "permissions",
     permission,

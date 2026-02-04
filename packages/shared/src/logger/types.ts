@@ -35,7 +35,6 @@ export interface Logger {
   info(msg: string, context?: Partial<LoggerContext>): void;
   warn(msg: string, context?: Partial<LoggerContext>): void;
   error(msg: string, err?: Error, context?: Partial<LoggerContext>): void;
-  child(context: Partial<LoggerContext>): Logger;
 }
 
 export interface LoggerMetadata {

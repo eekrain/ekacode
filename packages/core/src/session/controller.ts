@@ -1,30 +1,35 @@
 /**
- * Session controller
+ * Session controller (simplified)
  *
- * Manages a single session's workflow execution, including
- * user message processing and workflow control.
+ * Manages a single session's agent execution without complex
+ * workflow orchestration. The agent decides when to spawn subagents.
  */
 
 import { EventEmitter } from "events";
-import { access, mkdir, readFile, writeFile } from "fs/promises";
+import { access, mkdir, writeFile } from "fs/promises";
 import { join } from "path";
-import { WorkflowEngine } from "../workflow/engine";
-import { Checkpoint, SessionConfig, SessionStatus } from "./types";
+import { createAgent } from "../agent/workflow/factory";
+import { AgentProcessor } from "./processor";
+import { Checkpoint, SessionConfig, SessionPhase, SessionStatus } from "./types";
 
 /**
  * Session controller class
  *
- * Orchestrates workflow execution for a single session,
- * handling user messages and workflow lifecycle.
+ * Simplified controller that manages a single agent.
+ * The agent uses the task tool to spawn subagents as needed.
  */
 export class SessionController {
   sessionId: string;
-  private workflow: WorkflowEngine;
   private eventBus: EventEmitter;
   private checkpointDir: string;
   private config: SessionConfig;
-  private _isPaused = true;
   private currentCheckpoint: Checkpoint | null = null;
+
+  // Agent state
+  private currentAgent: AgentProcessor | null = null;
+  private currentPhase: SessionPhase = "idle";
+  private _isPaused = true;
+  private abortController: AbortController | null = null;
 
   constructor(config: {
     sessionId: string;
@@ -37,13 +42,6 @@ export class SessionController {
     this.checkpointDir = config.checkpointDir;
     this.eventBus = new EventEmitter();
 
-    // Create workflow engine
-    this.workflow = new WorkflowEngine(
-      this.sessionId,
-      this.eventBus,
-      this.saveCheckpoint.bind(this)
-    );
-
     // If checkpoint exists, restore state
     if (config.restoredCheckpoint) {
       this.restoreState(config.restoredCheckpoint);
@@ -51,78 +49,125 @@ export class SessionController {
   }
 
   /**
-   * Start the workflow with a task
-   *
-   * @param task - The user's task/goal
-   * @param exploreInputs - Optional custom inputs for exploration
-   */
-  async start(task: string, exploreInputs?: string[]): Promise<void> {
-    this._isPaused = false;
-    this.config.task = task;
-    await this.workflow.start(task, exploreInputs);
-  }
-
-  /**
-   * Continue workflow from checkpoint
-   */
-  async continue(): Promise<void> {
-    const checkpoint = await this.loadCheckpoint();
-    if (!checkpoint) {
-      throw new Error("No checkpoint to continue from");
-    }
-
-    this._isPaused = false;
-    await this.workflow.resumeFromCheckpoint(checkpoint);
-  }
-
-  /**
-   * Process a user message - handles both new tasks and continue intents
+   * Process a user message with the agent
    *
    * @param message - The user's message
-   * @returns ReadableStream of events
+   * @param options - Optional callbacks
+   * @returns Agent execution result
    */
-  async processUserMessage(message: string): Promise<ReadableStream> {
-    // Check if user wants to continue
-    if (this.isContinueIntent(message) && this.hasIncompleteWork()) {
-      const status = this.getStatus();
-      const intro = `Continuing our work! ${status.summary}. Resuming now...\n\n`;
-
-      const stream = this.createEventStream();
-
-      // Start continue in background
-      this.continue().catch(error => {
-        console.error("Error continuing workflow:", error);
-      });
-
-      // Prepend intro to stream
-      return this.prependToStream(intro, stream);
+  async processMessage(
+    message: string,
+    options?: {
+      onEvent?: (event: { type: string; [key: string]: unknown }) => void;
     }
-
-    // Treat as new task
+  ): Promise<{
+    status: "completed" | "failed" | "stopped";
+    finalContent?: string;
+    error?: string;
+  }> {
     this._isPaused = false;
-    const stream = this.createEventStream();
+    this.currentPhase = "running";
 
-    // Start workflow in background
-    this.start(message).catch(error => {
-      console.error("Error starting workflow:", error);
+    // Create abort controller for this execution
+    this.abortController = new AbortController();
+
+    // Emit start event
+    this.emitEvent({
+      type: "session-started",
+      sessionId: this.sessionId,
+      phase: this.currentPhase,
     });
 
-    return stream;
+    try {
+      // Create build agent configuration
+      const agentConfig = createAgent("build", this.sessionId);
+
+      // Create processor
+      this.currentAgent = new AgentProcessor(agentConfig, event => {
+        // Forward agent events through event bus
+        this.emitEvent({
+          type: "agent-event",
+          sessionId: this.sessionId,
+          eventType: event.type,
+          ...(event as Record<string, unknown>),
+        });
+
+        // Call user callback if provided
+        options?.onEvent?.(event as { type: string; [key: string]: unknown });
+      });
+
+      // Run the agent
+      const result = await this.currentAgent.run({
+        task: message,
+        context: {
+          sessionId: this.sessionId,
+          workspace: this.config.workspace,
+        },
+      });
+
+      this.currentPhase = result.status === "completed" ? "completed" : "failed";
+
+      // Save checkpoint
+      await this.saveCheckpoint({
+        sessionId: this.sessionId,
+        phase: this.currentPhase,
+        task: message,
+        timestamp: Date.now(),
+        result: {
+          agentId: agentConfig.id,
+          type: agentConfig.type,
+          status: result.status,
+          messages: result.messages || [],
+          finalContent: result.finalContent,
+          iterations: result.iterations,
+          duration: result.duration,
+        },
+      });
+
+      this.emitEvent({
+        type: "session-completed",
+        sessionId: this.sessionId,
+        phase: this.currentPhase,
+      });
+
+      return {
+        status: result.status,
+        finalContent: result.finalContent,
+        error: result.error,
+      };
+    } catch (error) {
+      this.currentPhase = "failed";
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      this.emitEvent({
+        type: "session-failed",
+        sessionId: this.sessionId,
+        error: errorMessage,
+      });
+
+      return {
+        status: "failed",
+        error: errorMessage,
+      };
+    } finally {
+      this._isPaused = true;
+      this.currentAgent = null;
+      this.abortController = null;
+    }
   }
 
   /**
    * Get current session status
    */
   getStatus(): SessionStatus {
-    const workflowStatus = this.workflow.getStatus();
     return {
       sessionId: this.sessionId,
-      phase: workflowStatus.phase,
-      progress: workflowStatus.progress,
-      hasIncompleteWork: workflowStatus.hasIncompleteWork,
-      summary: workflowStatus.summary,
-      lastActivity: workflowStatus.lastActivity,
-      activeAgents: workflowStatus.activeAgents,
+      phase: this.currentPhase,
+      progress: this.currentPhase === "running" ? 0.5 : 1,
+      hasIncompleteWork: false,
+      summary: this.currentCheckpoint?.result?.finalContent || "",
+      lastActivity: Date.now(),
+      activeAgents: [],
     };
   }
 
@@ -130,8 +175,19 @@ export class SessionController {
    * Check if session has incomplete work
    */
   hasIncompleteWork(): boolean {
-    const status = this.getStatus();
-    return status.hasIncompleteWork;
+    return false;
+  }
+
+  /**
+   * Abort the current agent execution
+   */
+  abort(): void {
+    if (this.abortController) {
+      this.abortController.abort();
+    }
+    if (this.currentAgent) {
+      this.currentAgent.abort();
+    }
   }
 
   /**
@@ -148,13 +204,6 @@ export class SessionController {
   }
 
   /**
-   * Abort the workflow
-   */
-  abort(): void {
-    this.workflow.abort();
-  }
-
-  /**
    * Save checkpoint to disk (public method for shutdown handler)
    */
   async saveCheckpointToDisk(): Promise<void> {
@@ -164,7 +213,7 @@ export class SessionController {
   }
 
   /**
-   * Save checkpoint to disk (private implementation)
+   * Save checkpoint
    */
   private async saveCheckpoint(checkpoint: Checkpoint): Promise<void> {
     this.currentCheckpoint = checkpoint;
@@ -181,94 +230,17 @@ export class SessionController {
   }
 
   /**
-   * Load checkpoint from disk
-   */
-  private async loadCheckpoint(): Promise<Checkpoint | null> {
-    try {
-      const checkpointPath = join(this.checkpointDir, "checkpoint.json");
-      const data = await readFile(checkpointPath, "utf-8");
-      return JSON.parse(data) as Checkpoint;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
    * Restore state from checkpoint
    */
   private restoreState(checkpoint: Checkpoint): void {
     this.currentCheckpoint = checkpoint;
     this.config.task = checkpoint.task;
-    // Workflow state is restored when continue() is called
   }
 
   /**
-   * Check if continue intent is present in message
+   * Emit an event through the event bus
    */
-  private isContinueIntent(message: string): boolean {
-    const phrases = [
-      "continue",
-      "keep going",
-      "resume",
-      "proceed",
-      "finish",
-      "complete",
-      "go on",
-      "next step",
-      "what were we doing",
-      "where were we",
-      "status",
-    ];
-    return phrases.some(p => message.toLowerCase().includes(p));
-  }
-
-  /**
-   * Create event stream for client
-   */
-  private createEventStream(): ReadableStream {
-    return new ReadableStream({
-      start: controller => {
-        // Listen to all workflow events
-        this.eventBus.on("AGENT_EVENT", event => {
-          controller.enqueue(JSON.stringify(event) + "\n");
-        });
-
-        this.eventBus.on("PHASE_STARTED", event => {
-          controller.enqueue(JSON.stringify({ type: "phase-start", phase: event.phase }) + "\n");
-        });
-
-        this.eventBus.on("PHASE_COMPLETED", event => {
-          controller.enqueue(JSON.stringify({ type: "phase-complete", phase: event.phase }) + "\n");
-        });
-
-        this.eventBus.on("WORKFLOW_COMPLETED", () => {
-          controller.close();
-        });
-      },
-    });
-  }
-
-  /**
-   * Prepend text to a stream
-   */
-  private prependToStream(text: string, stream: ReadableStream): ReadableStream {
-    const reader = stream.getReader();
-    let prepended = false;
-
-    return new ReadableStream({
-      async pull(controller) {
-        if (!prepended) {
-          controller.enqueue(text);
-          prepended = true;
-        }
-
-        const { done, value } = await reader.read();
-        if (done) {
-          controller.close();
-        } else {
-          controller.enqueue(value);
-        }
-      },
-    });
+  private emitEvent(event: { type: string; [key: string]: unknown }): void {
+    this.eventBus.emit("AGENT_EVENT", event);
   }
 }

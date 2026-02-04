@@ -16,43 +16,47 @@
 
 import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
-import { zai } from "@ekacode/zai";
+import { createZai } from "@ekacode/zai";
 
 // ============================================================================
-// ZAI PROVIDER (Primary)
+// ZAI PROVIDER (Primary) - Using "coding" endpoint for better code generation
 // ============================================================================
+
+// Create Z.ai provider with coding endpoint (https://api.z.ai/api/coding/paas/v4)
+const zaiCoding = createZai({ endpoint: "coding" });
+
+// ============================================================================
+// DEVELOPMENT MODE: Use single model for all phases to reduce API costs
+// ============================================================================
+
+/**
+ * Development model - uses glm-4.7 for all phases
+ *
+ * During development, we use a single model to minimize API calls and avoid
+ * rate limiting issues. In production, you may want to use different models
+ * for different phases (explore: glm-4.7-flashx, plan: glm-4.7, build: glm-4.7-flash)
+ */
+export const devModel: LanguageModelV3 = zaiCoding("glm-4.7");
 
 /**
  * Plan model - uses glm-4.7 for high-quality planning decisions
- *
- * Equivalent to gpt-4o in the spec - highest quality planning model.
- * Temperature 0.7 for balanced creativity and reliability.
  */
-export const planModel: LanguageModelV3 = zai("glm-4.7");
+export const planModel: LanguageModelV3 = devModel;
 
 /**
- * Build model - uses glm-4.7-flash for fast code generation
- *
- * Equivalent to claude-3.5-sonnet in the spec - optimized for code generation.
- * Temperature 0.3 for deterministic, consistent output.
+ * Build model - uses glm-4.7 for code generation
  */
-export const buildModel: LanguageModelV3 = zai("glm-4.7-flash");
+export const buildModel: LanguageModelV3 = devModel;
 
 /**
- * Explore model - uses glm-4.7-flashx for cost-effective exploration
- *
- * Equivalent to gpt-4o-mini in the spec - faster, more economical exploration.
- * Temperature 0.3 for consistent exploration results.
+ * Explore model - uses glm-4.7 for exploration
  */
-export const exploreModel: LanguageModelV3 = zai("glm-4.7-flashx");
+export const exploreModel: LanguageModelV3 = devModel;
 
 /**
- * Vision model - uses glm-4.6v for multimodal (image) understanding
- *
- * Supports image analysis and visual understanding capabilities.
- * Use this model when messages contain image content.
+ * Vision model - uses glm-4.7 for multimodal (image) understanding
  */
-export const visionModel: LanguageModelV3 = zai("glm-4.6v");
+export const visionModel: LanguageModelV3 = zaiCoding("glm-4.6v");
 
 // ============================================================================
 // OPENAI PROVIDER (Fallback)

@@ -51,9 +51,8 @@ Features:
 
   execute: async ({ url, format = "markdown", timeout }, context) => {
     const sessionID = (context as { sessionID?: string })?.sessionID || "unknown";
-    const toolLogger = logger.child({ module: "tool:webfetch", sessionID });
 
-    toolLogger.debug("Fetching URL", { url, format });
+    logger.debug("Fetching URL", { module: "tool:webfetch", sessionID, url, format });
 
     try {
       const result = await fetchWithTimeout(url, format, timeout || 30);
@@ -77,7 +76,9 @@ Features:
         finalContent = turndownService.turndown(result.content);
       }
 
-      toolLogger.info("URL fetched successfully", {
+      logger.info("URL fetched successfully", {
+        module: "tool:webfetch",
+        sessionID,
         url,
         statusCode: result.statusCode,
         format,
@@ -95,7 +96,10 @@ Features:
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      toolLogger.error(`Failed to fetch URL: ${errorMessage}`);
+      logger.error(`Failed to fetch URL: ${errorMessage}`, undefined, {
+        module: "tool:webfetch",
+        sessionID,
+      });
 
       return {
         content: `Error fetching URL: ${errorMessage}`,

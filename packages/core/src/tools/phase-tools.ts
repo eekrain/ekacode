@@ -35,6 +35,7 @@ const READ_WRITE_TOOLS: ToolName[] = [
   "multiedit",
   "apply_patch",
   "bash",
+  "task",
 ];
 
 /**

@@ -224,7 +224,7 @@ describe("validatePathOperation", () => {
       });
     });
 
-    it("requests operation permission for read operations", async () => {
+    it("auto-allows read operations without requesting permission", async () => {
       mockRequestApproval.mockResolvedValue(true);
 
       await Instance.provide({
@@ -239,11 +239,8 @@ describe("validatePathOperation", () => {
             "session-123"
           );
 
-          expect(mockRequestApproval).toHaveBeenCalledWith(
-            expect.objectContaining({
-              permission: "read",
-            })
-          );
+          // Read operations are auto-allowed and should NOT request permission
+          expect(mockRequestApproval).not.toHaveBeenCalled();
         },
       });
     });
@@ -305,7 +302,7 @@ describe("validatePathOperation", () => {
             await validatePathOperation(
               "/workspace/file.ts",
               "/workspace",
-              "read",
+              "edit", // Use edit instead of read, since read is auto-allowed
               PermissionManager.getInstance(),
               "session-123"
             );

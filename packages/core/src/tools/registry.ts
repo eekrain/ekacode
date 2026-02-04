@@ -6,6 +6,7 @@ import {
   applyPatchTool,
   editTool,
   globTool,
+  invalidTool,
   lsTool,
   multieditTool,
   readTool,
@@ -15,6 +16,7 @@ import { grepTool } from "./search/grep.tool";
 import { webfetchTool } from "./search/webfetch.tool";
 import { sequentialThinking } from "./sequential-thinking";
 import { bashTool } from "./shell/bash.tool";
+import { taskTool } from "./task";
 
 // Code research tools (search-docs)
 import { astQuery, fileRead, grepSearch, searchDocs } from "./search-docs";
@@ -26,12 +28,14 @@ export type ToolName =
   | "edit"
   | "multiedit"
   | "apply_patch"
+  | "invalid"
   | "ls"
   | "glob"
   | "bash"
   | "grep"
   | "webfetch"
   | "sequentialthinking"
+  | "task"
   | "search-docs"
   | "ast-query"
   | "grep-search"
@@ -44,6 +48,7 @@ export const toolRegistry = {
   edit: editTool,
   multiedit: multieditTool,
   apply_patch: applyPatchTool,
+  invalid: invalidTool,
   ls: lsTool,
   glob: globTool,
 
@@ -56,6 +61,7 @@ export const toolRegistry = {
 
   // AI Agent tools
   sequentialthinking: sequentialThinking,
+  task: taskTool,
 
   // Code research tools (search-docs)
   "search-docs": searchDocs,

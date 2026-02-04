@@ -46,7 +46,6 @@ export const readTool = tool({
     // Get context with enhanced error message
     const { directory, sessionID } = getContextOrThrow();
     const permissionMgr = PermissionManager.getInstance();
-    const toolLogger = logger.child({ module: "tool:read", tool: "read", sessionID });
 
     // Validate path operation and get safe paths
     const { absolutePath, relativePath } = await validatePathOperation(
@@ -58,11 +57,35 @@ export const readTool = tool({
       { always: ["*"] }
     );
 
-    toolLogger.debug("Reading file", {
+    // Log debug message with context
+    logger.debug("Reading file", {
+      module: "tool:read",
+      tool: "read",
+      sessionID,
+      filePath: relativePath,
+    });
+
+    logger.debug("Reading file", {
       path: relativePath,
       offset,
       limit,
     });
+
+    // Check if path is a directory
+    const stats = await fs.stat(absolutePath);
+    if (stats.isDirectory()) {
+      const dirError = new Error(
+        `Cannot read directory: ${filePath}. Use the 'ls' tool to list directory contents instead.`
+      );
+      logger.error("Cannot read directory - use ls tool instead", dirError, {
+        module: "tool:read",
+        tool: "read",
+        sessionID,
+        filePath: relativePath,
+        absolutePath,
+      });
+      throw dirError;
+    }
 
     // Read file
     const buffer = await fs.readFile(absolutePath);
@@ -70,7 +93,10 @@ export const readTool = tool({
     // Check for binary
     const isBinary = await detectBinaryFile(absolutePath, buffer);
     if (isBinary) {
-      toolLogger.warn("Binary file detected", {
+      logger.warn("Binary file detected", {
+        module: "tool:read",
+        tool: "read",
+        sessionID,
         path: relativePath,
       });
       throw new Error(`Cannot read binary file: ${filePath}`);
@@ -98,7 +124,7 @@ export const readTool = tool({
       .map((line, i) => `${String(startLine + i).padStart(6)}→${line}`)
       .join("\n");
 
-    toolLogger.info("File read successfully", {
+    logger.info("File read successfully", {
       path: relativePath,
       lineCount: totalLines,
       truncated,

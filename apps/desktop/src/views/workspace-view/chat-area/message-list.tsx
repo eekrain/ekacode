@@ -1,26 +1,15 @@
 import { Component, createEffect, createSignal, For, onMount, Show } from "solid-js";
 import { MessageBubble, ThinkingBubble } from "./message-bubble";
 import { ToolCallBlock } from "./tool-call-block";
+import { createLogger } from "/@/lib/logger";
 import { cn } from "/@/lib/utils";
-import type { Message, ToolCall } from "/@/types";
+import type { ChatUIMessage } from "/@/types/ui-message";
 
-/**
- * Base message interface compatible with both old and new formats
- */
-interface BaseMessage {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content?: string;
-  parts?: unknown[];
-  timestamp?: Date;
-  toolCalls?: ToolCall[];
-  status?: "sending" | "sent" | "error";
-  thinking?: string;
-}
+const logger = createLogger("desktop:msglist");
 
 interface MessageListProps {
   /** Messages to display */
-  messages: BaseMessage[];
+  messages: ChatUIMessage[];
   /** Whether AI is currently generating */
   isGenerating?: boolean;
   /** Current thinking content (if any) */
@@ -73,6 +62,11 @@ export const MessageList: Component<MessageListProps> = props => {
   // Scroll to bottom when messages change
   createEffect(() => {
     const _messages = props.messages;
+    logger.info("[MSG-LIST] Messages updated", {
+      count: _messages.length,
+      lastMessage: _messages[_messages.length - 1]?.id,
+      lastMessageRole: _messages[_messages.length - 1]?.role,
+    });
     if (shouldAutoScroll()) {
       setTimeout(() => scrollToBottom(true), 50);
     }
@@ -89,23 +83,33 @@ export const MessageList: Component<MessageListProps> = props => {
         <For each={props.messages}>
           {(message, index) => (
             <div class="group">
-              <MessageBubble
-                message={message as unknown as Message}
-                delay={Math.min(index() * 50, 300)}
-              />
+              <MessageBubble message={message} delay={Math.min(index() * 50, 300)} />
 
-              {/* Tool calls */}
-              <Show when={message.toolCalls && message.toolCalls.length > 0}>
+              {/* Tool calls - extracted from parts */}
+              <Show
+                when={message.parts?.some(
+                  part => part.type === "tool-call" || part.type === "tool-result"
+                )}
+              >
                 <div class="ml-12 mt-2 space-y-1">
-                  <For each={message.toolCalls}>
-                    {toolCall => <ToolCallBlock toolCall={toolCall} />}
+                  <For each={message.parts}>
+                    {part =>
+                      part.type === "tool-call" ? (
+                        <ToolCallBlock
+                          toolCall={{
+                            id: (part as unknown as { toolCallId: string }).toolCallId,
+                            name: (part as unknown as { toolName?: string }).toolName || "unknown",
+                            arguments:
+                              ((part as unknown as { args?: Record<string, unknown> })
+                                .args as Record<string, unknown>) || {},
+                            status: "pending",
+                            timestamp: new Date(),
+                          }}
+                        />
+                      ) : null
+                    }
                   </For>
                 </div>
-              </Show>
-
-              {/* Thinking block */}
-              <Show when={message.thinking && message.role === "assistant"}>
-                <ThinkingBubble content={message.thinking || ""} />
               </Show>
             </div>
           )}

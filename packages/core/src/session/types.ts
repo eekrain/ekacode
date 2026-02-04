@@ -6,19 +6,12 @@
  */
 
 import { z } from "zod";
-import { AgentResult, AgentType } from "../agent/workflow/types";
+import { AgentResult } from "../agent/workflow/types";
 
 /**
  * Session phase enumeration
  */
-export const SessionPhase = z.enum([
-  "idle",
-  "exploring",
-  "planning",
-  "building",
-  "completed",
-  "failed",
-]);
+export const SessionPhase = z.enum(["idle", "running", "completed", "failed"]);
 export type SessionPhase = z.infer<typeof SessionPhase>;
 
 /**
@@ -47,17 +40,6 @@ export const SessionConfig = z.object({
 export type SessionConfig = z.infer<typeof SessionConfig>;
 
 /**
- * Agent state for checkpoint restoration
- */
-const AgentState = z.object({
-  agentId: z.string(),
-  type: AgentType,
-  status: z.enum(["pending", "running", "completed", "failed"]),
-  messages: z.array(z.any()),
-  iterationCount: z.number(),
-});
-
-/**
  * Checkpoint schema for session persistence
  */
 export const Checkpoint = z.object({
@@ -65,9 +47,6 @@ export const Checkpoint = z.object({
   timestamp: z.number(),
   phase: SessionPhase,
   task: z.string(),
-  exploreResults: z.array(AgentResult).optional(),
-  planResult: AgentResult.optional(),
-  buildResult: AgentResult.optional(),
-  agentStates: z.array(AgentState).optional(),
+  result: AgentResult.optional(),
 });
 export type Checkpoint = z.infer<typeof Checkpoint>;

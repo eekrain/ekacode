@@ -8,6 +8,9 @@
  */
 import { createStore, produce, reconcile, unwrap } from "solid-js/store";
 import type { ChatState, ChatStatus, ChatUIMessage, RLMStateData } from "../../types/ui-message";
+import { createLogger } from "../logger";
+
+const logger = createLogger("desktop:store");
 
 /**
  * Create a chat store with optimized update patterns
@@ -27,6 +30,8 @@ import type { ChatState, ChatStatus, ChatUIMessage, RLMStateData } from "../../t
  * ```
  */
 export function createChatStore(initialMessages: ChatUIMessage[] = []) {
+  logger.debug("Creating chat store", { initialMessageCount: initialMessages.length });
+
   const [store, setStore] = createStore<ChatState>({
     messages: initialMessages,
     status: "idle",
@@ -47,7 +52,18 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
      */
     addMessage(message: ChatUIMessage) {
       // Clone to avoid mutation issues with streaming updates
-      setStore("messages", messages => [...messages, structuredClone(message)]);
+      const clonedMessage = structuredClone(message);
+      logger.info("[STORE] Adding message", {
+        messageId: clonedMessage.id,
+        role: clonedMessage.role,
+        partsCount: clonedMessage.parts?.length || 0,
+        currentMessageCount: store.messages.length,
+      });
+      setStore("messages", messages => [...messages, clonedMessage]);
+      logger.info("[STORE] Message added successfully", {
+        messageId: clonedMessage.id,
+        newMessageCount: store.messages.length,
+      });
     },
 
     /**
@@ -56,6 +72,7 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
      */
     updateMessage(messageId: string, updater: (message: ChatUIMessage) => void) {
       setStore("messages", m => m.id === messageId, produce(updater));
+      logger.debug("Message updated", { messageId });
     },
 
     /**
@@ -77,6 +94,8 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
           }
         })
       );
+      // Skip debug logging for text deltas (too frequent)
+      // logger.trace("Text delta appended", { messageId, deltaLength: delta.length });
     },
 
     /**
@@ -98,6 +117,11 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
           } as unknown as (typeof message.parts)[number]);
         })
       );
+      logger.debug("Tool call added", {
+        messageId,
+        toolName: toolCall.toolName,
+        toolCallId: toolCall.toolCallId,
+      });
     },
 
     /**
@@ -116,6 +140,7 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
           }
         })
       );
+      logger.debug("Tool call updated", { messageId, toolCallId });
     },
 
     /**
@@ -133,6 +158,7 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
           } as unknown as (typeof message.parts)[number]);
         })
       );
+      logger.debug("Tool result added", { messageId, toolCallId: toolResult.toolCallId });
     },
 
     /**
@@ -173,6 +199,7 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
           }
         })
       );
+      logger.debug("Data part updated", { messageId, partType, partId, transient });
     },
 
     /**
@@ -181,13 +208,18 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
      */
     setMessages(messages: ChatUIMessage[]) {
       setStore("messages", reconcile(messages, { key: "id" }));
+      logger.info("Messages replaced", { count: messages.length });
     },
 
     /**
      * Set connection status
      */
     setStatus(status: ChatStatus) {
+      const previous = store.status;
       setStore("status", status);
+      if (previous !== status) {
+        logger.debug("Status changed", { from: previous, to: status });
+      }
     },
 
     /**
@@ -195,6 +227,11 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
      */
     setError(error: Error | null) {
       setStore("error", error);
+      if (error) {
+        logger.error("Chat error set", error);
+      } else {
+        logger.debug("Error cleared");
+      }
     },
 
     /**
@@ -202,13 +239,22 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
      */
     setRLMState(state: RLMStateData | null) {
       setStore("rlmState", state);
+      if (state) {
+        logger.debug("RLM state updated", { phase: state.phase, step: state.step });
+      } else {
+        logger.debug("RLM state cleared");
+      }
     },
 
     /**
      * Set session ID
      */
     setSessionId(sessionId: string | null) {
+      const previous = store.sessionId;
       setStore("sessionId", sessionId);
+      if (previous !== sessionId) {
+        logger.info("Session ID changed", { from: previous, to: sessionId });
+      }
     },
 
     /**
@@ -222,6 +268,7 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
         rlmState: null,
         // Keep sessionId for continuity
       });
+      logger.info("Chat store cleared");
     },
 
     /**
@@ -231,7 +278,9 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
      * Call this only when sending to server, not on every update.
      */
     getMessagesForNetwork(): ChatUIMessage[] {
-      return unwrap(store.messages);
+      const messages = unwrap(store.messages);
+      logger.debug("Preparing messages for network", { count: messages.length });
+      return messages;
     },
 
     /**

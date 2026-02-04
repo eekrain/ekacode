@@ -50,7 +50,6 @@ Features:
     // Get context with enhanced error message
     const { directory, sessionID } = getContextOrThrow();
     const permissionMgr = PermissionManager.getInstance();
-    const toolLogger = logger.child({ module: "tool:grep", sessionID });
 
     // Use safe path resolution
     const targetPath = searchPath || directory;
@@ -63,7 +62,9 @@ Features:
       { always: ["*"] }
     );
 
-    toolLogger.debug("Searching files", {
+    logger.debug("Searching files", {
+      module: "tool:grep",
+      sessionID,
       pattern,
       path: relativePath,
       include,
@@ -79,7 +80,7 @@ Features:
     });
 
     if (!grepApproved) {
-      toolLogger.warn("Grep permission denied", { pattern });
+      logger.warn("Grep permission denied", { module: "tool:grep", sessionID, pattern });
       throw new Error(`Permission denied: Cannot search for pattern "${pattern}"`);
     }
 
@@ -127,7 +128,7 @@ Features:
 
     // Exit codes: 0 = matches, 1 = no matches, 2 = errors
     if (exitCode === 1 || (exitCode === 2 && !output.trim())) {
-      toolLogger.info("No matches found", { pattern });
+      logger.info("No matches found", { module: "tool:grep", sessionID, pattern });
       return {
         content: "No files found",
         metadata: { matches: 0, truncated: false },
@@ -200,7 +201,9 @@ Features:
       outputLines.push("(Some paths were inaccessible and skipped)");
     }
 
-    toolLogger.info("Grep search completed", {
+    logger.info("Grep search completed", {
+      module: "tool:grep",
+      sessionID,
       pattern,
       matches: finalMatches.length,
       truncated,

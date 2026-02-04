@@ -42,7 +42,6 @@ export const writeTool = tool({
     // Get context with enhanced error message
     const { directory, sessionID } = getContextOrThrow();
     const permissionMgr = PermissionManager.getInstance();
-    const toolLogger = logger.child({ module: "tool:write", tool: "write", sessionID });
 
     // Validate path operation and get safe paths
     const { absolutePath, relativePath } = await validatePathOperation(
@@ -69,7 +68,10 @@ export const writeTool = tool({
     // Write file
     await fs.writeFile(absolutePath, content, "utf-8");
 
-    toolLogger.info("File written successfully", {
+    logger.info("File written successfully", {
+      module: "tool:write",
+      tool: "write",
+      sessionID,
       path: relativePath,
       created: !exists,
       size: content.length,

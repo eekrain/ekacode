@@ -10,12 +10,16 @@
  * - Session ID management
  * - RLM state tracking
  * - Cleanup on unmount
+ * - Comprehensive logging
  */
 import { createMemo, onCleanup, type Accessor } from "solid-js";
 import { EkacodeApiClient } from "../lib/api-client";
 import { createChatStore } from "../lib/chat/store";
 import { parseUIMessageStream } from "../lib/chat/stream-parser";
+import { createLogger } from "../lib/logger";
 import type { ChatState, ChatStatus, ChatUIMessage, RLMStateData } from "../types/ui-message";
+
+const logger = createLogger("desktop:chat");
 
 /**
  * Options for useChat hook
@@ -54,7 +58,7 @@ export interface UseChatResult {
   store: ChatState;
 
   /** Messages accessor (reactive) */
-  messages: ChatUIMessage[];
+  messages: Accessor<ChatUIMessage[]>;
 
   /** Current status accessor */
   status: Accessor<ChatStatus>;
@@ -128,6 +132,11 @@ export function useChat(options: UseChatOptions): UseChatResult {
     onRLMStateChange,
   } = options;
 
+  logger.info("useChat hook initialized", {
+    initialMessageCount: initialMessages.length,
+    initialSessionId,
+  });
+
   // Create the chat store
   const chatStore = createChatStore(initialMessages);
 
@@ -144,6 +153,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
 
   // Cleanup on unmount
   onCleanup(() => {
+    logger.debug("useChat hook cleanup");
     abortController?.abort();
   });
 
@@ -153,8 +163,11 @@ export function useChat(options: UseChatOptions): UseChatResult {
   const sendMessage = async (text: string): Promise<void> => {
     // Can't send while already streaming
     if (!canSend()) {
+      logger.warn("Message send blocked - chat not ready", { status: chatStore.get().status });
       return;
     }
+
+    logger.info("[USE-CHAT] Sending message", { length: text.length, workspace: workspace() });
 
     // Abort any existing request
     abortController?.abort();
@@ -166,7 +179,11 @@ export function useChat(options: UseChatOptions): UseChatResult {
       role: "user",
       parts: [{ type: "text", text }],
     };
+    logger.info("[USE-CHAT] Adding user message", { messageId: userMessage.id });
     chatStore.addMessage(userMessage);
+    logger.info("[USE-CHAT] User message added, current count", {
+      count: chatStore.get().messages.length,
+    });
 
     // Create assistant message placeholder for streaming
     currentMessageId = `msg_${Date.now() + 1}`;
@@ -194,6 +211,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
       // Check for session ID in response header
       const newSessionId = response.headers.get("X-Session-ID");
       if (newSessionId && newSessionId !== chatStore.get().sessionId) {
+        logger.info("New session ID received", { sessionId: newSessionId });
         chatStore.setSessionId(newSessionId);
         options.onSessionIdReceived?.(newSessionId);
       }
@@ -208,6 +226,10 @@ export function useChat(options: UseChatOptions): UseChatResult {
         },
 
         onToolCallStart: toolCall => {
+          logger.debug("Tool call started", {
+            toolName: toolCall.toolName,
+            toolCallId: toolCall.toolCallId,
+          });
           chatStore.addToolCall(messageId, {
             toolCallId: toolCall.toolCallId,
             toolName: toolCall.toolName,
@@ -220,6 +242,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
         },
 
         onToolResult: result => {
+          logger.debug("Tool result received", { toolCallId: result.toolCallId });
           chatStore.addToolResult(messageId, result);
         },
 
@@ -239,12 +262,14 @@ export function useChat(options: UseChatOptions): UseChatResult {
         },
 
         onError: error => {
+          logger.error("Stream error in chat", error);
           chatStore.setStatus("error");
           chatStore.setError(error);
           onError?.(error);
         },
 
         onComplete: () => {
+          logger.info("Chat response completed", { messageId });
           chatStore.setStatus("done");
           chatStore.setRLMState(null);
 
@@ -257,6 +282,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
     } catch (error) {
       // Don't report abort as error
       if ((error as Error).name !== "AbortError") {
+        logger.error("Chat request failed", error as Error);
         chatStore.setStatus("error");
         chatStore.setError(error as Error);
         onError?.(error as Error);
@@ -271,6 +297,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
    * Stop current generation
    */
   const stop = () => {
+    logger.info("Stopping chat generation");
     abortController?.abort();
     abortController = null;
     chatStore.setStatus("idle");
@@ -280,6 +307,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
    * Clear all messages
    */
   const clearMessages = () => {
+    logger.info("Clearing all messages");
     chatStore.clear();
   };
 
@@ -287,6 +315,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
    * Set session ID
    */
   const setSessionId = (id: string | null) => {
+    logger.info("Setting session ID", { sessionId: id ?? undefined });
     chatStore.setSessionId(id);
   };
 
@@ -309,7 +338,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
 
   return {
     store: chatStore.get(),
-    messages: chatStore.get().messages,
+    messages: () => chatStore.get().messages,
     status,
     error,
     isLoading,

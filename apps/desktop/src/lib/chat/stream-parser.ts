@@ -8,6 +8,11 @@
  * See: https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
  */
 
+import { createLogger } from "../logger";
+
+const logger = createLogger("desktop:parser");
+let textDeltaCount = 0;
+
 /**
  * Callbacks for stream events
  */
@@ -74,10 +79,16 @@ export async function parseUIMessageStream(
     throw new Error("Response body is null");
   }
 
+  logger.info("Starting stream parsing", {
+    status: response.status,
+    contentType: response.headers.get("content-type"),
+  });
+
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   let currentMessageId: string | null = null;
+  textDeltaCount = 0;
 
   // Buffer for accumulating streaming tool args
   const toolArgsBuffers = new Map<string, string>();
@@ -87,6 +98,10 @@ export async function parseUIMessageStream(
       const { done, value } = await reader.read();
 
       if (done) {
+        logger.info("Stream completed", {
+          sessionId: currentMessageId ?? undefined,
+          textDeltas: textDeltaCount,
+        });
         callbacks.onComplete?.("stop");
         break;
       }
@@ -98,25 +113,31 @@ export async function parseUIMessageStream(
       for (const line of lines) {
         if (!line.trim()) continue;
 
+        logger.info("[PARSER] Processing line", { line: line.slice(0, 100) });
+
         // Handle SSE data format (data: {...})
         if (line.startsWith("data: ")) {
           const data = line.slice(6).trim();
 
           // Check for end of stream
           if (data === "[DONE]") {
+            logger.info("Stream [DONE] received");
             callbacks.onComplete?.("stop");
             continue;
           }
 
           try {
             const part = JSON.parse(data) as StreamPart;
+            logger.info("[PARSER] Parsed JSON part", { type: part.type, id: part.id });
             currentMessageId = handleStreamPart(part, callbacks, currentMessageId, toolArgsBuffers);
           } catch {
             // Non-JSON data, try raw line parsing
+            logger.info("[PARSER] Non-JSON data, trying raw line parsing");
             currentMessageId = tryParseRawLine(line, callbacks, currentMessageId);
           }
         } else {
           // Raw protocol line (0:text, b:json, d:json, etc.)
+          logger.info("[PARSER] Raw protocol line", { lineStart: line.slice(0, 20) });
           currentMessageId = tryParseRawLine(line, callbacks, currentMessageId);
         }
       }
@@ -124,8 +145,10 @@ export async function parseUIMessageStream(
   } catch (error) {
     // Handle abort (not an error)
     if ((error as Error).name === "AbortError") {
+      logger.info("Stream aborted");
       return;
     }
+    logger.error("Stream parsing error", error as Error);
     callbacks.onError?.(error as Error);
     throw error;
   }
@@ -146,6 +169,7 @@ function handleStreamPart(
   switch (type) {
     case "message-start":
       if (id) {
+        logger.debug("Message started", { messageId: id });
         callbacks.onMessageStart?.(id);
         return id;
       }
@@ -153,6 +177,7 @@ function handleStreamPart(
 
     case "text-delta":
     case "text":
+      textDeltaCount++;
       callbacks.onTextDelta?.(
         id || currentMessageId || "",
         (part.delta as string) || (part.text as string) || ""
@@ -160,6 +185,10 @@ function handleStreamPart(
       break;
 
     case "tool-input-start":
+      logger.debug("Tool input started", {
+        toolCallId: part.toolCallId,
+        toolName: part.toolName,
+      });
       callbacks.onToolCallStart?.({
         toolCallId: part.toolCallId as string,
         toolName: part.toolName as string,
@@ -180,6 +209,7 @@ function handleStreamPart(
       {
         const toolCallId = part.toolCallId as string;
         const finalArgs = toolArgsBuffers.get(toolCallId) ?? "{}";
+        logger.debug("Tool input completed", { toolCallId, argsLength: finalArgs.length });
         try {
           const parsedArgs = JSON.parse(finalArgs);
           callbacks.onToolCallEnd?.(toolCallId, parsedArgs);
@@ -192,6 +222,10 @@ function handleStreamPart(
 
     case "tool-call":
       // Complete tool call in one part
+      logger.debug("Tool call received", {
+        toolCallId: part.toolCallId,
+        toolName: part.toolName,
+      });
       callbacks.onToolCallStart?.({
         toolCallId: part.toolCallId as string,
         toolName: part.toolName as string,
@@ -200,6 +234,7 @@ function handleStreamPart(
       break;
 
     case "tool-result":
+      logger.debug("Tool result received", { toolCallId: part.toolCallId });
       callbacks.onToolResult?.({
         toolCallId: part.toolCallId as string,
         result: part.result,
@@ -207,16 +242,19 @@ function handleStreamPart(
       break;
 
     case "error":
+      logger.error("Stream error received", undefined, { error: part.error });
       callbacks.onError?.(new Error((part.error as string) || "Unknown stream error"));
       break;
 
     case "finish":
+      logger.info("Stream finished", { finishReason: part.finishReason });
       callbacks.onComplete?.((part.finishReason as string) || "stop");
       break;
 
     default:
       // Handle data-* parts (RLM state, progress, etc.)
       if (type?.startsWith("data-")) {
+        logger.debug("Data part received", { type, id, transient: part.transient });
         callbacks.onDataPart?.(type, id || "", part.data, part.transient as boolean | undefined);
       }
   }

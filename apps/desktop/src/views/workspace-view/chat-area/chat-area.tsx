@@ -1,5 +1,5 @@
 import Resizable from "@corvu/resizable";
-import { Component, createSignal, mergeProps } from "solid-js";
+import { Component, createSignal, mergeProps, Show } from "solid-js";
 import { ChatHeader } from "./chat-header";
 import { ChatInput } from "./chat-input";
 import { MessageList } from "./message-list";
@@ -7,25 +7,17 @@ import { cn } from "/@/lib/utils";
 import type { AgentMode, Session } from "/@/types";
 import type { ChatUIMessage } from "/@/types/ui-message";
 
-/**
- * Base message interface for compatibility
- */
-interface BaseMessage {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content?: string;
-  parts?: unknown[];
-}
-
 interface ChatPanelProps {
   /** Current active session */
   session?: Session | { sessionId: string; title: string };
   /** All messages for current session */
-  messages?: BaseMessage[] | ChatUIMessage[];
+  messages?: ChatUIMessage[];
   /** Whether AI is currently generating */
   isGenerating?: boolean;
   /** Current thinking content */
   thinkingContent?: string;
+  /** Current error if any */
+  error?: Error | null;
   /** Send message handler */
   onSend?: (content: string) => void;
   /** Attachment handler */
@@ -120,9 +112,34 @@ export const ChatPanel: Component<ChatPanelProps> = props => {
         onModelChange={props.onModelChange}
       />
 
+      {/* Error banner */}
+      <Show when={props.error}>
+        <div class="bg-destructive/10 border-destructive/20 mx-4 mt-2 rounded-lg border px-4 py-3">
+          <div class="flex items-start gap-3">
+            <svg
+              class="text-destructive mt-0.5 h-5 w-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <div class="flex-1">
+              <p class="text-destructive text-sm font-medium">Error</p>
+              <p class="text-destructive/80 mt-1 text-sm">{props.error?.message}</p>
+            </div>
+          </div>
+        </div>
+      </Show>
+
       {/* Message list */}
       <MessageList
-        messages={merged.messages as BaseMessage[]}
+        messages={merged.messages as ChatUIMessage[]}
         isGenerating={merged.isGenerating}
         thinkingContent={props.thinkingContent}
       />

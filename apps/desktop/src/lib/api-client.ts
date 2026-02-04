@@ -9,9 +9,13 @@
  * - Streaming response support for chat
  * - Basic Auth with token from main process
  * - SSE connection for real-time events
+ * - Comprehensive logging for all operations
  */
 
 import type { ChatUIMessage } from "../types/ui-message";
+import { createLogger } from "./logger";
+
+const logger = createLogger("desktop:api");
 
 /**
  * API client configuration
@@ -87,6 +91,7 @@ export class EkacodeApiClient {
 
   constructor(config: ApiClientConfig) {
     this.config = config;
+    logger.info("API client initialized", { baseUrl: config.baseUrl });
   }
 
   /**
@@ -142,15 +147,51 @@ export class EkacodeApiClient {
     const url = new URL(`${this.config.baseUrl}/api/chat`);
     url.searchParams.set("directory", options.workspace);
 
-    return fetch(url.toString(), {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        messages,
-        stream: true,
-      }),
-      signal: options.signal,
+    // Get the latest user message (server manages conversation history via session)
+    // Note: use-chat adds assistant placeholder before calling API, so find last user message
+    const lastUserMessage = messages.filter(m => m.role === "user").pop();
+    if (!lastUserMessage) {
+      throw new Error("No user message found in messages array");
+    }
+
+    // Extract text from message parts to send as simple string
+    const messageText = lastUserMessage.parts
+      .filter(part => part.type === "text")
+      .map(part => (part as { text: string }).text)
+      .join("");
+
+    logger.info("Sending chat request", {
+      messageCount: messages.length,
+      messageLength: messageText.length,
+      workspace: options.workspace,
+      sessionId: options.sessionId,
     });
+
+    try {
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          message: messageText,
+          stream: true,
+        }),
+        signal: options.signal,
+      });
+
+      logger.debug("Chat response received", {
+        status: response.status,
+        ok: response.ok,
+        sessionId: response.headers.get("X-Session-ID") ?? undefined,
+      });
+
+      return response;
+    } catch (error) {
+      logger.error("Chat request failed", error as Error, {
+        workspace: options.workspace,
+        sessionId: options.sessionId,
+      });
+      throw error;
+    }
   }
 
   /**
@@ -162,19 +203,29 @@ export class EkacodeApiClient {
   async getSessionStatus(sessionId: string): Promise<SessionStatus | null> {
     const url = `${this.config.baseUrl}/api/session/${sessionId}/status`;
 
-    const response = await fetch(url, {
-      method: "GET",
-      headers: this.commonHeaders(),
-    });
+    logger.debug("Fetching session status", { sessionId });
 
-    if (!response.ok) {
-      if (response.status === 404) {
-        return null;
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: this.commonHeaders(),
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          logger.debug("Session not found", { sessionId });
+          return null;
+        }
+        throw new Error(`Failed to get session status: ${response.statusText}`);
       }
-      throw new Error(`Failed to get session status: ${response.statusText}`);
-    }
 
-    return response.json();
+      const status = await response.json();
+      logger.debug("Session status retrieved", { sessionId, status });
+      return status;
+    } catch (error) {
+      logger.error("Failed to get session status", error as Error, { sessionId });
+      throw error;
+    }
   }
 
   // ============================================================
@@ -190,17 +241,26 @@ export class EkacodeApiClient {
    * @returns Array of session info objects
    */
   async listSessions(): Promise<SessionInfo[]> {
-    const response = await fetch(`${this.config.baseUrl}/api/sessions`, {
-      method: "GET",
-      headers: this.commonHeaders(),
-    });
+    logger.debug("Listing all sessions");
 
-    if (!response.ok) {
-      throw new Error(`Failed to list sessions: ${response.statusText}`);
+    try {
+      const response = await fetch(`${this.config.baseUrl}/api/sessions`, {
+        method: "GET",
+        headers: this.commonHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to list sessions: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const sessions = data.sessions || [];
+      logger.debug("Sessions retrieved", { count: sessions.length });
+      return sessions;
+    } catch (error) {
+      logger.error("Failed to list sessions", error as Error);
+      throw error;
     }
-
-    const data = await response.json();
-    return data.sessions || [];
   }
 
   /**
@@ -210,19 +270,29 @@ export class EkacodeApiClient {
    * @returns Session info or null if not found
    */
   async getSession(sessionId: string): Promise<SessionInfo | null> {
-    const response = await fetch(`${this.config.baseUrl}/api/sessions/${sessionId}`, {
-      method: "GET",
-      headers: this.commonHeaders(),
-    });
+    logger.debug("Fetching session", { sessionId });
 
-    if (!response.ok) {
-      if (response.status === 404) {
-        return null;
+    try {
+      const response = await fetch(`${this.config.baseUrl}/api/sessions/${sessionId}`, {
+        method: "GET",
+        headers: this.commonHeaders(),
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          logger.debug("Session not found", { sessionId });
+          return null;
+        }
+        throw new Error(`Failed to get session: ${response.statusText}`);
       }
-      throw new Error(`Failed to get session: ${response.statusText}`);
-    }
 
-    return response.json();
+      const session = await response.json();
+      logger.debug("Session retrieved", { sessionId });
+      return session;
+    } catch (error) {
+      logger.error("Failed to get session", error as Error, { sessionId });
+      throw error;
+    }
   }
 
   /**
@@ -231,13 +301,22 @@ export class EkacodeApiClient {
    * @param sessionId - Session ID to delete
    */
   async deleteSession(sessionId: string): Promise<void> {
-    const response = await fetch(`${this.config.baseUrl}/api/sessions/${sessionId}`, {
-      method: "DELETE",
-      headers: this.commonHeaders(),
-    });
+    logger.info("Deleting session", { sessionId });
 
-    if (!response.ok) {
-      throw new Error(`Failed to delete session: ${response.statusText}`);
+    try {
+      const response = await fetch(`${this.config.baseUrl}/api/sessions/${sessionId}`, {
+        method: "DELETE",
+        headers: this.commonHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete session: ${response.statusText}`);
+      }
+
+      logger.info("Session deleted", { sessionId });
+    } catch (error) {
+      logger.error("Failed to delete session", error as Error, { sessionId });
+      throw error;
     }
   }
 
@@ -257,18 +336,27 @@ export class EkacodeApiClient {
     approved: boolean,
     patterns?: string[]
   ): Promise<PermissionResponse> {
-    const response = await fetch(`${this.config.baseUrl}/api/permissions/approve`, {
-      method: "POST",
-      headers: this.commonHeaders(),
-      body: JSON.stringify({ id, approved, patterns }),
-    });
+    logger.info("Submitting permission decision", { id, approved, patterns });
 
-    if (!response.ok) {
-      const error = await response.text();
-      return { success: false, error };
+    try {
+      const response = await fetch(`${this.config.baseUrl}/api/permissions/approve`, {
+        method: "POST",
+        headers: this.commonHeaders(),
+        body: JSON.stringify({ id, approved, patterns }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        logger.warn("Permission approval failed", { id, error });
+        return { success: false, error };
+      }
+
+      logger.info("Permission decision recorded", { id, approved });
+      return { success: true };
+    } catch (error) {
+      logger.error("Failed to submit permission decision", error as Error, { id, approved });
+      return { success: false, error: (error as Error).message };
     }
-
-    return { success: true };
   }
 
   /**
@@ -277,17 +365,26 @@ export class EkacodeApiClient {
    * Used for initial load - normally use SSE for real-time updates
    */
   async getPendingPermissions(): Promise<PendingPermission[]> {
-    const response = await fetch(`${this.config.baseUrl}/api/permissions/pending`, {
-      method: "GET",
-      headers: this.commonHeaders(),
-    });
+    logger.debug("Fetching pending permissions");
 
-    if (!response.ok) {
-      throw new Error(`Failed to get pending permissions: ${response.statusText}`);
+    try {
+      const response = await fetch(`${this.config.baseUrl}/api/permissions/pending`, {
+        method: "GET",
+        headers: this.commonHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get pending permissions: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const pending = data.pending || [];
+      logger.debug("Pending permissions retrieved", { count: pending.length });
+      return pending;
+    } catch (error) {
+      logger.error("Failed to fetch pending permissions", error as Error);
+      throw error;
     }
-
-    const data = await response.json();
-    return data.pending || [];
   }
 
   /**
@@ -296,10 +393,19 @@ export class EkacodeApiClient {
    * @param sessionId - Session ID to clear approvals for
    */
   async clearSessionApprovals(sessionId: string): Promise<void> {
-    await fetch(`${this.config.baseUrl}/api/permissions/session/${sessionId}/clear`, {
-      method: "POST",
-      headers: this.commonHeaders(),
-    });
+    logger.info("Clearing session approvals", { sessionId });
+
+    try {
+      await fetch(`${this.config.baseUrl}/api/permissions/session/${sessionId}/clear`, {
+        method: "POST",
+        headers: this.commonHeaders(),
+      });
+
+      logger.info("Session approvals cleared", { sessionId });
+    } catch (error) {
+      logger.error("Failed to clear session approvals", error as Error, { sessionId });
+      throw error;
+    }
   }
 
   // ============================================================
@@ -334,7 +440,19 @@ export class EkacodeApiClient {
     if (sessionId) {
       url.searchParams.set("sessionId", sessionId);
     }
-    return new EventSource(url.toString());
+
+    logger.info("Connecting to event stream", { workspace, sessionId });
+    const eventSource = new EventSource(url.toString());
+
+    eventSource.addEventListener("open", () => {
+      logger.info("Event stream connected", { workspace, sessionId });
+    });
+
+    eventSource.addEventListener("error", () => {
+      logger.warn("Event stream error", { workspace, sessionId });
+    });
+
+    return eventSource;
   }
 
   /**
@@ -349,7 +467,19 @@ export class EkacodeApiClient {
     url.searchParams.set("directory", workspace);
     url.searchParams.set("sessionId", sessionId);
     url.searchParams.set("token", this.config.token);
-    return new EventSource(url.toString());
+
+    logger.info("Connecting to permission events", { workspace, sessionId });
+    const eventSource = new EventSource(url.toString());
+
+    eventSource.addEventListener("open", () => {
+      logger.debug("Permission events connected", { workspace, sessionId });
+    });
+
+    eventSource.addEventListener("error", () => {
+      logger.warn("Permission events error", { workspace, sessionId });
+    });
+
+    return eventSource;
   }
 
   // ============================================================
@@ -366,25 +496,34 @@ export class EkacodeApiClient {
     workspace: string,
     options?: { depth?: number; include?: string[] }
   ): Promise<unknown> {
-    const url = new URL(`${this.config.baseUrl}/api/workspace/files`);
-    url.searchParams.set("directory", workspace);
-    if (options?.depth) {
-      url.searchParams.set("depth", options.depth.toString());
-    }
-    if (options?.include) {
-      url.searchParams.set("include", options.include.join(","));
-    }
+    logger.debug("Fetching workspace files", { workspace, options });
 
-    const response = await fetch(url.toString(), {
-      method: "GET",
-      headers: this.commonHeaders(),
-    });
+    try {
+      const url = new URL(`${this.config.baseUrl}/api/workspace/files`);
+      url.searchParams.set("directory", workspace);
+      if (options?.depth) {
+        url.searchParams.set("depth", options.depth.toString());
+      }
+      if (options?.include) {
+        url.searchParams.set("include", options.include.join(","));
+      }
 
-    if (!response.ok) {
-      throw new Error(`Failed to get workspace files: ${response.statusText}`);
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: this.commonHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get workspace files: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      logger.debug("Workspace files retrieved", { workspace });
+      return result;
+    } catch (error) {
+      logger.error("Failed to fetch workspace files", error as Error, { workspace });
+      throw error;
     }
-
-    return response.json();
   }
 
   /**
@@ -394,21 +533,29 @@ export class EkacodeApiClient {
    * @param filePath - Relative file path
    */
   async getFileContent(workspace: string, filePath: string): Promise<string> {
-    const url = new URL(`${this.config.baseUrl}/api/workspace/file`);
-    url.searchParams.set("directory", workspace);
-    url.searchParams.set("path", filePath);
+    logger.debug("Fetching file content", { workspace, filePath });
 
-    const response = await fetch(url.toString(), {
-      method: "GET",
-      headers: this.commonHeaders(),
-    });
+    try {
+      const url = new URL(`${this.config.baseUrl}/api/workspace/file`);
+      url.searchParams.set("directory", workspace);
+      url.searchParams.set("path", filePath);
 
-    if (!response.ok) {
-      throw new Error(`Failed to get file content: ${response.statusText}`);
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: this.commonHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get file content: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      logger.debug("File content retrieved", { workspace, filePath });
+      return data.content;
+    } catch (error) {
+      logger.error("Failed to fetch file content", error as Error, { workspace, filePath });
+      throw error;
     }
-
-    const data = await response.json();
-    return data.content;
   }
 
   // ============================================================
@@ -419,15 +566,24 @@ export class EkacodeApiClient {
    * Check server health
    */
   async checkHealth(): Promise<{ status: string; uptime: number }> {
-    const response = await fetch(`${this.config.baseUrl}/api/health`, {
-      method: "GET",
-    });
+    logger.debug("Checking server health");
 
-    if (!response.ok) {
-      throw new Error("Server health check failed");
+    try {
+      const response = await fetch(`${this.config.baseUrl}/api/health`, {
+        method: "GET",
+      });
+
+      if (!response.ok) {
+        throw new Error("Server health check failed");
+      }
+
+      const health = await response.json();
+      logger.debug("Server health check passed", { status: health.status, uptime: health.uptime });
+      return health;
+    } catch (error) {
+      logger.error("Server health check failed", error as Error);
+      throw error;
     }
-
-    return response.json();
   }
 }
 
@@ -443,7 +599,16 @@ export class EkacodeApiClient {
  * ```
  */
 export async function createApiClient(): Promise<EkacodeApiClient> {
-  // Get config from preload script
-  const config = await window.ekacodeAPI.server.getConfig();
-  return new EkacodeApiClient(config);
+  logger.debug("Creating API client from preload config");
+
+  try {
+    // Get config from preload script
+    const config = await window.ekacodeAPI.server.getConfig();
+    const client = new EkacodeApiClient(config);
+    logger.info("API client created successfully");
+    return client;
+  } catch (error) {
+    logger.error("Failed to create API client", error as Error);
+    throw error;
+  }
 }

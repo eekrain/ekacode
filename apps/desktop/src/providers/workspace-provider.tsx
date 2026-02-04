@@ -16,7 +16,6 @@ import {
   createEffect,
   createMemo,
   createSignal,
-  onCleanup,
   onMount,
   useContext,
   type Accessor,
@@ -91,6 +90,56 @@ export function useWorkspace(): WorkspaceContextValue {
     throw new Error("useWorkspace must be used within a WorkspaceProvider");
   }
   return ctx;
+}
+
+// ============================================================
+// Inner Hooks Component
+// ============================================================
+
+interface WorkspaceHooksProps {
+  client: EkacodeApiClient;
+  workspace: string;
+  activeSessionId: Accessor<string | null>;
+  setActiveSessionId: (id: string | null) => void;
+  refreshSessions: () => void;
+  onReady: (chat: UseChatResult, permissions: UsePermissionsResult) => void;
+}
+
+/**
+ * Component that initializes hooks and provides them via context
+ * This only renders when client and workspace are available
+ */
+function WorkspaceHooks(props: WorkspaceHooksProps) {
+  const chat = useChat({
+    client: props.client,
+    workspace: () => props.workspace,
+    initialSessionId: props.activeSessionId() ?? undefined,
+    onSessionIdReceived: (id: string) => {
+      if (id !== props.activeSessionId()) {
+        props.setActiveSessionId(id);
+        props.refreshSessions();
+      }
+    },
+  });
+
+  const permissions = usePermissions({
+    client: props.client,
+    workspace: () => props.workspace,
+    sessionId: props.activeSessionId,
+  });
+
+  // Notify parent that hooks are ready
+  onMount(() => {
+    props.onReady(chat, permissions);
+  });
+
+  // Update parent when activeSessionId changes (to keep hooks in sync)
+  createEffect(() => {
+    // Sync happens through the callbacks, but we ensure the signal is tracked
+    const _id = props.activeSessionId();
+  });
+
+  return null; // No visible output
 }
 
 // ============================================================
@@ -219,46 +268,9 @@ export const WorkspaceProvider: ParentComponent<WorkspaceProviderProps> = props 
     }
   };
 
-  // ---- Chat Hook ----
-  const chatResult = createMemo<UseChatResult | null>(() => {
-    const c = client();
-    const ws = workspace();
-
-    if (!c || !ws) return null;
-
-    return useChat({
-      client: c,
-      workspace: () => ws,
-      initialSessionId: activeSessionId() ?? undefined,
-      onSessionIdReceived: (id: string) => {
-        // Sync session ID from server response
-        if (id !== activeSessionId()) {
-          setActiveSessionId(id);
-          // Refresh sessions to include new one
-          refreshSessions();
-        }
-      },
-    });
-  });
-
-  // ---- Permissions Hook ----
-  const permissionsResult = createMemo<UsePermissionsResult | null>(() => {
-    const c = client();
-    const ws = workspace();
-
-    if (!c || !ws) return null;
-
-    return usePermissions({
-      client: c,
-      workspace: () => ws,
-      sessionId: activeSessionId,
-    });
-  });
-
-  // ---- Cleanup ----
-  onCleanup(() => {
-    // Any cleanup logic
-  });
+  // ---- Chat & Permissions Hooks ----
+  const [chatResult, setChatResult] = createSignal<UseChatResult | null>(null);
+  const [permissionsResult, setPermissionsResult] = createSignal<UsePermissionsResult | null>(null);
 
   // ---- Context Value ----
   const contextValue: WorkspaceContextValue = {
@@ -288,7 +300,29 @@ export const WorkspaceProvider: ParentComponent<WorkspaceProviderProps> = props 
   };
 
   return (
-    <WorkspaceContext.Provider value={contextValue}>{props.children}</WorkspaceContext.Provider>
+    <WorkspaceContext.Provider value={contextValue}>
+      {props.children}
+      {/* Initialize hooks when client and workspace are ready */}
+      {(() => {
+        const c = client();
+        const ws = workspace();
+        if (!c || !ws) return null;
+
+        return (
+          <WorkspaceHooks
+            client={c}
+            workspace={ws}
+            activeSessionId={activeSessionId}
+            setActiveSessionId={setActiveSessionId}
+            refreshSessions={refreshSessions}
+            onReady={(chat, permissions) => {
+              setChatResult(chat);
+              setPermissionsResult(permissions);
+            }}
+          />
+        );
+      })()}
+    </WorkspaceContext.Provider>
   );
 };
 

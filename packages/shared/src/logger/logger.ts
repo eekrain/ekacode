@@ -133,11 +133,6 @@ function createLoggerInterface(pinoLogger: pino.Logger, baseContext: LoggerConte
         pinoLogger.error({ ...baseContext, ...context }, msg);
       }
     },
-
-    child(context: Partial<LoggerContext>): Logger {
-      const newContext = { ...baseContext, ...context };
-      return createLoggerInterface(pinoLogger.child(context), newContext);
-    },
   };
 }
 

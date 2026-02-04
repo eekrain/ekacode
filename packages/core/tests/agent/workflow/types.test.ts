@@ -33,7 +33,7 @@ describe("agent/types", () => {
       type: "explore" as const,
       model: "glm-4.7",
       systemPrompt: "You are a test agent",
-      tools: [],
+      tools: {}, // Changed from [] to {} - tools must be an object with named keys
       maxIterations: 50,
     };
 
@@ -48,7 +48,7 @@ describe("agent/types", () => {
         type: "explore" as const,
         model: "glm-4.7",
         systemPrompt: "You are a test agent",
-        tools: [],
+        tools: {}, // Changed from [] to {} - tools must be an object with named keys
       };
       const result = AgentConfig.safeParse(minimalConfig);
       expect(result.success).toBe(true);
@@ -163,6 +163,7 @@ describe("agent/types", () => {
     it("should accept tool-call event", () => {
       const toolCallEvent = {
         type: "tool-call" as const,
+        toolCallId: "call-123",
         toolName: "read",
         args: { path: "/test" },
         agentId: "test-agent",
@@ -174,6 +175,7 @@ describe("agent/types", () => {
     it("should accept tool-result event", () => {
       const toolResultEvent = {
         type: "tool-result" as const,
+        toolCallId: "call-123",
         toolName: "read",
         result: "content",
         agentId: "test-agent",

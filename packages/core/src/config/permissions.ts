@@ -163,6 +163,8 @@ export function loadPermissionConfig(): PermissionConfig {
  * This should be called on server startup
  */
 export function initializePermissionRules(): void {
+  console.log("[initializePermissionRules] Starting permission rules initialization...");
+
   const permissionMgr = PermissionManager.getInstance();
 
   const config = loadPermissionConfig();
@@ -170,6 +172,10 @@ export function initializePermissionRules(): void {
   if (Object.keys(config).length === 0) {
     // No config found, use defaults
     const defaultRules = createDefaultRules();
+    console.log(
+      `[initializePermissionRules] Loading ${defaultRules.length} default rules:`,
+      defaultRules
+    );
     permissionMgr.setRules(defaultRules);
     logger.info("Initialized with default permission rules", {
       module: "config",
@@ -180,6 +186,7 @@ export function initializePermissionRules(): void {
 
   // Parse and set rules from config
   const rules = parseConfigRules(config);
+  console.log(`[initializePermissionRules] Loading ${rules.length} rules from config:`, rules);
   permissionMgr.setRules(rules);
   logger.info("Initialized permission rules from config", {
     module: "config",

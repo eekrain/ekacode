@@ -58,7 +58,6 @@ Supports common operations like git, npm, ls, cat, etc.
     // Get context with enhanced error message
     const { directory, sessionID } = getContextOrThrow();
     const permissionMgr = PermissionManager.getInstance();
-    const toolLogger = logger.child({ module: "tool:bash", sessionID });
 
     // Resolve working directory
     let cwd = workdir || directory;
@@ -79,7 +78,9 @@ Supports common operations like git, npm, ls, cat, etc.
       throw new Error(`Invalid timeout: ${timeout}. Must be positive.`);
     }
 
-    toolLogger.debug("Executing bash command", {
+    logger.debug("Executing bash command", {
+      module: "tool:bash",
+      sessionID,
       command,
       cwd,
       timeout,
@@ -106,7 +107,7 @@ Supports common operations like git, npm, ls, cat, etc.
       });
 
       if (!bashApproved) {
-        toolLogger.warn("Bash permission denied", { command });
+        logger.warn("Bash permission denied", { module: "tool:bash", sessionID, command });
         throw new Error(`Permission denied: Cannot execute command "${command}"`);
       }
     }
@@ -186,7 +187,9 @@ Supports common operations like git, npm, ls, cat, etc.
     // Truncate output if needed
     const { content: finalContent, truncated, lineCount } = await truncateOutput(output);
 
-    toolLogger.info("Bash command completed", {
+    logger.info("Bash command completed", {
+      module: "tool:bash",
+      sessionID,
       command,
       exitCode: proc.exitCode,
       truncated,

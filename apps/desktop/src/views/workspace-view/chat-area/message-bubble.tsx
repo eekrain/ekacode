@@ -1,10 +1,10 @@
-import { Component, Show, mergeProps } from "solid-js";
+import { Component, For, Match, mergeProps, Show, Switch } from "solid-js";
 import { cn } from "/@/lib/utils";
-import type { Message } from "/@/types";
+import type { ChatUIMessage } from "/@/types/ui-message";
 
 interface MessageBubbleProps {
   /** Message data */
-  message: Message;
+  message: ChatUIMessage;
   /** Additional CSS classes */
   class?: string;
   /** Animation delay for stagger effect */
@@ -18,8 +18,7 @@ interface MessageBubbleProps {
  * - User messages: right-aligned, primary background
  * - Assistant messages: left-aligned, card background with border
  * - Fade-in animation with slide up
- * - Markdown support (via child components)
- * - Timestamp on hover
+ * - Renders message.parts array (AI SDK UIMessage format)
  */
 export const MessageBubble: Component<MessageBubbleProps> = props => {
   const merged = mergeProps(
@@ -29,14 +28,16 @@ export const MessageBubble: Component<MessageBubbleProps> = props => {
     props
   );
 
-  const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   const isUser = () => props.message.role === "user";
+
+  // Get text content from parts
+  const getTextContent = () => {
+    const parts = props.message.parts || [];
+    return parts
+      .filter((part): part is { type: "text"; text: string } => part.type === "text")
+      .map(part => part.text)
+      .join("");
+  };
 
   return (
     <div
@@ -64,19 +65,28 @@ export const MessageBubble: Component<MessageBubbleProps> = props => {
             : ["bg-card/30 border-border/30 border", "text-foreground rounded-tl-sm"]
         )}
       >
-        {/* Message content */}
+        {/* Message content - render parts */}
         <div class="whitespace-pre-wrap break-words text-sm leading-relaxed">
-          {props.message.content}
-        </div>
-
-        {/* Timestamp (shown on hover) */}
-        <div
-          class={cn(
-            "mt-2 text-[10px] opacity-0 transition-opacity duration-200 group-hover:opacity-60",
-            isUser() ? "text-primary-foreground/70 text-right" : "text-muted-foreground/50"
-          )}
-        >
-          {formatTime(props.message.timestamp)}
+          <For each={props.message.parts}>
+            {part => (
+              <Switch>
+                <Match when={part.type === "text"}>
+                  <span>{(part as { text: string }).text}</span>
+                </Match>
+                <Match when={part.type === "tool-call"}>
+                  <span class="text-muted-foreground italic">
+                    [Tool: {(part as { toolName: string }).toolName}]
+                  </span>
+                </Match>
+                <Match when={part.type === "tool-result"}>
+                  <span class="text-muted-foreground italic">[Tool result]</span>
+                </Match>
+              </Switch>
+            )}
+          </For>
+          <Show when={props.message.parts?.length === 0}>
+            <span>{getTextContent()}</span>
+          </Show>
         </div>
       </div>
     </div>

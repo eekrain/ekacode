@@ -11,6 +11,7 @@ export { lsTool } from "./filesystem/ls";
 export { multieditTool } from "./filesystem/multiedit";
 export { readTool } from "./filesystem/read";
 export { writeTool } from "./filesystem/write";
+export { invalidTool } from "./invalid";
 
 // Shell tools
 export { bashTool } from "./shell/bash.tool";
@@ -45,3 +46,6 @@ export * from "./search-docs";
 
 // Re-export base utilities
 export * from "./base";
+
+// Task tool (subagent spawning)
+export { SUBAGENT_TYPES, taskTool, type SubagentResult, type SubagentType } from "./task";

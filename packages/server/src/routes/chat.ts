@@ -2,7 +2,7 @@
  * Chat API - AI chat endpoint with session management
  *
  * Handles chat requests with session bridge integration and UIMessage streaming.
- * Integrates with new SessionManager and WorkflowEngine for agent orchestration.
+ * Integrates with new SessionManager for simplified agent orchestration.
  * Supports multimodal (image) inputs that trigger vision model routing.
  */
 
@@ -20,6 +20,32 @@ const logger = createLogger("server");
 
 // Apply session bridge middleware
 app.use("*", sessionBridge);
+
+/**
+ * Custom stream event types for agent communication
+ * These are not standard AI SDK UIMessageChunk types but custom protocol
+ */
+interface TextDeltaEvent {
+  type: "text-delta";
+  id: string;
+  delta: string;
+}
+
+interface ToolCallEvent {
+  type: "tool-call";
+  id: string;
+  toolCallId: string;
+  toolName: string;
+  args: Record<string, unknown>;
+}
+
+interface ToolResultEvent {
+  type: "tool-result";
+  id: string;
+  toolCallId: string;
+  toolName: string;
+  result: unknown;
+}
 
 /**
  * Schema for multimodal chat messages
@@ -62,7 +88,7 @@ export { chatMessageSchema };
  * Chat endpoint
  *
  * Accepts chat messages and streams AI responses using UIMessage format.
- * Uses SessionManager and SessionController for workflow orchestration.
+ * Uses SessionManager and SessionController for simplified agent orchestration.
  * Supports multimodal (image) inputs that trigger vision model routing.
  *
  * Usage:
@@ -182,92 +208,190 @@ app.post("/api/chat", async c => {
 
   // Create UIMessage stream
   if (shouldStream) {
+    logger.info("Creating UIMessage stream", {
+      module: "chat",
+      sessionId: session.sessionId,
+      messageId: session.sessionId,
+    });
+
     const stream = createUIMessageStream({
       execute: async ({ writer }) => {
+        logger.info("Stream execute started", {
+          module: "chat",
+          sessionId: session.sessionId,
+        });
+
         // Send session message if new session
         if (sessionIsNew) {
+          logger.info("Sending session message", { module: "chat", sessionId: session.sessionId });
           writer.write(createSessionMessage(session));
         }
 
         const messageId = uuidv7();
-        let lastPhase: string | null = null;
         let _isComplete = false;
 
-        try {
-          // Start the workflow
-          logger.debug("Starting workflow", {
+        // Check if AI provider is configured
+        if (!process.env.ZAI_API_KEY && !process.env.OPENAI_API_KEY) {
+          logger.error("No AI provider configured", undefined, {
             module: "chat",
             sessionId: session.sessionId,
-            task: messageText,
+          });
+          writer.write({
+            type: "error",
+            errorText:
+              "No AI provider configured. Please set ZAI_API_KEY or OPENAI_API_KEY environment variable.",
+          });
+          writer.write({
+            type: "finish",
+            finishReason: "error",
+          });
+          return;
+        }
+
+        logger.info("Starting agent execution", {
+          module: "chat",
+          sessionId: session.sessionId,
+          messageId,
+          task: messageText,
+        });
+
+        try {
+          // Send initial state update
+          writer.write({
+            type: "data-state",
+            id: "state",
+            data: {
+              state: "running",
+              iteration: 0,
+              toolExecutionCount: 0,
+            },
           });
 
-          // Start the workflow and monitor progress
-          const workflowPromise = controller.start(messageText);
-
-          // Monitor workflow progress
-          const checkInterval = setInterval(() => {
-            const status = controller.getStatus();
-
-            // Send phase updates
-            if (status.phase !== lastPhase) {
-              writer.write({
-                type: "data-state",
-                id: "state",
-                data: {
-                  state: status.phase,
-                  iteration: 0,
-                  toolExecutionCount: 0,
-                },
-              });
-              lastPhase = status.phase;
-            }
-
-            // Check for completion
-            if (status.phase === "completed" || status.phase === "failed") {
-              _isComplete = true;
-              clearInterval(checkInterval);
-
-              // Send final message
-              writer.write({
-                type: "text-delta",
-                id: messageId,
-                delta: status.summary || "",
+          // Process the message with agent and stream events
+          const result = await controller.processMessage(messageText, {
+            onEvent: event => {
+              // Forward agent events to the stream
+              logger.debug("Agent event received", {
+                module: "chat",
+                sessionId: session.sessionId,
+                eventType: event.type,
               });
 
-              writer.write({
-                type: "finish",
-                finishReason: status.phase === "completed" ? "stop" : "error",
-              });
-            }
-          }, 100);
+              // Handle text content from agent
+              if (event.type === "text") {
+                writer.write({
+                  type: "text-delta",
+                  id: messageId,
+                  delta: event.text,
+                } as TextDeltaEvent);
+              }
 
-          // Wait for workflow completion (timeout: 10 minutes)
-          const timeoutMs = 10 * 60 * 1000;
+              // Handle tool-call events - notify UI that a tool is being called
+              if (event.type === "tool-call") {
+                logger.info(`Tool call: ${event.toolName}`, {
+                  module: "chat",
+                  sessionId: session.sessionId,
+                  toolName: event.toolName,
+                  toolCallId: event.toolCallId,
+                });
+                writer.write({
+                  type: "tool-call",
+                  id: messageId,
+                  toolCallId: event.toolCallId,
+                  toolName: event.toolName,
+                  args: event.args,
+                } as ToolCallEvent);
+              }
 
-          await Promise.race([
-            workflowPromise,
-            new Promise<void>((_, reject) =>
-              setTimeout(() => reject(new Error("Agent execution timeout")), timeoutMs)
-            ),
-          ]);
+              // Handle tool-result events - notify UI that a tool completed
+              if (event.type === "tool-result") {
+                logger.info(`Tool result: ${event.toolName}`, {
+                  module: "chat",
+                  sessionId: session.sessionId,
+                  toolName: event.toolName,
+                  toolCallId: event.toolCallId,
+                });
+                writer.write({
+                  type: "tool-result",
+                  id: messageId,
+                  toolCallId: event.toolCallId,
+                  toolName: event.toolName,
+                  result: event.result,
+                } as ToolResultEvent);
+              }
 
-          clearInterval(checkInterval);
-        } catch (error) {
+              // Handle finish events
+              if (event.type === "finish") {
+                logger.debug(`Agent finish: ${event.finishReason}`, {
+                  module: "chat",
+                  sessionId: session.sessionId,
+                  finishReason: event.finishReason,
+                });
+              }
+            },
+          });
+
           _isComplete = true;
-          if (error instanceof Error) {
-            logger.error("Workflow execution error", error, {
+
+          if (result.status === "failed") {
+            logger.error("Agent execution failed", undefined, {
+              module: "chat",
               sessionId: session.sessionId,
+              messageId,
+              error: result.error,
+              hasContent: !!result.finalContent,
             });
           } else {
-            logger.error("Workflow execution error", undefined, {
+            logger.info("Agent execution completed", {
+              module: "chat",
               sessionId: session.sessionId,
-              error: String(error),
+              status: result.status,
+              hasContent: !!result.finalContent,
             });
           }
 
+          // Send final content if available
+          if (result.finalContent) {
+            writer.write({
+              type: "text-delta",
+              id: messageId,
+              delta: result.finalContent,
+            });
+          }
+
+          // Send final status message
+          writer.write({
+            type: "data-state",
+            id: "state",
+            data: {
+              state: result.status === "completed" ? "completed" : "failed",
+              iteration: 0,
+              toolExecutionCount: 0,
+            },
+          });
+
+          // Send finish message
+          writer.write({
+            type: "finish",
+            finishReason: result.status === "completed" ? "stop" : "error",
+          });
+        } catch (error) {
+          _isComplete = true;
+          const errorMessage = error instanceof Error ? error.message : String(error);
+
+          logger.error("Agent execution error", error instanceof Error ? error : undefined, {
+            sessionId: session.sessionId,
+            error: errorMessage,
+          });
+
           writer.write({
             type: "error",
-            errorText: error instanceof Error ? error.message : String(error),
+            errorText: errorMessage,
+          });
+
+          writer.write({
+            type: "finish",
+            finishReason: "error",
           });
         }
       },
@@ -281,6 +405,10 @@ app.post("/api/chat", async c => {
         "Content-Encoding": "none",
         "Cache-Control": "no-cache",
         "X-Accel-Buffering": "no",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers":
+          "Content-Type, Authorization, X-Session-ID, X-Workspace, X-Directory",
       },
     });
   } else {
