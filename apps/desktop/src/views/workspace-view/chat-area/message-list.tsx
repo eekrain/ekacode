@@ -1,14 +1,17 @@
 import { Component, For, Show } from "solid-js";
 import { MessageBubble, ThinkingBubble } from "./message-bubble";
 import { ToolCallBlock } from "./tool-call-block";
+import { AssistantMessage } from "/@/components/assistant-message";
 import { Icon } from "/@/components/icon";
 import { createAutoScroll } from "/@/hooks/create-auto-scroll";
 import { cn } from "/@/lib/utils";
-import type { ChatUIMessage } from "/@/types/ui-message";
+import type { ChatMessageMetadata, ChatUIMessage } from "/@/types/ui-message";
 
 interface MessageListProps {
   /** Messages to display */
   messages: ChatUIMessage[];
+  /** Metadata for each message (parallel array) */
+  messagesMetadata?: ChatMessageMetadata[];
   /** Whether AI is currently generating */
   isGenerating?: boolean;
   /** Current thinking content (if any) */
@@ -49,7 +52,13 @@ export const MessageList: Component<MessageListProps> = props => {
         <For each={props.messages}>
           {(message, index) => (
             <div class="group">
-              <MessageBubble message={message} delay={Math.min(index() * 50, 300)} />
+              {/* Use AssistantMessage for assistant messages, MessageBubble for user messages */}
+              <Show
+                when={message.role === "assistant"}
+                fallback={<MessageBubble message={message} delay={Math.min(index() * 50, 300)} />}
+              >
+                <AssistantMessage message={message} metadata={props.messagesMetadata?.[index()]} />
+              </Show>
 
               {/* Tool calls - extracted from parts */}
               <Show

@@ -5,13 +5,15 @@ import { ChatInput } from "./chat-input";
 import { MessageList } from "./message-list";
 import { cn } from "/@/lib/utils";
 import type { AgentMode, Session } from "/@/types";
-import type { ChatUIMessage } from "/@/types/ui-message";
+import type { ChatMessageMetadata, ChatUIMessage } from "/@/types/ui-message";
 
 interface ChatPanelProps {
   /** Current active session */
   session?: Session | { sessionId: string; title: string };
   /** All messages for current session */
   messages?: ChatUIMessage[];
+  /** Metadata for each message (parallel array) */
+  messagesMetadata?: ChatMessageMetadata[];
   /** Whether AI is currently generating */
   isGenerating?: boolean;
   /** Current thinking content */
@@ -140,6 +142,7 @@ export const ChatPanel: Component<ChatPanelProps> = props => {
       {/* Message list */}
       <MessageList
         messages={merged.messages as ChatUIMessage[]}
+        messagesMetadata={props.messagesMetadata}
         isGenerating={merged.isGenerating}
         thinkingContent={props.thinkingContent}
       />
