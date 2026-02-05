@@ -24,6 +24,10 @@ interface ChatHeaderProps {
   selectedModel?: string;
   /** Model change handler */
   onModelChange?: (modelId: string) => void;
+  /** Whether debugger is currently shown */
+  isDebuggerOpen?: boolean;
+  /** Debugger toggle handler */
+  onToggleDebugger?: () => void;
   /** Additional CSS classes */
   class?: string;
 }
@@ -94,6 +98,33 @@ export const ChatHeader: Component<ChatHeaderProps> = props => {
             </>
           )}
         </For>
+      </div>
+
+      {/* Right side actions */}
+      <div class="flex items-center gap-2">
+        {/* Debugger toggle button */}
+        <button
+          onClick={props.onToggleDebugger}
+          class={cn(
+            "flex items-center gap-1.5 rounded-lg px-3 py-1.5",
+            "border-border/30 border text-xs font-medium",
+            "transition-all duration-150",
+            props.isDebuggerOpen
+              ? "bg-primary/20 text-primary border-primary/40"
+              : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+          title="Toggle Stream Debugger"
+        >
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width={2}
+              d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+            />
+          </svg>
+          <span>Debug</span>
+        </button>
       </div>
     </div>
   );

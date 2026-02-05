@@ -267,6 +267,7 @@ export type ChatUIMessage = UIMessage<
     "data-progress": ProgressData;
     "data-permission": PermissionRequestData;
     "data-session": SessionData;
+    "data-mode-metadata": ChatMessageMetadata;
     // NEW: Reasoning/thinking
     "data-thought": ThoughtData;
     // NEW: Planning mode parts

@@ -1,17 +1,14 @@
-import { Component, For, Show } from "solid-js";
+import { Component, createEffect, For, Show } from "solid-js";
 import { MessageBubble, ThinkingBubble } from "./message-bubble";
-import { ToolCallBlock } from "./tool-call-block";
 import { AssistantMessage } from "/@/components/assistant-message";
 import { Icon } from "/@/components/icon";
 import { createAutoScroll } from "/@/hooks/create-auto-scroll";
 import { cn } from "/@/lib/utils";
-import type { ChatMessageMetadata, ChatUIMessage } from "/@/types/ui-message";
+import type { ChatUIMessage } from "/@/types/ui-message";
 
 interface MessageListProps {
   /** Messages to display */
   messages: ChatUIMessage[];
-  /** Metadata for each message (parallel array) */
-  messagesMetadata?: ChatMessageMetadata[];
   /** Whether AI is currently generating */
   isGenerating?: boolean;
   /** Current thinking content (if any) */
@@ -41,6 +38,8 @@ export const MessageList: Component<MessageListProps> = props => {
     settlingPeriod: 300,
   });
 
+  createEffect(() => console.log(props.messages));
+
   return (
     <div
       ref={autoScroll.scrollRef}
@@ -57,34 +56,7 @@ export const MessageList: Component<MessageListProps> = props => {
                 when={message.role === "assistant"}
                 fallback={<MessageBubble message={message} delay={Math.min(index() * 50, 300)} />}
               >
-                <AssistantMessage message={message} metadata={props.messagesMetadata?.[index()]} />
-              </Show>
-
-              {/* Tool calls - extracted from parts */}
-              <Show
-                when={message.parts?.some(
-                  part => part.type === "tool-call" || part.type === "tool-result"
-                )}
-              >
-                <div class="ml-12 mt-2 space-y-1">
-                  <For each={message.parts}>
-                    {part =>
-                      part.type === "tool-call" ? (
-                        <ToolCallBlock
-                          toolCall={{
-                            id: (part as unknown as { toolCallId: string }).toolCallId,
-                            name: (part as unknown as { toolName?: string }).toolName || "unknown",
-                            arguments:
-                              ((part as unknown as { args?: Record<string, unknown> })
-                                .args as Record<string, unknown>) || {},
-                            status: "pending",
-                            timestamp: new Date(),
-                          }}
-                        />
-                      ) : null
-                    }
-                  </For>
-                </div>
+                <AssistantMessage message={message} />
               </Show>
             </div>
           )}

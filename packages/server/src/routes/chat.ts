@@ -128,6 +128,21 @@ interface RunCardData {
   elapsedMs?: number;
 }
 
+interface RunFileData {
+  path: string;
+  tag?: "Task" | "Implementation Plan" | "Doc" | "Code" | "Config";
+  diff?: { plus: number; minus: number };
+  cta?: "open" | "open-diff";
+}
+
+interface RunGroupData {
+  id: string;
+  index: number;
+  title: string;
+  collapsed: boolean;
+  itemsOrder: string[];
+}
+
 interface ModeState {
   mode: AgentMode;
   runId: string | null;
@@ -135,6 +150,8 @@ interface ModeState {
   hasReasoning: boolean;
   reasoningTexts: Map<string, string>; // Track reasoning text by ID
   runCardData: RunCardData | null;
+  runGroupData: RunGroupData | null;
+  toolCallTimestamps: Map<string, number>;
 }
 
 /**
@@ -408,6 +425,7 @@ app.post("/api/chat", async c => {
 
         const messageId = uuidv7();
         let _isComplete = false;
+        let hasTextDeltas = false;
 
         // Check if AI provider is configured
         if (!process.env.ZAI_API_KEY && !process.env.OPENAI_API_KEY) {
@@ -443,6 +461,8 @@ app.post("/api/chat", async c => {
             hasReasoning: false,
             reasoningTexts: new Map(),
             runCardData: null,
+            runGroupData: null,
+            toolCallTimestamps: new Map(),
           };
 
           // Send initial state update
@@ -497,6 +517,10 @@ app.post("/api/chat", async c => {
               agentEvent.file = {
                 path: args.TargetFile as string,
               };
+            } else if (event.toolName === "view_file" && args.AbsolutePath) {
+              agentEvent.file = {
+                path: args.AbsolutePath as string,
+              };
             }
 
             // Add terminal info for shell events
@@ -527,45 +551,62 @@ app.post("/api/chat", async c => {
               // Update mode detection
               const newMode = detectMode(modeState, event.type);
               if (newMode !== modeState.mode) {
+                const previousMode = modeState.mode;
                 modeState.mode = newMode;
-                logger.info(`Mode transition: ${modeState.mode} → ${newMode}`, {
+                logger.info(`Mode transition: ${previousMode} → ${newMode}`, {
                   module: "chat",
                   sessionId: session.sessionId,
-                });
-
-                // Send mode change metadata
-                writer.write({
-                  type: "message-metadata",
-                  messageMetadata: {
-                    mode: newMode,
-                    runId: modeState.runId,
-                    startedAt: Date.now(),
-                  },
                 });
 
                 // Initialize run card if entering planning mode
                 if (newMode === "planning" && !modeState.runId) {
                   modeState.runId = uuidv7();
+                  const groupId = `${modeState.runId}-group-1`;
                   modeState.runCardData = {
                     runId: modeState.runId,
                     title: "Planning Session",
                     status: "planning",
                     subtitle: messageText.slice(0, 100),
                     filesEditedOrder: [],
-                    groupsOrder: [],
+                    groupsOrder: [groupId],
                     startedAt: Date.now(),
+                  };
+                  modeState.runGroupData = {
+                    id: groupId,
+                    index: 1,
+                    title: "Progress Updates",
+                    collapsed: false,
+                    itemsOrder: [],
                   };
 
                   writer.write({
                     type: "data-run",
-                    id: messageId,
+                    id: modeState.runId,
                     data: modeState.runCardData,
                   } as unknown as Parameters<typeof writer.write>[0]);
+
+                  writer.write({
+                    type: "data-run-group",
+                    id: groupId,
+                    data: modeState.runGroupData,
+                  } as unknown as Parameters<typeof writer.write>[0]);
                 }
+
+                // Send mode change metadata (after runId init when planning)
+                writer.write({
+                  type: "data-mode-metadata",
+                  id: messageId,
+                  data: {
+                    mode: newMode,
+                    runId: modeState.runId,
+                    startedAt: Date.now(),
+                  },
+                } as unknown as Parameters<typeof writer.write>[0]);
               }
 
               // Handle text content from agent
               if (event.type === "text") {
+                hasTextDeltas = true;
                 writer.write({
                   type: "text-delta",
                   id: messageId,
@@ -581,7 +622,7 @@ app.post("/api/chat", async c => {
 
                 writer.write({
                   type: "data-thought",
-                  id: messageId,
+                  id: reasoningId,
                   data: {
                     id: reasoningId,
                     status: "thinking",
@@ -599,7 +640,7 @@ app.post("/api/chat", async c => {
 
                 writer.write({
                   type: "data-thought",
-                  id: messageId,
+                  id: reasoningId,
                   data: {
                     id: reasoningId,
                     status: "thinking",
@@ -615,7 +656,7 @@ app.post("/api/chat", async c => {
 
                 writer.write({
                   type: "data-thought",
-                  id: messageId,
+                  id: reasoningId,
                   data: {
                     id: reasoningId,
                     status: "complete",
@@ -636,13 +677,16 @@ app.post("/api/chat", async c => {
                   toolCallId: event.toolCallId,
                 });
 
-                // Send standard tool event
+                // Send tool call as data-tool-call event
                 writer.write({
-                  type: "tool-input-available",
-                  toolCallId: event.toolCallId as string,
-                  toolName: event.toolName as string,
-                  input: event.args,
-                });
+                  type: "data-tool-call",
+                  id: event.toolCallId as string,
+                  data: {
+                    toolCallId: event.toolCallId as string,
+                    toolName: event.toolName as string,
+                    args: event.args,
+                  },
+                } as unknown as Parameters<typeof writer.write>[0]);
 
                 // Create and send AgentEvent as data-action
                 const agentEvent = createAgentEvent(
@@ -653,9 +697,10 @@ app.post("/api/chat", async c => {
                   },
                   event.agentId as string | undefined
                 );
+                modeState.toolCallTimestamps.set(agentEvent.id, agentEvent.ts);
                 writer.write({
                   type: "data-action",
-                  id: messageId,
+                  id: agentEvent.id,
                   data: agentEvent,
                 } as unknown as Parameters<typeof writer.write>[0]);
 
@@ -663,7 +708,7 @@ app.post("/api/chat", async c => {
                 if (modeState.mode === "planning" && modeState.runId) {
                   writer.write({
                     type: "data-run-item",
-                    id: messageId,
+                    id: agentEvent.id,
                     data: agentEvent,
                   } as unknown as Parameters<typeof writer.write>[0]);
 
@@ -673,8 +718,30 @@ app.post("/api/chat", async c => {
                       modeState.runCardData.filesEditedOrder.push(agentEvent.file.path);
                       writer.write({
                         type: "data-run",
-                        id: messageId,
+                        id: modeState.runId,
                         data: modeState.runCardData,
+                      } as unknown as Parameters<typeof writer.write>[0]);
+
+                      const runFile: RunFileData = {
+                        path: agentEvent.file.path,
+                        cta: agentEvent.diff ? "open-diff" : "open",
+                        diff: agentEvent.diff,
+                      };
+                      writer.write({
+                        type: "data-run-file",
+                        id: agentEvent.file.path,
+                        data: runFile,
+                      } as unknown as Parameters<typeof writer.write>[0]);
+                    }
+                  }
+
+                  if (modeState.runGroupData) {
+                    if (!modeState.runGroupData.itemsOrder.includes(agentEvent.id)) {
+                      modeState.runGroupData.itemsOrder.push(agentEvent.id);
+                      writer.write({
+                        type: "data-run-group",
+                        id: modeState.runGroupData.id,
+                        data: modeState.runGroupData,
                       } as unknown as Parameters<typeof writer.write>[0]);
                     }
                   }
@@ -690,22 +757,27 @@ app.post("/api/chat", async c => {
                   toolCallId: event.toolCallId,
                 });
 
-                // Send standard tool result
+                // Send tool result as data-tool-result event
                 writer.write({
-                  type: "tool-output-available",
-                  toolCallId: event.toolCallId as string,
-                  output: event.result,
-                });
+                  type: "data-tool-result",
+                  id: event.toolCallId as string,
+                  data: {
+                    toolCallId: event.toolCallId as string,
+                    result: event.result,
+                  },
+                } as unknown as Parameters<typeof writer.write>[0]);
 
                 // Update action with result info
                 const resultText =
                   typeof event.result === "string" ? event.result : JSON.stringify(event.result);
+                const originalTs =
+                  modeState.toolCallTimestamps.get(event.toolCallId as string) ?? Date.now();
                 writer.write({
                   type: "data-action",
-                  id: messageId,
+                  id: event.toolCallId as string,
                   data: {
                     id: event.toolCallId as string,
-                    ts: Date.now(),
+                    ts: originalTs,
                     kind: "tool",
                     title: `${event.toolName as string} completed`,
                     subtitle: resultText.slice(0, 100),
@@ -713,6 +785,7 @@ app.post("/api/chat", async c => {
                     agentId: event.agentId as string | undefined,
                   },
                 } as unknown as Parameters<typeof writer.write>[0]);
+                modeState.toolCallTimestamps.delete(event.toolCallId as string);
               }
 
               // Handle finish events
@@ -732,7 +805,7 @@ app.post("/api/chat", async c => {
                   }
                   writer.write({
                     type: "data-run",
-                    id: messageId,
+                    id: modeState.runId,
                     data: modeState.runCardData,
                   } as unknown as Parameters<typeof writer.write>[0]);
                 }
@@ -760,7 +833,7 @@ app.post("/api/chat", async c => {
           }
 
           // Send final content if available
-          if (result.finalContent) {
+          if (!hasTextDeltas && typeof result.finalContent === "string") {
             writer.write({
               type: "text-delta",
               id: messageId,

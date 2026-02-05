@@ -10,7 +10,6 @@
 import { For, Show, createMemo, type Component } from "solid-js";
 import type {
   AgentEvent,
-  ChatMessageMetadata,
   ChatUIMessage,
   RunCardData,
   RunFileData,
@@ -23,17 +22,17 @@ import { StatusChip } from "./status-chip";
 
 export interface RunCardProps {
   message: ChatUIMessage;
-  metadata?: ChatMessageMetadata;
 }
 
 /**
  * Extract RunCardData from message parts
- * Note: AI SDK data parts have type like "data-data-run" (data- prefix + dataType name)
+ * Note: Some streams prefix twice; accept both "data-run" and "data-data-run".
  */
 function extractRunCardData(message: ChatUIMessage): RunCardData | null {
   for (const part of message.parts) {
-    if (part.type === "data-data-run") {
-      return (part as { type: "data-data-run"; data: RunCardData }).data;
+    const partType = (part as { type?: string }).type;
+    if (partType === "data-run" || partType === "data-data-run") {
+      return (part as unknown as { type: string; data: RunCardData }).data;
     }
   }
   return null;
@@ -45,8 +44,9 @@ function extractRunCardData(message: ChatUIMessage): RunCardData | null {
 function extractFiles(message: ChatUIMessage): RunFileData[] {
   const files: RunFileData[] = [];
   for (const part of message.parts) {
-    if (part.type === "data-data-run-file") {
-      files.push((part as { type: "data-data-run-file"; data: RunFileData }).data);
+    const partType = (part as { type?: string }).type;
+    if (partType === "data-run-file" || partType === "data-data-run-file") {
+      files.push((part as unknown as { type: string; data: RunFileData }).data);
     }
   }
   return files;
@@ -58,8 +58,9 @@ function extractFiles(message: ChatUIMessage): RunFileData[] {
 function extractGroups(message: ChatUIMessage): RunGroupData[] {
   const groups: RunGroupData[] = [];
   for (const part of message.parts) {
-    if (part.type === "data-data-run-group") {
-      groups.push((part as { type: "data-data-run-group"; data: RunGroupData }).data);
+    const partType = (part as { type?: string }).type;
+    if (partType === "data-run-group" || partType === "data-data-run-group") {
+      groups.push((part as unknown as { type: string; data: RunGroupData }).data);
     }
   }
   return groups.sort((a, b) => a.index - b.index);
@@ -71,12 +72,22 @@ function extractGroups(message: ChatUIMessage): RunGroupData[] {
 function extractEvents(message: ChatUIMessage): Record<string, AgentEvent> {
   const events: Record<string, AgentEvent> = {};
   for (const part of message.parts) {
-    if (part.type === "data-data-run-item") {
-      const event = (part as { type: "data-data-run-item"; data: AgentEvent }).data;
+    const partType = (part as { type?: string }).type;
+    if (partType === "data-run-item" || partType === "data-data-run-item") {
+      const event = (part as unknown as { type: string; data: AgentEvent }).data;
       events[event.id] = event;
     }
   }
   return events;
+}
+
+/**
+ * Extract ordered event IDs (by timestamp)
+ */
+function extractEventOrder(eventsById: Record<string, AgentEvent>): string[] {
+  return Object.values(eventsById)
+    .sort((a, b) => a.ts - b.ts)
+    .map(event => event.id);
 }
 
 /**
@@ -96,6 +107,25 @@ export const RunCard: Component<RunCardProps> = props => {
   const files = createMemo(() => extractFiles(props.message));
   const groups = createMemo(() => extractGroups(props.message));
   const eventsById = createMemo(() => extractEvents(props.message));
+  const eventOrder = createMemo(() => extractEventOrder(eventsById()));
+  const fallbackFiles = createMemo(() => {
+    const data = runCardData();
+    if (!data?.filesEditedOrder?.length) return [];
+    return data.filesEditedOrder.map(path => ({ path }));
+  });
+  const fallbackGroups = createMemo(() => {
+    if (groups().length > 0 || eventOrder().length === 0) return [];
+    const runId = runCardData()?.runId ?? "run";
+    return [
+      {
+        id: `${runId}-group-1`,
+        index: 1,
+        title: "Progress Updates",
+        collapsed: false,
+        itemsOrder: eventOrder(),
+      },
+    ] as RunGroupData[];
+  });
 
   const data = runCardData();
 
@@ -120,17 +150,19 @@ export const RunCard: Component<RunCardProps> = props => {
       </div>
 
       {/* Files Section */}
-      <Show when={files().length > 0}>
+      <Show when={files().length > 0 || fallbackFiles().length > 0}>
         <div class="ag-files-section">
           <div class="text-muted-foreground mb-2 text-xs font-medium">Files Edited</div>
-          <For each={files()}>{file => <FileRow file={file} />}</For>
+          <For each={files().length > 0 ? files() : fallbackFiles()}>
+            {file => <FileRow file={file} />}
+          </For>
         </div>
       </Show>
 
       {/* Progress Groups */}
-      <Show when={groups().length > 0}>
+      <Show when={groups().length > 0 || fallbackGroups().length > 0}>
         <div class="ag-progress-section">
-          <For each={groups()}>
+          <For each={groups().length > 0 ? groups() : fallbackGroups()}>
             {group => <ProgressGroup group={group} eventsById={eventsById()} />}
           </For>
         </div>

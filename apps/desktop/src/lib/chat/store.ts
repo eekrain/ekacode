@@ -17,6 +17,7 @@ import { createStore, produce, unwrap } from "solid-js/store";
 import type {
   AgentEvent,
   ChatEventsState,
+  ChatMessageMetadata,
   ChatMessagesState,
   ChatReasoningState,
   ChatState,
@@ -24,6 +25,7 @@ import type {
   ChatUIMessage,
   ReasoningPart,
   RLMStateData,
+  ToolCallPartData,
 } from "../../types/ui-message";
 import { createLogger } from "../logger";
 
@@ -160,6 +162,7 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
 
     /**
      * Add a tool call part to a message
+     * Checks for existing tool call with same ID to prevent duplicates
      */
     addToolCall(
       messageId: string,
@@ -170,15 +173,33 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
         "byId",
         messageId,
         produce(message => {
-          message.parts.push({
-            type: "tool-call",
-            toolCallId: toolCall.toolCallId,
-            toolName: toolCall.toolName,
-            args: toolCall.args,
-          } as unknown as (typeof message.parts)[number]);
+          // Check for existing tool call with same ID to prevent duplicates
+          const existingIndex = message.parts.findIndex(
+            p =>
+              p.type === "tool-call" &&
+              (p as { toolCallId?: string }).toolCallId === toolCall.toolCallId
+          );
+
+          if (existingIndex >= 0) {
+            // Update existing tool call instead of creating duplicate
+            const existingPart = message.parts[existingIndex] as unknown as {
+              toolName: string;
+              args: unknown;
+            };
+            existingPart.toolName = toolCall.toolName;
+            existingPart.args = toolCall.args;
+          } else {
+            // Add new tool call
+            message.parts.push({
+              type: "tool-call",
+              toolCallId: toolCall.toolCallId,
+              toolName: toolCall.toolName,
+              args: toolCall.args,
+            } as unknown as (typeof message.parts)[number]);
+          }
         })
       );
-      logger.debug("Tool call added", {
+      logger.debug("Tool call added/updated", {
         messageId,
         toolName: toolCall.toolName,
         toolCallId: toolCall.toolCallId,
@@ -214,11 +235,26 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
         "byId",
         messageId,
         produce(message => {
-          message.parts.push({
-            type: "tool-result",
-            toolCallId: toolResult.toolCallId,
-            result: toolResult.result,
-          } as unknown as (typeof message.parts)[number]);
+          const toolCallPart = message.parts.find(
+            p =>
+              p.type === "tool-call" &&
+              (p as { toolCallId?: string }).toolCallId === toolResult.toolCallId
+          ) as (ToolCallPartData & { result?: unknown; error?: string }) | undefined;
+
+          if (toolCallPart) {
+            const resultValue = toolResult.result as { error?: string } | undefined;
+            const errorMessage =
+              resultValue && typeof resultValue.error === "string" ? resultValue.error : undefined;
+            toolCallPart.status = errorMessage ? "failed" : "completed";
+            toolCallPart.result = toolResult.result;
+            toolCallPart.error = errorMessage;
+          } else {
+            message.parts.push({
+              type: "tool-result",
+              toolCallId: toolResult.toolCallId,
+              result: toolResult.result,
+            } as unknown as (typeof message.parts)[number]);
+          }
         })
       );
       logger.debug("Tool result added", { messageId, toolCallId: toolResult.toolCallId });
@@ -323,6 +359,32 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
       if (previous !== sessionId) {
         logger.info("Session ID changed", { from: previous, to: sessionId });
       }
+    },
+
+    /**
+     * Set current message metadata (for mode tracking)
+     */
+    setCurrentMetadata(metadata: ChatMessageMetadata | null) {
+      const previous = store.currentMetadata;
+      setStore("currentMetadata", metadata);
+      if (previous?.mode !== metadata?.mode) {
+        logger.info("Mode changed", { from: previous?.mode, to: metadata?.mode });
+      }
+    },
+
+    /**
+     * Set metadata on a specific message (mode routing, etc.)
+     */
+    setMessageMetadata(messageId: string, metadata: ChatMessageMetadata | null) {
+      setStore(
+        "messages",
+        "byId",
+        messageId,
+        produce(message => {
+          message.metadata = metadata as unknown as typeof message.metadata;
+        })
+      );
+      logger.debug("Message metadata updated", { messageId, mode: metadata?.mode });
     },
 
     // =========================================================================
@@ -481,6 +543,20 @@ export function createChatStore(initialMessages: ChatUIMessage[] = []) {
       if (order.length === 0) return undefined;
       const lastId = order[order.length - 1];
       return byId[lastId];
+    },
+
+    /**
+     * Remove a message by ID
+     */
+    removeMessage(messageId: string) {
+      setStore(
+        "messages",
+        produce(messages => {
+          delete messages.byId[messageId];
+          messages.order = messages.order.filter(id => id !== messageId);
+        })
+      );
+      logger.debug("Message removed", { messageId });
     },
 
     /**

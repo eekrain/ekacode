@@ -10,6 +10,7 @@
  * - Custom data-* parts for RLM state, progress, etc.
  */
 import { Component, For, Match, Show, Switch, createSignal } from "solid-js";
+import { Markdown } from "/@/components/markdown";
 import { cn } from "/@/lib/utils";
 import type {
   ProgressData,
@@ -33,6 +34,80 @@ type MessagePart = {
   data?: unknown;
   transient?: boolean;
 };
+
+function truncateText(value: string, maxLines = 8, maxChars = 1200): string {
+  let text = value;
+  if (text.length > maxChars) {
+    text = `${text.slice(0, maxChars)}…`;
+  }
+  const lines = text.split("\n");
+  if (lines.length > maxLines) {
+    return `${lines.slice(0, maxLines).join("\n")}\n…`;
+  }
+  return text;
+}
+
+function formatArgsList(args?: Record<string, unknown>): Array<{ key: string; value: string }> {
+  if (!args) return [];
+  const entries = Object.entries(args).map(([key, value]) => ({
+    key,
+    value: formatValue(value),
+  }));
+  const order = ["dirPath", "filePath", "path", "query", "command", "cmd", "pattern"];
+  return entries.sort((a, b) => {
+    const ai = order.indexOf(a.key);
+    const bi = order.indexOf(b.key);
+    if (ai === -1 && bi === -1) return a.key.localeCompare(b.key);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
+}
+
+function formatValue(value: unknown): string {
+  if (value === null) return "null";
+  if (value === undefined) return "undefined";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return `${value.length} items`;
+  if (typeof value === "object") {
+    const keys = Object.keys(value as Record<string, unknown>);
+    return keys.length
+      ? `object (${keys.slice(0, 4).join(", ")}${keys.length > 4 ? ", …" : ""})`
+      : "object";
+  }
+  return String(value);
+}
+
+function formatResultDisplay(result: unknown): { label: string; text?: string; meta?: string[] } {
+  if (result === null || result === undefined) {
+    return { label: "Result", text: "No output" };
+  }
+  if (typeof result === "string") {
+    return { label: "Output", text: truncateText(result) };
+  }
+  if (typeof result === "object") {
+    const obj = result as Record<string, unknown>;
+    if (typeof obj.output === "string") {
+      return { label: "Output", text: truncateText(obj.output) };
+    }
+    if (typeof obj.content === "string") {
+      return { label: "Content", text: truncateText(obj.content) };
+    }
+    if (typeof obj.text === "string") {
+      return { label: "Text", text: truncateText(obj.text) };
+    }
+    if (typeof obj.message === "string") {
+      return { label: "Message", text: truncateText(obj.message) };
+    }
+    const meta: string[] = [];
+    if (typeof obj.count === "number") meta.push(`count: ${obj.count}`);
+    if (typeof obj.truncated === "boolean") meta.push(`truncated: ${obj.truncated ? "yes" : "no"}`);
+    if (Array.isArray(obj.items)) meta.push(`items: ${obj.items.length}`);
+    return { label: "Result", meta: meta.length ? meta : ["Result received"] };
+  }
+  return { label: "Result", text: truncateText(String(result)) };
+}
 
 interface MessagePartsProps {
   /** Array of message parts to render */
@@ -70,6 +145,11 @@ export const MessageParts: Component<MessagePartsProps> = props => {
             <Match when={part.type === "data-progress"}>
               <ProgressPart data={part.data as ProgressData} />
             </Match>
+            <Match when={part.type.startsWith("data-")}>
+              {/* Data parts are handled by mode-specific components (RunCard, ActivityFeed) */}
+              {/* Don't render them inline to avoid duplication */}
+              {null}
+            </Match>
           </Switch>
         )}
       </For>
@@ -86,11 +166,7 @@ interface TextPartProps {
 }
 
 export const TextPart: Component<TextPartProps> = props => {
-  return (
-    <div class={cn("text-part whitespace-pre-wrap break-words leading-relaxed", props.class)}>
-      {props.text}
-    </div>
-  );
+  return <Markdown text={props.text} class={cn("text-part prose-p:m-0", props.class)} />;
 };
 
 /**
@@ -103,6 +179,10 @@ interface ToolCallPartProps {
 
 export const ToolCallPart: Component<ToolCallPartProps> = props => {
   const [isExpanded, setIsExpanded] = createSignal(false);
+  const result = () =>
+    (props.part as ToolCallPartData & { result?: unknown; error?: string }).result;
+  const error = () => (props.part as ToolCallPartData & { result?: unknown; error?: string }).error;
+  const argsList = () => formatArgsList(props.part.args);
 
   // Determine status based on presence of args
   const status = () => {
@@ -238,11 +318,47 @@ export const ToolCallPart: Component<ToolCallPartProps> = props => {
         </svg>
       </button>
 
-      {/* Arguments (expandable) */}
-      <Show when={isExpanded() && props.part.args}>
-        <pre class="bg-muted/50 mt-2 max-h-40 overflow-x-auto rounded p-2 text-xs">
-          {JSON.stringify(props.part.args, null, 2)}
-        </pre>
+      {/* Arguments + Result (expandable) */}
+      <Show when={isExpanded()}>
+        <Show when={argsList().length > 0}>
+          <div class="mt-2 space-y-1 text-xs">
+            <div class="text-muted-foreground font-medium">Arguments</div>
+            <For each={argsList()}>
+              {item => (
+                <div class="flex gap-2">
+                  <span class="text-muted-foreground/80 min-w-[84px]">{item.key}</span>
+                  <span class="text-foreground/80 break-all">{item.value}</span>
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
+
+        <Show when={error()}>
+          <div class="mt-3">
+            <div class="text-destructive text-xs font-medium">Error</div>
+            <div class="text-destructive/90 mt-1 text-xs">{error()}</div>
+          </div>
+        </Show>
+
+        <Show when={!error() && result() !== undefined}>
+          {(() => {
+            const display = formatResultDisplay(result());
+            return (
+              <div class="mt-3">
+                <div class="text-muted-foreground text-xs font-medium">{display.label}</div>
+                <Show when={display.text}>
+                  <pre class="mt-1 max-h-60 overflow-x-auto rounded bg-green-500/10 p-2 text-xs">
+                    {display.text}
+                  </pre>
+                </Show>
+                <Show when={!display.text && display.meta?.length}>
+                  <div class="text-muted-foreground mt-1 text-xs">{display.meta!.join(" • ")}</div>
+                </Show>
+              </div>
+            );
+          })()}
+        </Show>
       </Show>
     </div>
   );
@@ -259,6 +375,7 @@ interface ToolResultPartProps {
 export const ToolResultPart: Component<ToolResultPartProps> = props => {
   const [isExpanded, setIsExpanded] = createSignal(false);
   const hasError = () => !!props.part.error;
+  const display = () => formatResultDisplay(props.part.result);
 
   return (
     <div
@@ -314,11 +431,14 @@ export const ToolResultPart: Component<ToolResultPartProps> = props => {
         </button>
 
         <Show when={isExpanded()}>
-          <pre class="mt-2 max-h-60 overflow-x-auto rounded bg-green-500/10 p-2 text-xs">
-            {typeof props.part.result === "string"
-              ? props.part.result
-              : JSON.stringify(props.part.result, null, 2)}
-          </pre>
+          <Show when={display().text}>
+            <pre class="mt-2 max-h-60 overflow-x-auto rounded bg-green-500/10 p-2 text-xs">
+              {display().text}
+            </pre>
+          </Show>
+          <Show when={!display().text && display().meta?.length}>
+            <div class="text-muted-foreground mt-2 text-xs">{display().meta!.join(" • ")}</div>
+          </Show>
         </Show>
       </Show>
     </div>

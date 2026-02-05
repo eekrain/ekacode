@@ -21,7 +21,15 @@ import { EkacodeApiClient } from "../lib/api-client";
 import { createChatStore } from "../lib/chat/store";
 import { parseUIMessageStream } from "../lib/chat/stream-parser";
 import { createLogger } from "../lib/logger";
-import type { ChatState, ChatStatus, ChatUIMessage, RLMStateData } from "../types/ui-message";
+import type {
+  ChatMessageMetadata,
+  ChatState,
+  ChatStatus,
+  ChatUIMessage,
+  RLMStateData,
+} from "../types/ui-message";
+import type { UseStreamDebuggerResult } from "./use-stream-debugger";
+import { useStreamDebugger } from "./use-stream-debugger";
 
 const logger = createLogger("desktop:chat");
 
@@ -96,6 +104,9 @@ export interface UseChatResult {
 
   /** Set session ID manually */
   setSessionId: (id: string | null) => void;
+
+  /** Stream debugger instance for development */
+  streamDebugger: UseStreamDebuggerResult;
 }
 
 /**
@@ -147,6 +158,9 @@ export function useChat(options: UseChatOptions): UseChatResult {
   // Create the chat store
   const chatStore = createChatStore(initialMessages);
 
+  // Create stream debugger for development
+  const streamDebugger = useStreamDebugger();
+
   // Set initial session ID if provided
   if (initialSessionId) {
     chatStore.setSessionId(initialSessionId);
@@ -155,8 +169,56 @@ export function useChat(options: UseChatOptions): UseChatResult {
   // Abort controller for cancellation
   let abortController: AbortController | null = null;
 
-  // Track current streaming message ID
-  let currentMessageId: string | null = null;
+  // Track streaming message IDs (preamble → activity → final)
+  let preambleMessageId: string | null = null;
+  let activityMessageId: string | null = null;
+  let finalMessageId: string | null = null;
+  let hasToolCalls = false;
+  let bufferedText = "";
+  let messageCounter = 0;
+
+  const nextMessageId = () =>
+    `msg_${Date.now()}_${messageCounter++}_${Math.random().toString(36).slice(2, 11)}`;
+
+  const ensurePreambleMessage = () => {
+    if (!preambleMessageId) {
+      preambleMessageId = nextMessageId();
+      const assistantMessage: ChatUIMessage = {
+        id: preambleMessageId,
+        role: "assistant",
+        parts: [{ type: "text", text: "" }],
+      };
+      chatStore.addMessage(assistantMessage);
+    }
+    return preambleMessageId;
+  };
+
+  const ensureActivityMessage = () => {
+    if (!activityMessageId) {
+      activityMessageId = nextMessageId();
+      const assistantMessage: ChatUIMessage = {
+        id: activityMessageId,
+        role: "assistant",
+        parts: [],
+      };
+      chatStore.addMessage(assistantMessage);
+      chatStore.setMessageMetadata(activityMessageId, { mode: "build" });
+    }
+    return activityMessageId;
+  };
+
+  const ensureFinalMessage = () => {
+    if (!finalMessageId) {
+      finalMessageId = nextMessageId();
+      const assistantMessage: ChatUIMessage = {
+        id: finalMessageId,
+        role: "assistant",
+        parts: [{ type: "text", text: "" }],
+      };
+      chatStore.addMessage(assistantMessage);
+    }
+    return finalMessageId;
+  };
 
   // Cleanup on unmount
   onCleanup(() => {
@@ -192,16 +254,25 @@ export function useChat(options: UseChatOptions): UseChatResult {
       count: chatStore.getMessageCount(),
     });
 
-    // Create assistant message placeholder for streaming
-    currentMessageId = `msg_${Date.now() + 1}`;
-    const assistantMessage: ChatUIMessage = {
-      id: currentMessageId,
-      role: "assistant",
-      parts: [{ type: "text", text: "" }],
-    };
-    chatStore.addMessage(assistantMessage);
+    // Reset per-request tracking
+    preambleMessageId = null;
+    activityMessageId = null;
+    finalMessageId = null;
+    hasToolCalls = false;
+    bufferedText = "";
+    messageCounter = 0;
+    const preambleId = ensurePreambleMessage();
     chatStore.setStatus("connecting");
     chatStore.setError(null);
+
+    // Start stream debugger capture
+    streamDebugger.startCapture();
+    streamDebugger.logEvent({
+      type: "message-start",
+      messageId: userMessage.id,
+      payload: { text: text.slice(0, 100) },
+      storeSnapshot: chatStore.get(),
+    });
 
     try {
       // Make the request
@@ -226,10 +297,40 @@ export function useChat(options: UseChatOptions): UseChatResult {
       chatStore.setStatus("streaming");
 
       // Parse the stream
-      const messageId = currentMessageId;
       await parseUIMessageStream(response, {
-        onTextDelta: (_id, delta) => {
-          chatStore.appendTextDelta(messageId, delta);
+        onTextDelta: (messageId, delta) => {
+          // Determine the actual target message ID
+          let actualMessageId: string;
+
+          if (messageId && messageId !== preambleMessageId && messageId !== activityMessageId) {
+            // Server provided a specific message ID
+            actualMessageId = messageId;
+            const existingMessage = chatStore.getMessage(messageId);
+            if (!existingMessage) {
+              // Create new message with server ID
+              const assistantMessage: ChatUIMessage = {
+                id: messageId,
+                role: "assistant",
+                parts: [{ type: "text", text: delta }],
+              };
+              chatStore.addMessage(assistantMessage);
+              if (!preambleMessageId) preambleMessageId = messageId;
+            }
+          } else if (!hasToolCalls) {
+            actualMessageId = ensurePreambleMessage();
+            chatStore.appendTextDelta(actualMessageId, delta);
+          } else {
+            actualMessageId = ensureFinalMessage();
+            bufferedText += delta;
+          }
+
+          // Log to debugger with the actual message ID
+          streamDebugger.logEvent({
+            type: "text-delta",
+            messageId: actualMessageId,
+            payload: { delta: delta.slice(0, 100) },
+            storeSnapshot: chatStore.get(),
+          });
         },
 
         onToolCallStart: toolCall => {
@@ -237,66 +338,175 @@ export function useChat(options: UseChatOptions): UseChatResult {
             toolName: toolCall.toolName,
             toolCallId: toolCall.toolCallId,
           });
-          chatStore.addToolCall(messageId, {
+
+          hasToolCalls = true;
+          const targetId = ensureActivityMessage();
+          chatStore.setMessageMetadata(targetId, { mode: "build" });
+          chatStore.addToolCall(targetId, {
             toolCallId: toolCall.toolCallId,
             toolName: toolCall.toolName,
             args: {},
           });
+
+          // Log to debugger with the activity message ID
+          streamDebugger.logEvent({
+            type: "tool-call-start",
+            messageId: targetId,
+            payload: toolCall,
+            storeSnapshot: chatStore.get(),
+          });
         },
 
         onToolCallEnd: (toolCallId, args) => {
-          chatStore.updateToolCall(messageId, toolCallId, args);
+          const targetId = ensureActivityMessage();
+          chatStore.updateToolCall(targetId, toolCallId, args);
+
+          // Log to debugger with the activity message ID
+          streamDebugger.logEvent({
+            type: "tool-call-end",
+            messageId: targetId,
+            payload: { toolCallId, args },
+            storeSnapshot: chatStore.get(),
+          });
         },
 
         onToolResult: result => {
           logger.debug("Tool result received", { toolCallId: result.toolCallId });
-          chatStore.addToolResult(messageId, result);
+
+          const targetId = ensureActivityMessage();
+          chatStore.addToolResult(targetId, result);
+
+          // Log to debugger with the activity message ID
+          streamDebugger.logEvent({
+            type: "tool-result",
+            messageId: targetId,
+            payload: result,
+            storeSnapshot: chatStore.get(),
+          });
         },
 
         onDataPart: (type, id, data, transient) => {
+          if (type === "data-session") {
+            const sessionData = data as { sessionId: string };
+            chatStore.setSessionId(sessionData.sessionId);
+
+            // Log session data without message ID
+            streamDebugger.logEvent({
+              type: "data-part",
+              payload: { type, id, data, transient },
+              storeSnapshot: chatStore.get(),
+            });
+            return;
+          }
+
+          const isUiData = type.startsWith("data-");
+          const targetId = isUiData ? ensureActivityMessage() : ensurePreambleMessage();
+
           // Update data part in message
-          chatStore.updateDataPart(messageId, type, id, data, transient);
+          chatStore.updateDataPart(targetId, type, id, data, transient);
+
+          // Log to debugger with the appropriate message ID
+          streamDebugger.logEvent({
+            type: "data-part",
+            messageId: targetId,
+            payload: { type, id, data, transient },
+            storeSnapshot: chatStore.get(),
+          });
 
           // Extract RLM state for easy access
           if (type === "data-rlm-state") {
             const rlmState = data as RLMStateData;
             chatStore.setRLMState(rlmState);
             onRLMStateChange?.(rlmState);
-          } else if (type === "data-session") {
-            const sessionData = data as { sessionId: string };
-            chatStore.setSessionId(sessionData.sessionId);
+          } else if (type === "data-mode-metadata") {
+            // Extract mode metadata for mode-based UI routing
+            // Trust server metadata - don't override with client-side heuristics
+            const metadata = data as ChatMessageMetadata;
+            const modeTargetId = ensureActivityMessage();
+            chatStore.setMessageMetadata(modeTargetId, metadata);
+          } else if (type === "data-action" || type === "data-thought") {
+            chatStore.setMessageMetadata(targetId, { mode: "build" });
           }
         },
 
         onError: error => {
           logger.error("Stream error in chat", error);
+
+          // Log to debugger
+          streamDebugger.logEvent({
+            type: "error",
+            payload: { message: error.message, stack: error.stack },
+            storeSnapshot: chatStore.get(),
+          });
+          streamDebugger.endCapture();
+
           chatStore.setStatus("error");
           chatStore.setError(error);
           onError?.(error);
         },
 
         onComplete: () => {
-          logger.info("Chat response completed", { messageId });
+          logger.info("Chat response completed");
+
+          // Log to debugger
+          streamDebugger.logEvent({
+            type: "complete",
+            payload: { messageCount: chatStore.getMessageCount() },
+            storeSnapshot: chatStore.get(),
+          });
+          streamDebugger.endCapture();
+
           chatStore.setStatus("done");
           chatStore.setRLMState(null);
 
-          const lastMessage = chatStore.getLastMessage();
-          if (lastMessage) {
-            onFinish?.(lastMessage);
+          if (bufferedText.trim()) {
+            const targetId = ensureFinalMessage();
+            chatStore.appendTextDelta(targetId, bufferedText);
           }
+
+          if (preambleId) {
+            const preamble = chatStore.getMessage(preambleId);
+            const preambleText = preamble?.parts
+              .filter(part => part.type === "text")
+              .map(part => (part as { text?: string }).text ?? "")
+              .join("");
+            if (!preambleText || preambleText.trim().length === 0) {
+              chatStore.removeMessage(preambleId);
+            }
+          }
+
+          const lastMessage = finalMessageId
+            ? chatStore.getMessage(finalMessageId)
+            : chatStore.getLastMessage();
+          if (lastMessage) onFinish?.(lastMessage);
         },
       });
     } catch (error) {
       // Don't report abort as error
       if ((error as Error).name !== "AbortError") {
         logger.error("Chat request failed", error as Error);
+
+        // Log to debugger
+        streamDebugger.logEvent({
+          type: "error",
+          payload: {
+            message: (error as Error).message,
+            stack: (error as Error).stack,
+            name: (error as Error).name,
+          },
+          storeSnapshot: chatStore.get(),
+        });
+        streamDebugger.endCapture();
+
         chatStore.setStatus("error");
         chatStore.setError(error as Error);
         onError?.(error as Error);
       }
     } finally {
       abortController = null;
-      currentMessageId = null;
+      preambleMessageId = null;
+      activityMessageId = null;
+      finalMessageId = null;
     }
   };
 
@@ -356,5 +566,6 @@ export function useChat(options: UseChatOptions): UseChatResult {
     stop,
     clearMessages,
     setSessionId,
+    streamDebugger,
   };
 }

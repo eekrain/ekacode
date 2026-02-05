@@ -10,34 +10,56 @@
 import { Match, Switch, type Component } from "solid-js";
 import type { AgentMode, ChatMessageMetadata, ChatUIMessage } from "../types/ui-message";
 import { ActivityFeed } from "./activity-feed/index";
-import { MessageParts } from "./message-parts";
 import { RunCard } from "./run-card/index";
+import { MessageBubble } from "/@/views/workspace-view/chat-area/message-bubble";
 
 export interface AssistantMessageProps {
   message: ChatUIMessage;
-  metadata?: ChatMessageMetadata;
 }
 
 /**
  * Get the mode from message metadata, defaulting to "chat"
+ * Prioritizes explicit metadata over heuristics to allow server-driven mode routing
  */
-function getMode(metadata?: ChatMessageMetadata): AgentMode {
-  return metadata?.mode ?? "chat";
+function getMode(message: ChatUIMessage): AgentMode {
+  const metadata = message.metadata as ChatMessageMetadata | undefined;
+
+  // Trust explicit metadata first - server is the source of truth
+  if (metadata?.mode) {
+    return metadata.mode;
+  }
+
+  // Fall back to heuristics only when no metadata is present
+  const partTypes = message.parts.map(part => (part as { type?: string }).type || "");
+  const hasToolParts =
+    partTypes.includes("tool-call") ||
+    partTypes.includes("tool-result") ||
+    partTypes.includes("data-action") ||
+    partTypes.includes("data-data-action");
+  const hasRunParts =
+    partTypes.includes("data-run") ||
+    partTypes.includes("data-data-run") ||
+    partTypes.includes("data-run-item") ||
+    partTypes.includes("data-data-run-item");
+
+  if (hasToolParts) return "build";
+  if (hasRunParts) return "planning";
+  return "chat";
 }
 
 /**
  * AssistantMessage - Routes to the appropriate UI based on mode
  */
 export const AssistantMessage: Component<AssistantMessageProps> = props => {
-  const mode = () => getMode(props.metadata);
+  const mode = () => getMode(props.message);
 
   return (
     <Switch fallback={<ChatMessageView message={props.message} />}>
       <Match when={mode() === "planning"}>
-        <RunCard message={props.message} metadata={props.metadata} />
+        <RunCard message={props.message} />
       </Match>
       <Match when={mode() === "build"}>
-        <ActivityFeed message={props.message} metadata={props.metadata} />
+        <ActivityFeed message={props.message} />
       </Match>
     </Switch>
   );
@@ -47,27 +69,7 @@ export const AssistantMessage: Component<AssistantMessageProps> = props => {
  * Default chat message view (standard bubbles)
  */
 const ChatMessageView: Component<{ message: ChatUIMessage }> = props => {
-  return (
-    <div class="flex gap-3">
-      {/* Assistant avatar placeholder */}
-      <div class="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
-        <span class="text-primary text-xs font-medium">AI</span>
-      </div>
-
-      {/* Message content */}
-      <div class="min-w-0 flex-1">
-        <MessageParts
-          parts={
-            props.message.parts as readonly {
-              type: string;
-              text?: string;
-              [key: string]: unknown;
-            }[]
-          }
-        />
-      </div>
-    </div>
-  );
+  return <MessageBubble message={props.message} />;
 };
 
 export default AssistantMessage;

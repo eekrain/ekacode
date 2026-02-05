@@ -81,13 +81,9 @@ export const MessageBubble: Component<MessageBubbleProps> = props => {
                     )}
                   />
                 </Match>
-                <Match when={part.type === "tool-call"}>
-                  <span class="text-muted-foreground italic">
-                    [Tool: {(part as { toolName: string }).toolName}]
-                  </span>
-                </Match>
-                <Match when={part.type === "tool-result"}>
-                  <span class="text-muted-foreground italic">[Tool result]</span>
+                <Match when={part.type === "tool-call" || part.type === "tool-result"}>
+                  {/* Tool parts are handled by ActivityFeed/RunCard, not rendered here */}
+                  {null}
                 </Match>
               </Switch>
             )}

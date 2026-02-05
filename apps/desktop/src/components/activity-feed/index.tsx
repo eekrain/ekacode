@@ -6,19 +6,13 @@
  */
 
 import { For, Show, createMemo, type Component } from "solid-js";
-import type {
-  AgentEvent,
-  ChatMessageMetadata,
-  ChatUIMessage,
-  ThoughtData,
-} from "../../types/ui-message";
+import type { AgentEvent, ChatUIMessage, ThoughtData } from "../../types/ui-message";
 import { MessageParts } from "../message-parts";
 import { ActionRow } from "./action-row";
 import { ThoughtIndicator } from "./thought-indicator";
 
 export interface ActivityFeedProps {
   message: ChatUIMessage;
-  metadata?: ChatMessageMetadata;
 }
 
 /**
@@ -27,8 +21,9 @@ export interface ActivityFeedProps {
 function extractEvents(message: ChatUIMessage): AgentEvent[] {
   const events: AgentEvent[] = [];
   for (const part of message.parts) {
-    if (part.type === "data-data-action") {
-      events.push((part as { type: "data-data-action"; data: AgentEvent }).data);
+    const partType = (part as { type?: string }).type;
+    if (partType === "data-action" || partType === "data-data-action") {
+      events.push((part as unknown as { type: string; data: AgentEvent }).data);
     }
   }
   return events.sort((a, b) => a.ts - b.ts);
@@ -39,8 +34,9 @@ function extractEvents(message: ChatUIMessage): AgentEvent[] {
  */
 function extractThought(message: ChatUIMessage): ThoughtData | null {
   for (const part of message.parts) {
-    if (part.type === "data-data-thought") {
-      return (part as { type: "data-data-thought"; data: ThoughtData }).data;
+    const partType = (part as { type?: string }).type;
+    if (partType === "data-thought" || partType === "data-data-thought") {
+      return (part as unknown as { type: string; data: ThoughtData }).data;
     }
   }
   return null;
@@ -57,6 +53,23 @@ export const ActivityFeed: Component<ActivityFeedProps> = props => {
   const events = createMemo(() => extractEvents(props.message));
   const thought = createMemo(() => extractThought(props.message));
   const showText = createMemo(() => hasTextContent(props.message));
+  const textParts = createMemo(
+    () =>
+      props.message.parts.filter(part => part.type === "text") as readonly {
+        type: string;
+        text?: string;
+        [key: string]: unknown;
+      }[]
+  );
+  const toolParts = createMemo(
+    () =>
+      props.message.parts.filter(
+        part => part.type === "tool-call" || part.type === "tool-result"
+      ) as readonly {
+        type: string;
+        [key: string]: unknown;
+      }[]
+  );
 
   return (
     <div class="animate-fade-in-up">
@@ -69,8 +82,15 @@ export const ActivityFeed: Component<ActivityFeedProps> = props => {
         />
       </Show>
 
-      {/* Event Timeline */}
-      <Show when={events().length > 0}>
+      {/* Tool activity (preferred) */}
+      <Show when={toolParts().length > 0}>
+        <div class="my-3">
+          <MessageParts parts={toolParts()} class="space-y-2" />
+        </div>
+      </Show>
+
+      {/* Fallback event timeline (when no tool parts exist) */}
+      <Show when={toolParts().length === 0 && events().length > 0}>
         <div class="my-3 space-y-0.5">
           <For each={events()}>{event => <ActionRow event={event} />}</For>
         </div>
@@ -79,15 +99,7 @@ export const ActivityFeed: Component<ActivityFeedProps> = props => {
       {/* Text Content (markdown response) */}
       <Show when={showText()}>
         <div class="mt-3">
-          <MessageParts
-            parts={
-              props.message.parts as readonly {
-                type: string;
-                text?: string;
-                [key: string]: unknown;
-              }[]
-            }
-          />
+          <MessageParts parts={textParts()} />
         </div>
       </Show>
     </div>

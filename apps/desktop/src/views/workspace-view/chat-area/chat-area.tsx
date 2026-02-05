@@ -3,17 +3,17 @@ import { Component, createSignal, mergeProps, Show } from "solid-js";
 import { ChatHeader } from "./chat-header";
 import { ChatInput } from "./chat-input";
 import { MessageList } from "./message-list";
+import { StreamDebuggerPanel } from "./stream-debugger-panel";
+import type { UseStreamDebuggerResult } from "/@/hooks/use-stream-debugger";
 import { cn } from "/@/lib/utils";
 import type { AgentMode, Session } from "/@/types";
-import type { ChatMessageMetadata, ChatUIMessage } from "/@/types/ui-message";
+import type { ChatUIMessage } from "/@/types/ui-message";
 
 interface ChatPanelProps {
   /** Current active session */
   session?: Session | { sessionId: string; title: string };
   /** All messages for current session */
   messages?: ChatUIMessage[];
-  /** Metadata for each message (parallel array) */
-  messagesMetadata?: ChatMessageMetadata[];
   /** Whether AI is currently generating */
   isGenerating?: boolean;
   /** Current thinking content */
@@ -34,6 +34,8 @@ interface ChatPanelProps {
   selectedModel?: string;
   /** Initial mode */
   initialMode?: AgentMode;
+  /** Stream debugger instance (optional) */
+  streamDebugger?: UseStreamDebuggerResult;
   /** Additional CSS classes */
   class?: string;
 }
@@ -46,6 +48,7 @@ interface ChatPanelProps {
  * - Scrollable message area with auto-scroll
  * - Clean card-style input with mode selector
  * - Smooth transitions between states
+ * - Stream debugger toggle for development
  */
 export const ChatPanel: Component<ChatPanelProps> = props => {
   const merged = mergeProps(
@@ -60,6 +63,7 @@ export const ChatPanel: Component<ChatPanelProps> = props => {
 
   const [inputValue, setInputValue] = createSignal("");
   const [agentMode, setAgentMode] = createSignal<AgentMode>(merged.initialMode);
+  const [showDebugger, setShowDebugger] = createSignal(false);
 
   const handleSend = () => {
     const content = inputValue().trim();
@@ -72,6 +76,10 @@ export const ChatPanel: Component<ChatPanelProps> = props => {
   const handleModeChange = (mode: AgentMode) => {
     setAgentMode(mode);
     merged.onModeChange?.(mode);
+  };
+
+  const handleToggleDebugger = () => {
+    setShowDebugger(!showDebugger());
   };
 
   // Get project name from session (handle both formats)
@@ -112,6 +120,8 @@ export const ChatPanel: Component<ChatPanelProps> = props => {
         projectName={getProjectName()}
         selectedModel={merged.selectedModel}
         onModelChange={props.onModelChange}
+        isDebuggerOpen={showDebugger()}
+        onToggleDebugger={handleToggleDebugger}
       />
 
       {/* Error banner */}
@@ -139,27 +149,36 @@ export const ChatPanel: Component<ChatPanelProps> = props => {
         </div>
       </Show>
 
-      {/* Message list */}
-      <MessageList
-        messages={merged.messages as ChatUIMessage[]}
-        messagesMetadata={props.messagesMetadata}
-        isGenerating={merged.isGenerating}
-        thinkingContent={props.thinkingContent}
-      />
+      {/* Main content - either MessageList or Debugger */}
+      <Show
+        when={showDebugger() && props.streamDebugger}
+        fallback={
+          <>
+            {/* Message list */}
+            <MessageList
+              messages={merged.messages as ChatUIMessage[]}
+              isGenerating={merged.isGenerating}
+              thinkingContent={props.thinkingContent}
+            />
 
-      {/* Input area */}
-      <ChatInput
-        value={inputValue()}
-        onValueChange={setInputValue}
-        onSend={handleSend}
-        onAttachment={props.onAttachment}
-        onMention={props.onMention}
-        mode={agentMode()}
-        onModeChange={handleModeChange}
-        selectedModel={merged.selectedModel}
-        isSending={merged.isGenerating}
-        placeholder={getPlaceholder()}
-      />
+            {/* Input area */}
+            <ChatInput
+              value={inputValue()}
+              onValueChange={setInputValue}
+              onSend={handleSend}
+              onAttachment={props.onAttachment}
+              onMention={props.onMention}
+              mode={agentMode()}
+              onModeChange={handleModeChange}
+              selectedModel={merged.selectedModel}
+              isSending={merged.isGenerating}
+              placeholder={getPlaceholder()}
+            />
+          </>
+        }
+      >
+        <StreamDebuggerPanel debugger={props.streamDebugger!} onClose={handleToggleDebugger} />
+      </Show>
     </Resizable.Panel>
   );
 };

@@ -253,9 +253,23 @@ function handleStreamPart(
 
     default:
       // Handle data-* parts (RLM state, progress, etc.)
-      if (type?.startsWith("data-")) {
-        logger.debug("Data part received", { type, id, transient: part.transient });
-        callbacks.onDataPart?.(type, id || "", part.data, part.transient as boolean | undefined);
+      // Normalize type to handle double-prefixed types (e.g., data-data-action -> data-action)
+      let normalizedType = type;
+      if (type?.startsWith("data-data-")) {
+        normalizedType = type.slice(5); // Remove extra "data-" prefix
+        logger.debug("Normalized double-prefixed type", {
+          original: type,
+          normalized: normalizedType,
+        });
+      }
+      if (normalizedType?.startsWith("data-")) {
+        logger.debug("Data part received", { type: normalizedType, id, transient: part.transient });
+        callbacks.onDataPart?.(
+          normalizedType,
+          id || "",
+          part.data,
+          part.transient as boolean | undefined
+        );
       }
   }
 

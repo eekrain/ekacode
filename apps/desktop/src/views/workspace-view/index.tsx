@@ -213,6 +213,7 @@ function WorkspaceViewContent() {
             onSend={handleSendMessage}
             onModelChange={handleModelChange}
             selectedModel="claude-sonnet"
+            streamDebugger={ctx.chat()?.streamDebugger}
           />
 
           {/* Resize Handle 2 */}
