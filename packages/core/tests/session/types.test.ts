@@ -12,9 +12,7 @@ describe("session/types", () => {
   describe("SessionPhase", () => {
     it("should accept valid session phases", () => {
       expect(SessionPhase.parse("idle")).toBe("idle");
-      expect(SessionPhase.parse("exploring")).toBe("exploring");
-      expect(SessionPhase.parse("planning")).toBe("planning");
-      expect(SessionPhase.parse("building")).toBe("building");
+      expect(SessionPhase.parse("running")).toBe("running");
       expect(SessionPhase.parse("completed")).toBe("completed");
       expect(SessionPhase.parse("failed")).toBe("failed");
     });
@@ -43,10 +41,10 @@ describe("session/types", () => {
     it("should accept status with active agents", () => {
       const statusWithAgents = {
         ...validStatus,
-        phase: "exploring" as const,
-        progress: 25,
+        phase: "running" as const,
+        progress: 0.5,
         hasIncompleteWork: true,
-        activeAgents: ["explore-0", "explore-1", "explore-2"],
+        activeAgents: ["build-0", "build-1", "build-2"],
       };
       const result = SessionStatus.safeParse(statusWithAgents);
       expect(result.success).toBe(true);
@@ -59,8 +57,8 @@ describe("session/types", () => {
     });
 
     it("should calculate progress correctly", () => {
-      const phases = ["idle", "exploring", "planning", "building", "completed"] as const;
-      const expectedProgress = [0, 25, 50, 75, 100];
+      const phases = ["idle", "running", "completed", "failed"] as const;
+      const expectedProgress = [0, 0.5, 1, 1];
 
       phases.forEach((phase, idx) => {
         const status = {
@@ -111,7 +109,7 @@ describe("session/types", () => {
     const validCheckpoint = {
       sessionId: "test-session-id",
       timestamp: Date.now(),
-      phase: "exploring" as const,
+      phase: "running" as const,
       task: "Test task",
     };
 
@@ -141,7 +139,7 @@ describe("session/types", () => {
     it("should accept checkpoint with planResult", () => {
       const checkpointWithPlan = {
         ...validCheckpoint,
-        phase: "planning" as const,
+        phase: "running" as const,
         planResult: {
           agentId: "planner",
           type: "plan" as const,
@@ -159,7 +157,7 @@ describe("session/types", () => {
     it("should accept checkpoint with buildResult", () => {
       const checkpointWithBuild = {
         ...validCheckpoint,
-        phase: "building" as const,
+        phase: "running" as const,
         buildResult: {
           agentId: "builder",
           type: "build" as const,
@@ -199,8 +197,12 @@ describe("session/types", () => {
     });
 
     it("should accept checkpoint for all phases", () => {
-      const phases: Array<"idle" | "exploring" | "planning" | "building" | "completed" | "failed"> =
-        ["idle", "exploring", "planning", "building", "completed", "failed"];
+      const phases: Array<"idle" | "running" | "completed" | "failed"> = [
+        "idle",
+        "running",
+        "completed",
+        "failed",
+      ];
 
       phases.forEach(phase => {
         const checkpoint = { ...validCheckpoint, phase };

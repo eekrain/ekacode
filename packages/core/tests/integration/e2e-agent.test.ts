@@ -33,8 +33,9 @@ describe("E2E: Agent with tools", () => {
     testWorkspaceDirs.length = 0;
   });
 
-  // These tests require ZAI_API_KEY to be set
-  const itWithApiKey = process.env.ZAI_API_KEY ? it : it.skip;
+  // These tests are online and opt-in.
+  const runOnline = process.env.RUN_ONLINE_TESTS === "1" && !!process.env.ZAI_API_KEY;
+  const itWithApiKey = runOnline ? it : it.skip;
 
   describe("Tool-based coding tasks", () => {
     itWithApiKey(

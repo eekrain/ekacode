@@ -14,6 +14,8 @@
     "@ekacode/electron-preload": "workspace:*",
     "@ekacode/shared": "workspace:*",
     "@kobalte/core": "^0.13.11",
+    "@solid-primitives/event-bus": "^1.1.2",
+    "@solid-primitives/resource": "^0.4.3",
     "@solidjs/router": "^0.15.1",
     "ai": "^6.0.58",
     "clsx": "^2.1.1",

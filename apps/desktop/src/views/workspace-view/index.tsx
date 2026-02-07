@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onMount, Show } from "solid-js";
 import { cn } from "/@/lib/utils";
 import type { DiffChange, FileTab, TerminalOutput } from "/@/types";
 
@@ -9,6 +9,7 @@ import { ChatPanel } from "./chat-area/chat-area";
 import { LeftSide } from "./left-side/left-side";
 import { ContextPanel } from "./right-side/right-side";
 import { PermissionDialog } from "/@/components/permission-dialog";
+import { SyncProvider } from "/@/providers/sync-provider";
 import { useWorkspace, WorkspaceProvider } from "/@/providers/workspace-provider";
 
 /**
@@ -254,11 +255,34 @@ function WorkspaceViewContent() {
  * - Left Panel (~20%): Session Manager
  * - Center (~50%): Agent Chat Interface
  * - Right (~30%): Context & Terminal split vertically
+ *
+ * Provider Nesting:
+ * GlobalSDKProvider → GlobalSyncProvider → App → WorkspaceView
+ *   → WorkspaceProvider → SyncProvider → WorkspaceViewContent
  */
 export default function WorkspaceView() {
   return (
     <WorkspaceProvider>
-      <WorkspaceViewContent />
+      {/* SyncProvider needs directory from workspace context */}
+      <WorkspaceViewWithSync />
     </WorkspaceProvider>
+  );
+}
+
+/**
+ * Inner component that has access to workspace context
+ */
+function WorkspaceViewWithSync() {
+  const ctx = useWorkspace();
+  const directory = createMemo(() => ctx.workspace());
+
+  return (
+    <Show when={directory()} keyed>
+      {currentDirectory => (
+        <SyncProvider directory={currentDirectory}>
+          <WorkspaceViewContent />
+        </SyncProvider>
+      )}
+    </Show>
   );
 }

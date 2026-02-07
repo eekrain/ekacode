@@ -4,7 +4,7 @@
  * Defines tables for sessions, tool_sessions, and repo_cache using Drizzle ORM.
  */
 
-import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { foreignKey, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 /**
  * Sessions table - stores core session data with UUIDv7 identifiers
@@ -12,16 +12,39 @@ import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core
  * - session_id: UUIDv7 primary key
  * - resource_id: User ID or "local" for single-user desktop
  * - thread_id: Equal to session_id (for Mastra Memory integration)
+ * - parent_id: Parent session ID for hierarchy support
+ * - title: Display title for the session
+ * - summary: JSON-encoded session summary (additions, deletions, files, diffs)
+ * - share_url: Optional URL for shared sessions
  * - created_at: Unix timestamp in milliseconds
  * - last_accessed: Unix timestamp in milliseconds
  */
-export const sessions = sqliteTable("sessions", {
-  session_id: text("session_id").primaryKey(),
-  resource_id: text("resource_id").notNull(),
-  thread_id: text("thread_id").notNull(),
-  created_at: integer("created_at", { mode: "timestamp" }).notNull(),
-  last_accessed: integer("last_accessed", { mode: "timestamp" }).notNull(),
-});
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    session_id: text("session_id").primaryKey(),
+    resource_id: text("resource_id").notNull(),
+    thread_id: text("thread_id").notNull(),
+    parent_id: text("parent_id"),
+    title: text("title"),
+    summary: text("summary", { mode: "json" }).$type<{
+      additions?: number;
+      deletions?: number;
+      files?: number;
+      diffs?: number;
+    }>(),
+    share_url: text("share_url"),
+    created_at: integer("created_at", { mode: "timestamp" }).notNull(),
+    last_accessed: integer("last_accessed", { mode: "timestamp" }).notNull(),
+  },
+  table => ({
+    parentSession: foreignKey({
+      columns: [table.parent_id],
+      foreignColumns: [table.session_id],
+      name: "sessions_parent_id_fkey",
+    }).onDelete("set null"),
+  })
+);
 
 /**
  * Tool sessions table - provides per-tool session isolation

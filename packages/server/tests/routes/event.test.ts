@@ -1,10 +1,11 @@
 /**
- * SSE events route tests
+ * SSE event route tests
+ * Tests for the new /event endpoint that uses the Bus system
  */
 
-import { PermissionManager } from "@ekacode/core/server";
 import { TextDecoder } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { PermissionAsked, publish } from "../../src/bus";
 
 const decoder = new TextDecoder();
 
@@ -42,7 +43,23 @@ async function readWithTimeout(
   return result.value ? decoder.decode(result.value) : "";
 }
 
-describe("events SSE stream", () => {
+function parseSSEEvent(chunk: string): { type: string; properties: unknown } | null {
+  const lines = chunk.split("\n");
+  let data = "";
+  for (const line of lines) {
+    if (line.startsWith("data: ")) {
+      data = line.slice(6);
+    }
+  }
+  if (!data) return null;
+  try {
+    return JSON.parse(data);
+  } catch {
+    return null;
+  }
+}
+
+describe("event SSE stream", () => {
   beforeEach(async () => {
     const { setupTestDatabase } = await import("../../db/test-setup");
     await setupTestDatabase();
@@ -53,21 +70,23 @@ describe("events SSE stream", () => {
   afterEach(async () => {
     const { db, sessions } = await import("../../db");
     await db.delete(sessions);
+    // Clear bus subscriptions
+    const { clearAll } = await import("../../src/bus");
+    clearAll();
   });
 
-  it("includes session and directory in connected event", async () => {
-    const eventsRouter = (await import("../../src/routes/events")).default;
+  it("sends server.connected event on connection", async () => {
+    const eventRouter = (await import("../../src/routes/event")).default;
     const { createSession } = await import("../../db/sessions");
     const session = await createSession("local");
 
-    const response = await eventsRouter.request(
-      `http://localhost/api/events?directory=/tmp/events`,
-      {
-        headers: {
-          "X-Session-ID": session.sessionId,
-        },
-      }
-    );
+    const response = await eventRouter.request(`http://localhost/event?directory=/tmp/events`, {
+      headers: {
+        "X-Session-ID": session.sessionId,
+      },
+    });
+
+    expect(response.status).toBe(200);
 
     const reader = response.body?.getReader();
     if (!reader) throw new Error("Missing response body reader");
@@ -75,17 +94,18 @@ describe("events SSE stream", () => {
     const firstChunk = await readChunk(reader);
     await reader.cancel();
 
-    expect(firstChunk).toContain("event: connected");
-    expect(firstChunk).toContain(`\"sessionId\":\"${session.sessionId}\"`);
-    expect(firstChunk).toContain(`\"directory\":\"/tmp/events\"`);
+    expect(firstChunk).toContain("data: ");
+    const event = parseSSEEvent(firstChunk);
+    expect(event).not.toBeNull();
+    expect(event?.type).toBe("server.connected");
   });
 
-  it("filters permission events by sessionId", async () => {
-    const eventsRouter = (await import("../../src/routes/events")).default;
+  it("streams bus events via SSE", async () => {
+    const eventRouter = (await import("../../src/routes/event")).default;
     const { createSession } = await import("../../db/sessions");
     const session = await createSession("local");
 
-    const response = await eventsRouter.request("http://localhost/api/events", {
+    const response = await eventRouter.request("http://localhost/event", {
       headers: {
         "X-Session-ID": session.sessionId,
       },
@@ -97,53 +117,53 @@ describe("events SSE stream", () => {
     // Consume connected event
     await readChunk(reader);
 
-    const permissionMgr = PermissionManager.getInstance();
-    permissionMgr.emit("permission:request", {
-      id: "perm-1",
-      permission: "read",
-      patterns: ["/tmp/file.txt"],
-      always: [],
-      sessionID: "other-session",
-    });
+    // Small delay to ensure SSE stream has subscribed to bus events
+    await new Promise(resolve => setTimeout(resolve, 100));
 
-    const noEvent = await readWithTimeout(reader, 50);
-    expect(noEvent).toBeNull();
-  });
-
-  it("streams permission events for matching session", async () => {
-    const eventsRouter = (await import("../../src/routes/events")).default;
-    const { createSession } = await import("../../db/sessions");
-    const session = await createSession("local");
-
-    const response = await eventsRouter.request("http://localhost/api/events", {
-      headers: {
-        "X-Session-ID": session.sessionId,
-      },
-    });
-
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("Missing response body reader");
-
-    // Consume connected event
-    await readChunk(reader);
-
-    // Small delay to ensure handler is registered
-    await new Promise(resolve => setTimeout(resolve, 50));
-
-    const permissionMgr = PermissionManager.getInstance();
-    permissionMgr.emit("permission:request", {
-      id: "perm-2",
-      permission: "read",
-      patterns: ["/tmp/file.txt"],
-      always: [],
+    // Publish a test event via bus
+    await publish(PermissionAsked, {
+      id: "perm-test-1",
       sessionID: session.sessionId,
+      permission: "read",
+      patterns: ["/tmp/file.txt"],
+      always: [],
     });
 
     const eventChunk = await readWithTimeout(reader, 1000);
     await reader.cancel();
 
     expect(eventChunk).not.toBeNull();
-    expect(eventChunk).toContain("permission:request");
-    expect(eventChunk).toContain(`\"sessionID\":\"${session.sessionId}\"`);
+    if (!eventChunk) throw new Error("Expected event chunk but got null");
+    const event = parseSSEEvent(eventChunk);
+    expect(event).not.toBeNull();
+    expect(event?.type).toBe("permission.asked");
+  });
+
+  it("sends server.heartbeat every 30 seconds", { timeout: 35000 }, async () => {
+    const eventRouter = (await import("../../src/routes/event")).default;
+    const { createSession } = await import("../../db/sessions");
+    const session = await createSession("local");
+
+    const response = await eventRouter.request("http://localhost/event", {
+      headers: {
+        "X-Session-ID": session.sessionId,
+      },
+    });
+
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("Missing response body reader");
+
+    // Consume connected event
+    await readChunk(reader);
+
+    // Wait for heartbeat (within timeout window)
+    const heartbeatChunk = await readWithTimeout(reader, 35000);
+    await reader.cancel();
+
+    expect(heartbeatChunk).not.toBeNull();
+    if (!heartbeatChunk) throw new Error("Expected heartbeat chunk but got null");
+    const event = parseSSEEvent(heartbeatChunk);
+    expect(event).not.toBeNull();
+    expect(event?.type).toBe("server.heartbeat");
   });
 });

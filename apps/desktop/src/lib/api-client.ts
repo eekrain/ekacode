@@ -130,7 +130,7 @@ export class EkacodeApiClient {
    * ```ts
    * const response = await client.chat(messages, { workspace: "/path/to/project" });
    * const reader = response.body!.getReader();
-   * // Parse stream using stream-parser.ts
+   * // Consume response body while SSE events update UI state
    * ```
    */
   async chat(messages: ChatUIMessage[], options: ChatOptions): Promise<Response> {
@@ -416,9 +416,9 @@ export class EkacodeApiClient {
    * Connect to Server-Sent Events for real-time updates
    *
    * Events include:
-   * - permission:request - When a tool needs approval
-   * - permission:update - When a permission is resolved
-   * - session:status - Session status changes
+   * - permission.asked - When a tool needs approval
+   * - permission.replied - When a permission is resolved
+   * - session.status - Session status changes
    *
    * @param workspace - Workspace directory
    * @param sessionId - Optional session ID to filter events
@@ -427,14 +427,14 @@ export class EkacodeApiClient {
    * @example
    * ```ts
    * const eventSource = client.connectToEvents("/path/to/project");
-   * eventSource.addEventListener("permission:request", (e) => {
-   *   const request = JSON.parse(e.data);
-   *   // Show permission dialog
+   * eventSource.addEventListener("message", (e) => {
+   *   const event = JSON.parse(e.data);
+   *   // Handle { type, properties }
    * });
    * ```
    */
   connectToEvents(workspace: string, sessionId?: string): EventSource {
-    const url = new URL(`${this.config.baseUrl}/api/events`);
+    const url = new URL(`${this.config.baseUrl}/event`);
     url.searchParams.set("directory", workspace);
     url.searchParams.set("token", this.config.token);
     if (sessionId) {
@@ -450,33 +450,6 @@ export class EkacodeApiClient {
 
     eventSource.addEventListener("error", () => {
       logger.warn("Event stream error", { workspace, sessionId });
-    });
-
-    return eventSource;
-  }
-
-  /**
-   * Connect to permission-specific SSE endpoint
-   *
-   * @param workspace - Workspace directory
-   * @param sessionId - Session ID (required for filtering)
-   * @returns EventSource instance
-   */
-  connectToPermissionEvents(workspace: string, sessionId: string): EventSource {
-    const url = new URL(`${this.config.baseUrl}/api/events/permissions`);
-    url.searchParams.set("directory", workspace);
-    url.searchParams.set("sessionId", sessionId);
-    url.searchParams.set("token", this.config.token);
-
-    logger.info("Connecting to permission events", { workspace, sessionId });
-    const eventSource = new EventSource(url.toString());
-
-    eventSource.addEventListener("open", () => {
-      logger.debug("Permission events connected", { workspace, sessionId });
-    });
-
-    eventSource.addEventListener("error", () => {
-      logger.warn("Permission events error", { workspace, sessionId });
     });
 
     return eventSource;

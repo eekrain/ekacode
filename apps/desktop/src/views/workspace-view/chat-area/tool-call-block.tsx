@@ -25,8 +25,6 @@ interface ToolCallBlockProps {
   class?: string;
 }
 
-const _MAX_RESULT_LENGTH = 500;
-
 /**
  * Status configuration for tool calls
  */

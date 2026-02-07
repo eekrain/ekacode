@@ -77,6 +77,42 @@ export const AgentEvent = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("finish"), finishReason: z.string(), agentId: z.string() }),
   z.object({ type: z.literal("error"), error: z.string(), agentId: z.string() }),
+  z.object({
+    type: z.literal("step-start"),
+    stepId: z.string(),
+    snapshot: z.string().optional(),
+    agentId: z.string(),
+  }),
+  z.object({
+    type: z.literal("step-finish"),
+    stepId: z.string(),
+    reason: z.string(),
+    snapshot: z.string().optional(),
+    cost: z.number(),
+    tokens: z.object({
+      input: z.number(),
+      output: z.number(),
+      reasoning: z.number(),
+      cache: z.object({
+        read: z.number(),
+        write: z.number(),
+      }),
+    }),
+    agentId: z.string(),
+  }),
+  z.object({
+    type: z.literal("snapshot"),
+    snapshot: z.string(),
+    stepId: z.string().optional(),
+    agentId: z.string(),
+  }),
+  z.object({
+    type: z.literal("patch"),
+    hash: z.string(),
+    files: z.string().array(),
+    stepId: z.string().optional(),
+    agentId: z.string(),
+  }),
   // Reasoning events (from AI SDK fullStream for extended thinking models)
   z.object({
     type: z.literal("reasoning-start"),

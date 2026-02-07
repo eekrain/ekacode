@@ -8,6 +8,8 @@
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { createLogger } from "@ekacode/shared/logger";
 import { streamText, type ModelMessage, type ToolResultPart, type UserModelMessage } from "ai";
+import { createHash } from "node:crypto";
+import { v7 as uuidv7 } from "uuid";
 import { getBuildModel, getExploreModel, getPlanModel } from "../agent/workflow/model-provider";
 import { AgentConfig, AgentEvent, AgentInput, AgentResult } from "../agent/workflow/types";
 import { Instance } from "../instance";
@@ -39,6 +41,75 @@ interface ToolCallResult {
   signature: string;
   success: boolean;
   timestamp: number;
+}
+
+function safeNumber(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function normalizeUsage(usage: unknown): {
+  cost: number;
+  tokens: {
+    input: number;
+    output: number;
+    reasoning: number;
+    cache: {
+      read: number;
+      write: number;
+    };
+  };
+} {
+  const data = usage && typeof usage === "object" ? (usage as Record<string, unknown>) : {};
+
+  return {
+    cost: safeNumber(data.cost ?? data.totalCost),
+    tokens: {
+      input: safeNumber(data.inputTokens ?? data.promptTokens ?? data.input),
+      output: safeNumber(data.outputTokens ?? data.completionTokens ?? data.output),
+      reasoning: safeNumber(data.reasoningTokens ?? data.reasoning),
+      cache: {
+        read: safeNumber(data.cacheReadInputTokens ?? data.cachedInputTokens ?? data.cacheRead),
+        write: safeNumber(data.cacheWriteInputTokens ?? data.cacheWrite),
+      },
+    },
+  };
+}
+
+function maybeAddPath(paths: Set<string>, value: unknown) {
+  if (typeof value !== "string") return;
+  const trimmed = value.trim();
+  if (!trimmed) return;
+  if (trimmed.length > 512) return;
+  if (!trimmed.includes("/") && !trimmed.includes("\\")) return;
+  paths.add(trimmed);
+}
+
+function collectFilePaths(value: unknown, out: Set<string>, depth = 0): void {
+  if (depth > 4) return;
+  if (typeof value === "string") {
+    maybeAddPath(out, value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectFilePaths(item, out, depth + 1);
+    }
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (/(^|_|-)(path|file|filename|filepath|targetfile|absolutepath|relativepath)s?$/i.test(key)) {
+      if (Array.isArray(entry)) {
+        for (const item of entry) {
+          maybeAddPath(out, item);
+        }
+      } else {
+        maybeAddPath(out, entry);
+      }
+    }
+    collectFilePaths(entry, out, depth + 1);
+  }
 }
 
 /**
@@ -327,6 +398,11 @@ export class AgentProcessor {
     let assistantMessage = "";
     let toolCalls: Array<{ name: string; args: Record<string, unknown>; id: string }> = [];
     let finishReason: string | null = null;
+    const touchedFiles = new Set<string>();
+    const fallbackStepID = `step-${this.iterationCount + 1}`;
+    const fallbackSnapshot = uuidv7();
+    let fallbackStepStarted = false;
+    let fallbackStepFinished = false;
 
     // Map tool call IDs to their signatures for tracking results
     const toolCallSignatures = new Map<string, string>();
@@ -338,9 +414,71 @@ export class AgentProcessor {
     // Track reasoning start times for duration calculation
     const reasoningStartTimes = new Map<string, number>();
 
+    const beginFallbackStep = () => {
+      if (fallbackStepStarted) return;
+      fallbackStepStarted = true;
+      this.emitEvent({
+        type: "step-start",
+        stepId: fallbackStepID,
+        snapshot: fallbackSnapshot,
+        agentId: this.config.id,
+      });
+    };
+
+    const finishFallbackStep = (reason: string, usage?: unknown) => {
+      if (!fallbackStepStarted || fallbackStepFinished) return;
+      fallbackStepFinished = true;
+      const normalized = normalizeUsage(usage);
+      this.emitEvent({
+        type: "step-finish",
+        stepId: fallbackStepID,
+        reason,
+        snapshot: fallbackSnapshot,
+        cost: normalized.cost,
+        tokens: normalized.tokens,
+        agentId: this.config.id,
+      });
+      this.emitEvent({
+        type: "snapshot",
+        snapshot: fallbackSnapshot,
+        stepId: fallbackStepID,
+        agentId: this.config.id,
+      });
+      if (touchedFiles.size > 0) {
+        const files = Array.from(touchedFiles).sort();
+        const hash = createHash("sha1").update(files.join("\n")).digest("hex");
+        this.emitEvent({
+          type: "patch",
+          hash,
+          files,
+          stepId: fallbackStepID,
+          agentId: this.config.id,
+        });
+      }
+    };
+
     for await (const chunk of stream.fullStream) {
+      const chunkType = (chunk as { type: string }).type;
+      if (chunkType === "start-step" || chunkType === "step-start") {
+        beginFallbackStep();
+        continue;
+      }
+      if (chunkType === "finish-step" || chunkType === "step-finish") {
+        const data = chunk as { finishReason?: string; reason?: string; usage?: unknown };
+        finishFallbackStep(
+          typeof data.finishReason === "string"
+            ? data.finishReason
+            : typeof data.reason === "string"
+              ? data.reason
+              : "stop",
+          data.usage
+        );
+        continue;
+      }
+
       switch (chunk.type) {
         case "text-delta":
+          beginFallbackStep();
           assistantMessage += chunk.text;
           this.emitEvent({
             type: "text",
@@ -350,6 +488,8 @@ export class AgentProcessor {
           break;
 
         case "tool-call":
+          beginFallbackStep();
+          collectFilePaths(chunk.input, touchedFiles);
           toolCalls.push({
             name: chunk.toolName,
             args: chunk.input as Record<string, unknown>,
@@ -385,6 +525,8 @@ export class AgentProcessor {
           break;
 
         case "tool-result":
+          beginFallbackStep();
+          collectFilePaths(chunk.output, touchedFiles);
           // Note: We don't manually add tool results to messages
           // The AI SDK handles this automatically when tools are passed to streamText
           // The tool execution and result handling is done internally by the SDK
@@ -439,6 +581,8 @@ export class AgentProcessor {
           break;
 
         case "tool-error": {
+          beginFallbackStep();
+          collectFilePaths((chunk as { input?: unknown }).input, touchedFiles);
           pendingToolCalls.delete(chunk.toolCallId);
           const resultSignature = toolCallSignatures.get(chunk.toolCallId);
 
@@ -471,6 +615,7 @@ export class AgentProcessor {
 
         // AI SDK Reasoning Events (for extended thinking models)
         case "reasoning-start":
+          beginFallbackStep();
           reasoningStartTimes.set(chunk.id, Date.now());
           this.emitEvent({
             type: "reasoning-start",
@@ -485,6 +630,7 @@ export class AgentProcessor {
           break;
 
         case "reasoning-delta":
+          beginFallbackStep();
           this.emitEvent({
             type: "reasoning-delta",
             reasoningId: chunk.id,
@@ -494,6 +640,7 @@ export class AgentProcessor {
           break;
 
         case "reasoning-end": {
+          beginFallbackStep();
           const startTime = reasoningStartTimes.get(chunk.id) || Date.now();
           const durationMs = Date.now() - startTime;
           reasoningStartTimes.delete(chunk.id);
@@ -513,6 +660,8 @@ export class AgentProcessor {
         }
 
         case "finish":
+          beginFallbackStep();
+          finishFallbackStep(chunk.finishReason);
           finishReason = chunk.finishReason;
           this.emitEvent({
             type: "finish",
@@ -522,6 +671,8 @@ export class AgentProcessor {
           break;
 
         case "error":
+          beginFallbackStep();
+          finishFallbackStep("error");
           logger.error(
             "Stream error received",
             chunk.error instanceof Error ? chunk.error : new Error(String(chunk.error)),
@@ -533,6 +684,10 @@ export class AgentProcessor {
           );
           throw chunk.error;
       }
+    }
+
+    if (fallbackStepStarted && !fallbackStepFinished) {
+      finishFallbackStep(finishReason ?? "stop");
     }
 
     // Persist response messages (assistant + tool results) so the next iteration

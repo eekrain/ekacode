@@ -16,6 +16,11 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@ekacode/core/chat": ["./packages/core/src/chat"],
+      "@ekacode/core/server": ["./packages/core/src/server"],
+      "@ekacode/core/tools": ["./packages/core/src/tools"]
+    }
   }
 }

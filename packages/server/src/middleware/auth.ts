@@ -8,6 +8,7 @@
 import { createLogger } from "@ekacode/shared/logger";
 import type { Context, Next } from "hono";
 import type { Env } from "../index";
+import { getServerToken } from "../server-token";
 import type { ErrorResponse } from "../types";
 
 const logger = createLogger("server:auth");
@@ -89,8 +90,10 @@ export async function authMiddleware(c: Context<Env>, next: Next): Promise<Respo
   const authHeader = c.req.header("Authorization");
   const queryToken = c.req.query("token");
 
-  // Get server token for validation
-  const serverToken = (await import("../index")).getServerToken();
+  // Validate against configured credentials when provided, otherwise use runtime token.
+  const expectedUsername = process.env.EKACODE_USERNAME || "admin";
+  const expectedPassword = process.env.EKACODE_PASSWORD;
+  const serverToken = getServerToken();
 
   // Case 1: Authorization Header (Standard)
   if (authHeader) {
@@ -104,7 +107,17 @@ export async function authMiddleware(c: Context<Env>, next: Next): Promise<Respo
     }
 
     const credentials = parseBasicAuth(authHeader);
-    if (!credentials || credentials.password !== serverToken) {
+    const validWithConfiguredCredentials =
+      credentials &&
+      typeof expectedPassword === "string" &&
+      credentials.username === expectedUsername &&
+      credentials.password === expectedPassword;
+    const validWithRuntimeToken =
+      credentials &&
+      credentials.username === expectedUsername &&
+      credentials.password === serverToken;
+
+    if (!validWithConfiguredCredentials && !validWithRuntimeToken) {
       logger.warn("Invalid credentials", {
         module: "auth",
         requestId,
@@ -115,7 +128,8 @@ export async function authMiddleware(c: Context<Env>, next: Next): Promise<Respo
   }
   // Case 2: Query Parameter (SSE/EventSource)
   else if (queryToken) {
-    if (queryToken !== serverToken) {
+    const validQueryToken = queryToken === serverToken || queryToken === expectedPassword;
+    if (!validQueryToken) {
       logger.warn("Invalid token parameter", {
         module: "auth",
         requestId,

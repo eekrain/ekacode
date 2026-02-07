@@ -15,8 +15,9 @@ import { createTools } from "../../src/tools/registry";
 import { searchDocs } from "../../src/tools/search-docs";
 
 describe("search-docs: code research integration", () => {
-  // These tests require ZAI_API_KEY to be set
-  const itWithApiKey = process.env.ZAI_API_KEY ? it : it.skip;
+  // These tests are online and opt-in.
+  const runOnline = process.env.RUN_ONLINE_TESTS === "1" && !!process.env.ZAI_API_KEY;
+  const itWithApiKey = runOnline ? it : it.skip;
 
   describe("AI SDK integration", () => {
     itWithApiKey(

@@ -28,7 +28,6 @@ export class SessionController {
   // Agent state
   private currentAgent: AgentProcessor | null = null;
   private currentPhase: SessionPhase = "idle";
-  private _isPaused = true;
   private abortController: AbortController | null = null;
 
   constructor(config: {
@@ -65,7 +64,6 @@ export class SessionController {
     finalContent?: string;
     error?: string;
   }> {
-    this._isPaused = false;
     this.currentPhase = "running";
 
     // Create abort controller for this execution
@@ -150,7 +148,6 @@ export class SessionController {
         error: errorMessage,
       };
     } finally {
-      this._isPaused = true;
       this.currentAgent = null;
       this.abortController = null;
     }

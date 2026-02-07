@@ -22,11 +22,30 @@ vi.mock("../../src/agent/workflow/factory", () => ({
   runAgent: vi.fn(),
 }));
 
+vi.mock("../../src/session/processor", () => ({
+  AgentProcessor: class MockAgentProcessor {
+    async run() {
+      return {
+        status: "completed" as const,
+        finalContent: "Done",
+        messages: [],
+        iterations: 1,
+        duration: 1,
+      };
+    }
+
+    abort(): void {
+      // no-op
+    }
+  },
+}));
+
 // Mock fs operations
 vi.mock("fs/promises", () => ({
   writeFile: vi.fn().mockResolvedValue(undefined),
   mkdir: vi.fn().mockResolvedValue(undefined),
   readFile: vi.fn().mockResolvedValue(JSON.stringify({})),
+  access: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("session/controller (simplified)", () => {

@@ -11,15 +11,19 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "composite": true,
     "jsx": "preserve",
     "jsxImportSource": "solid-js",
     "baseUrl": ".",
     "paths": {
       "@renderer/*": ["src/*"],
-      "/@/*": ["src/*"]
+      "/@/*": ["src/*"],
+      "@ekacode/core/chat": ["../../packages/core/src/chat"],
+      "@ekacode/core/server": ["../../packages/core/src/server"],
+      "@ekacode/core/tools": ["../../packages/core/src/tools"],
+      "@ekacode/*": ["../../packages/*/src"]
     },
     "moduleResolution": "bundler"
   },
-  "include": ["src/**/*", "vite.config.ts"]
+  "include": ["src/**/*", "vite.config.ts"],
+  "references": [{ "path": "../../packages/shared" }]
 }

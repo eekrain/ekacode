@@ -1,0 +1,53 @@
+import { SessionManager } from "@ekacode/core";
+import { desc, eq } from "drizzle-orm";
+import { db, sessions } from "../db";
+import { getServerToken } from "./server-token";
+
+const sessionDbAdapter = {
+  insert: (table: string) => ({
+    values: async (values: Record<string, unknown>) => {
+      if (table === "sessions") {
+        await db.insert(sessions).values(values as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      }
+    },
+  }),
+  query: {
+    sessions: {
+      findMany: async (_opts?: {
+        orderBy?: (sessions: unknown, { desc }: { desc: (col: unknown) => unknown }) => unknown[];
+      }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const results = await (db as any)
+          .select()
+          .from(sessions)
+          .orderBy(desc(sessions.last_accessed))
+          .all();
+        return results;
+      },
+      findFirst: async (opts: { where: { session_id: string } }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = await (db as any)
+          .select()
+          .from(sessions)
+          .where(eq(sessions.session_id, opts.where.session_id))
+          .limit(1)
+          .get();
+        return result || undefined;
+      },
+    },
+  },
+};
+
+let globalSessionManager: SessionManager | null = null;
+
+export function getSessionManager(): SessionManager {
+  if (!globalSessionManager) {
+    globalSessionManager = new SessionManager(
+      sessionDbAdapter as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+      "./checkpoints"
+    );
+  }
+  return globalSessionManager;
+}
+
+export { getServerToken };

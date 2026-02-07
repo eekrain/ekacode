@@ -4,6 +4,8 @@
  * Handles chat requests with session bridge integration and UIMessage streaming.
  * Integrates with new SessionManager for simplified agent orchestration.
  * Supports multimodal (image) inputs that trigger vision model routing.
+ *
+ * Publishes Opencode-style part events to the Bus for SSE streaming.
  */
 
 import { createLogger } from "@ekacode/shared/logger";
@@ -11,9 +13,10 @@ import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import { Hono } from "hono";
 import { v7 as uuidv7 } from "uuid";
 import { z } from "zod";
+import { MessagePartUpdated, MessageUpdated, publish, SessionStatus } from "../bus";
 import type { Env } from "../index";
-import { getSessionManager } from "../index";
 import { createSessionMessage, sessionBridge } from "../middleware/session-bridge";
+import { getSessionManager } from "../runtime";
 
 const app = new Hono<Env>();
 const logger = createLogger("server");
@@ -280,6 +283,433 @@ const chatMessageSchema = z.object({
 // Export for validation use in middleware
 export { chatMessageSchema };
 
+interface TextPartState {
+  id: string;
+  text: string;
+  startedAt: number;
+}
+
+interface ReasoningPartState {
+  id: string;
+  text: string;
+  startedAt: number;
+}
+
+interface ToolPartState {
+  id: string;
+  tool: string;
+  input: Record<string, unknown>;
+  startedAt: number;
+}
+
+interface PartPublishState {
+  text?: TextPartState;
+  reasoning: Map<string, ReasoningPartState>;
+  tools: Map<string, ToolPartState>;
+}
+
+interface AssistantInfoPayload {
+  role: "assistant";
+  id: string;
+  sessionID: string;
+  modelID: string;
+  providerID: string;
+  parentID: string;
+  time: {
+    created: number;
+    completed?: number;
+  };
+  finish?: string;
+  cost?: number;
+  tokens?: {
+    input: number;
+    output: number;
+    reasoning: number;
+    cache: {
+      read: number;
+      write: number;
+    };
+  };
+}
+
+function createPartPublishState(): PartPublishState {
+  return {
+    reasoning: new Map(),
+    tools: new Map(),
+  };
+}
+
+/**
+ * Helper to publish Opencode-style part events to the Bus
+ *
+ * Converts agent events to Part format and publishes to Bus for SSE streaming.
+ * This enables the new /event endpoint while maintaining backward compatibility.
+ */
+async function publishPartEvent(
+  sessionId: string,
+  messageId: string,
+  state: PartPublishState,
+  assistantInfo: AssistantInfoPayload,
+  event: { type: string; [key: string]: unknown }
+): Promise<void> {
+  switch (event.type) {
+    case "text": {
+      const delta = String(event.text ?? "");
+      if (!delta) break;
+
+      if (!state.text) {
+        state.text = {
+          id: uuidv7(),
+          text: "",
+          startedAt: Date.now(),
+        };
+      }
+      state.text.text += delta;
+
+      await publish(MessagePartUpdated, {
+        part: {
+          id: state.text.id,
+          sessionID: sessionId,
+          messageID: messageId,
+          type: "text",
+          text: state.text.text,
+          time: { start: state.text.startedAt },
+        },
+        delta,
+      });
+      break;
+    }
+
+    case "reasoning-start": {
+      const reasoningId = String(event.reasoningId ?? "");
+      if (!reasoningId) break;
+      if (state.reasoning.has(reasoningId)) break;
+
+      const partState: ReasoningPartState = {
+        id: uuidv7(),
+        text: "",
+        startedAt: Date.now(),
+      };
+      state.reasoning.set(reasoningId, partState);
+
+      await publish(MessagePartUpdated, {
+        part: {
+          id: partState.id,
+          sessionID: sessionId,
+          messageID: messageId,
+          type: "reasoning",
+          text: partState.text,
+          time: { start: partState.startedAt },
+        },
+      });
+      break;
+    }
+
+    case "reasoning-delta": {
+      const reasoningId = String(event.reasoningId ?? "");
+      const delta = String(event.text ?? "");
+      const reasoningState = state.reasoning.get(reasoningId);
+      if (!reasoningState || !delta) break;
+
+      reasoningState.text += delta;
+      await publish(MessagePartUpdated, {
+        part: {
+          id: reasoningState.id,
+          sessionID: sessionId,
+          messageID: messageId,
+          type: "reasoning",
+          text: reasoningState.text,
+          time: { start: reasoningState.startedAt },
+        },
+        delta,
+      });
+      break;
+    }
+
+    case "reasoning-end": {
+      const reasoningId = String(event.reasoningId ?? "");
+      const reasoningState = state.reasoning.get(reasoningId);
+      if (!reasoningState) break;
+
+      await publish(MessagePartUpdated, {
+        part: {
+          id: reasoningState.id,
+          sessionID: sessionId,
+          messageID: messageId,
+          type: "reasoning",
+          text: reasoningState.text.trimEnd(),
+          time: {
+            start: reasoningState.startedAt,
+            end: Date.now(),
+          },
+        },
+      });
+
+      state.reasoning.delete(reasoningId);
+      break;
+    }
+
+    case "step-start": {
+      await publish(MessagePartUpdated, {
+        part: {
+          id: uuidv7(),
+          sessionID: sessionId,
+          messageID: messageId,
+          type: "step-start",
+          snapshot: typeof event.snapshot === "string" ? event.snapshot : undefined,
+        },
+      });
+      break;
+    }
+
+    case "step-finish": {
+      const rawTokens =
+        event.tokens && typeof event.tokens === "object"
+          ? (event.tokens as Record<string, unknown>)
+          : {};
+      const rawCache =
+        rawTokens.cache && typeof rawTokens.cache === "object"
+          ? (rawTokens.cache as Record<string, unknown>)
+          : {};
+      const toNumber = (value: unknown) =>
+        typeof value === "number" && Number.isFinite(value) ? value : 0;
+
+      await publish(MessagePartUpdated, {
+        part: {
+          id: uuidv7(),
+          sessionID: sessionId,
+          messageID: messageId,
+          type: "step-finish",
+          reason: String(event.reason ?? "stop"),
+          snapshot: typeof event.snapshot === "string" ? event.snapshot : undefined,
+          cost: toNumber(event.cost),
+          tokens: {
+            input: toNumber(rawTokens.input),
+            output: toNumber(rawTokens.output),
+            reasoning: toNumber(rawTokens.reasoning),
+            cache: {
+              read: toNumber(rawCache.read),
+              write: toNumber(rawCache.write),
+            },
+          },
+        },
+      });
+      break;
+    }
+
+    case "snapshot": {
+      const snapshot = typeof event.snapshot === "string" ? event.snapshot : "";
+      if (!snapshot) break;
+      await publish(MessagePartUpdated, {
+        part: {
+          id: uuidv7(),
+          sessionID: sessionId,
+          messageID: messageId,
+          type: "snapshot",
+          snapshot,
+        },
+      });
+      break;
+    }
+
+    case "patch": {
+      const files = Array.isArray(event.files)
+        ? event.files.filter((value): value is string => typeof value === "string")
+        : [];
+      if (files.length === 0) break;
+      await publish(MessagePartUpdated, {
+        part: {
+          id: uuidv7(),
+          sessionID: sessionId,
+          messageID: messageId,
+          type: "patch",
+          hash: typeof event.hash === "string" ? event.hash : uuidv7(),
+          files,
+        },
+      });
+      break;
+    }
+
+    case "tool-call": {
+      const toolCallId = String(event.toolCallId ?? "");
+      const toolName = String(event.toolName ?? "");
+      if (!toolCallId || !toolName) break;
+
+      const input =
+        event.args && typeof event.args === "object" ? (event.args as Record<string, unknown>) : {};
+      const existingTool = state.tools.get(toolCallId);
+      const toolState: ToolPartState = existingTool ?? {
+        id: uuidv7(),
+        tool: toolName,
+        input,
+        startedAt: Date.now(),
+      };
+      if (!existingTool) {
+        state.tools.set(toolCallId, toolState);
+        await publish(MessagePartUpdated, {
+          part: {
+            id: toolState.id,
+            sessionID: sessionId,
+            messageID: messageId,
+            type: "tool",
+            callID: toolCallId,
+            tool: toolName,
+            state: {
+              status: "pending",
+              input,
+              raw: JSON.stringify(input),
+            },
+          },
+        });
+      }
+
+      toolState.tool = toolName;
+      toolState.input = input;
+      if (!existingTool) {
+        toolState.startedAt = Date.now();
+      }
+
+      await publish(MessagePartUpdated, {
+        part: {
+          id: toolState.id,
+          sessionID: sessionId,
+          messageID: messageId,
+          type: "tool",
+          callID: toolCallId,
+          tool: toolName,
+          state: {
+            status: "running",
+            input,
+            time: { start: toolState.startedAt },
+          },
+        },
+      });
+      break;
+    }
+
+    case "tool-result": {
+      const toolCallId = String(event.toolCallId ?? "");
+      const toolName = String(event.toolName ?? "");
+      const toolState = state.tools.get(toolCallId);
+      if (!toolCallId || !toolName || !toolState) break;
+
+      const result = event.result;
+      const resultRecord =
+        result && typeof result === "object" ? (result as Record<string, unknown>) : undefined;
+      const errorValue = resultRecord?.error;
+      const isError = typeof errorValue !== "undefined";
+      const now = Date.now();
+      const outputValue =
+        typeof resultRecord?.output !== "undefined"
+          ? resultRecord.output
+          : typeof resultRecord?.result !== "undefined"
+            ? resultRecord.result
+            : result;
+      const output =
+        typeof outputValue === "string" ? outputValue : JSON.stringify(outputValue ?? "");
+      const metadata = resultRecord?.metadata;
+      const title = typeof resultRecord?.title === "string" ? resultRecord.title : toolName;
+
+      await publish(MessagePartUpdated, {
+        part: {
+          id: toolState.id,
+          sessionID: sessionId,
+          messageID: messageId,
+          type: "tool",
+          callID: toolCallId,
+          tool: toolName,
+          state: isError
+            ? {
+                status: "error",
+                input: toolState.input,
+                error: String(errorValue ?? "Tool execution failed"),
+                time: { start: toolState.startedAt, end: now },
+              }
+            : {
+                status: "completed",
+                input: toolState.input,
+                output,
+                title,
+                metadata:
+                  metadata && typeof metadata === "object"
+                    ? (metadata as Record<string, unknown>)
+                    : {},
+                time: { start: toolState.startedAt, end: now },
+              },
+        },
+      });
+
+      state.tools.delete(toolCallId);
+      break;
+    }
+
+    case "finish": {
+      if (state.text) {
+        state.text.text = state.text.text.trimEnd();
+        await publish(MessagePartUpdated, {
+          part: {
+            id: state.text.id,
+            sessionID: sessionId,
+            messageID: messageId,
+            type: "text",
+            text: state.text.text,
+            time: { start: state.text.startedAt, end: Date.now() },
+          },
+        });
+      }
+
+      for (const reasoningState of state.reasoning.values()) {
+        await publish(MessagePartUpdated, {
+          part: {
+            id: reasoningState.id,
+            sessionID: sessionId,
+            messageID: messageId,
+            type: "reasoning",
+            text: reasoningState.text.trimEnd(),
+            time: { start: reasoningState.startedAt, end: Date.now() },
+          },
+        });
+      }
+      state.reasoning.clear();
+
+      for (const [toolCallId, toolState] of state.tools.entries()) {
+        await publish(MessagePartUpdated, {
+          part: {
+            id: toolState.id,
+            sessionID: sessionId,
+            messageID: messageId,
+            type: "tool",
+            callID: toolCallId,
+            tool: toolState.tool,
+            state: {
+              status: "error",
+              input: toolState.input,
+              error: "Tool execution aborted",
+              time: { start: toolState.startedAt, end: Date.now() },
+            },
+          },
+        });
+      }
+      state.tools.clear();
+
+      // Publish session status update
+      await publish(SessionStatus, {
+        sessionID: sessionId,
+        status: { type: "idle" },
+      });
+
+      assistantInfo.finish = String(event.finishReason ?? "stop");
+      assistantInfo.time.completed = Date.now();
+
+      // Publish message updated event
+      await publish(MessageUpdated, {
+        info: assistantInfo,
+      });
+      break;
+    }
+  }
+}
+
 /**
  * Chat endpoint
  *
@@ -424,8 +854,29 @@ app.post("/api/chat", async c => {
         }
 
         const messageId = uuidv7();
-        let _isComplete = false;
         let hasTextDeltas = false;
+        const partPublishState = createPartPublishState();
+        const assistantInfo: AssistantInfoPayload = {
+          role: "assistant",
+          id: messageId,
+          sessionID: session.sessionId,
+          parentID: session.sessionId,
+          modelID: "unknown",
+          providerID: "unknown",
+          time: {
+            created: Date.now(),
+          },
+          cost: 0,
+          tokens: {
+            input: 0,
+            output: 0,
+            reasoning: 0,
+            cache: {
+              read: 0,
+              write: 0,
+            },
+          },
+        };
 
         // Check if AI provider is configured
         if (!process.env.ZAI_API_KEY && !process.env.OPENAI_API_KEY) {
@@ -463,6 +914,26 @@ app.post("/api/chat", async c => {
             runCardData: null,
             runGroupData: null,
             toolCallTimestamps: new Map(),
+          };
+          let partPublishQueue: Promise<void> = Promise.resolve();
+          const queuePartEvent = (event: { type: string; [key: string]: unknown }) => {
+            partPublishQueue = partPublishQueue
+              .then(() =>
+                publishPartEvent(
+                  session.sessionId,
+                  messageId,
+                  partPublishState,
+                  assistantInfo,
+                  event
+                )
+              )
+              .catch(error => {
+                logger.error("Failed to publish part event", error as Error, {
+                  module: "chat",
+                  sessionId: session.sessionId,
+                  eventType: event.type,
+                });
+              });
           };
 
           // Send initial state update
@@ -538,9 +1009,18 @@ app.post("/api/chat", async c => {
             return agentEvent;
           };
 
+          // Publish session busy status
+          await publish(SessionStatus, {
+            sessionID: session.sessionId,
+            status: { type: "busy" },
+          });
+
           // Process the message with agent and stream events
           const result = await controller.processMessage(messageText, {
             onEvent: event => {
+              // Publish Opencode-style part event to Bus (for SSE streaming)
+              queuePartEvent(event);
+
               // Forward agent events to the stream
               logger.debug("Agent event received", {
                 module: "chat",
@@ -812,8 +1292,7 @@ app.post("/api/chat", async c => {
               }
             },
           });
-
-          _isComplete = true;
+          await partPublishQueue;
 
           if (result.status === "failed") {
             logger.error("Agent execution failed", undefined, {
@@ -858,7 +1337,6 @@ app.post("/api/chat", async c => {
             finishReason: result.status === "completed" ? "stop" : "error",
           });
         } catch (error) {
-          _isComplete = true;
           const errorMessage = error instanceof Error ? error.message : String(error);
 
           logger.error("Agent execution error", error instanceof Error ? error : undefined, {
@@ -869,6 +1347,22 @@ app.post("/api/chat", async c => {
           writer.write({
             type: "error",
             errorText: errorMessage,
+          });
+
+          const errorPartID = uuidv7();
+          await publish(MessagePartUpdated, {
+            part: {
+              id: errorPartID,
+              sessionID: session.sessionId,
+              messageID: messageId,
+              type: "error",
+              message: errorMessage,
+            },
+          });
+
+          await publishPartEvent(session.sessionId, messageId, partPublishState, assistantInfo, {
+            type: "finish",
+            finishReason: "error",
           });
 
           writer.write({

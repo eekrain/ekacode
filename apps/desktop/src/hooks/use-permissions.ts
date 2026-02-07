@@ -2,7 +2,7 @@
  * usePermissions Hook
  *
  * SSE-based permission handling for tool execution.
- * Connects to the server's /api/events endpoint and handles permission:request events.
+ * Connects to the server's unified /event endpoint and handles permission.* events.
  *
  * Features:
  * - SSE connection with auto-reconnect
@@ -122,37 +122,66 @@ export function usePermissions(options: UsePermissionsOptions): UsePermissionsRe
         reconnectAttempts = 0;
       };
 
-      // Handle permission request events
-      eventSource.addEventListener("permission:request", event => {
+      eventSource.addEventListener("message", event => {
         try {
-          const request = JSON.parse(event.data) as PermissionRequestData;
-
-          // Filter by session if we have one
+          const payload = JSON.parse(event.data) as {
+            type: string;
+            properties: Record<string, unknown>;
+          };
           const sid = sessionId();
-          if (!sid || request.sessionID === sid) {
+
+          if (payload.type === "permission.asked") {
+            const properties = payload.properties as {
+              id: string;
+              sessionID: string;
+              permission: string;
+              patterns: string[];
+              metadata?: Record<string, unknown>;
+            };
+
+            if (sid && properties.sessionID !== sid) return;
+
+            const request: PermissionRequestData = {
+              id: properties.id,
+              sessionID: properties.sessionID,
+              toolName: properties.permission,
+              args: properties.metadata ?? {},
+              description:
+                properties.patterns.length > 0
+                  ? `Requires permission for: ${properties.patterns.join(", ")}`
+                  : undefined,
+              timestamp: new Date().toISOString(),
+            };
+
             logger.info("Permission request received", {
               id: request.id,
               toolName: request.toolName,
               sessionId: request.sessionID,
             });
-            setPending(prev => [...prev, request]);
-            onRequest?.(request);
-          }
-        } catch (e) {
-          logger.error("Failed to parse permission request", e as Error);
-        }
-      });
 
-      // Handle permission update events (resolved elsewhere)
-      eventSource.addEventListener("permission:update", event => {
-        try {
-          const data = JSON.parse(event.data) as { id: string; resolved: boolean };
-          if (data.resolved) {
-            logger.debug("Permission resolved via update", { id: data.id });
-            setPending(prev => prev.filter(p => p.id !== data.id));
+            setPending(prev => {
+              const existing = prev.findIndex(item => item.id === request.id);
+              if (existing === -1) return [...prev, request];
+              const next = [...prev];
+              next[existing] = request;
+              return next;
+            });
+            onRequest?.(request);
+            return;
+          }
+
+          if (payload.type === "permission.replied") {
+            const properties = payload.properties as {
+              sessionID: string;
+              requestID: string;
+            };
+            if (sid && properties.sessionID !== sid) return;
+
+            logger.debug("Permission resolved via bus", { id: properties.requestID });
+            setPending(prev => prev.filter(item => item.id !== properties.requestID));
           }
         } catch (e) {
-          logger.error("Failed to parse permission update", e as Error);
+          logger.error("Failed to parse unified SSE event", e as Error);
         }
       });
 

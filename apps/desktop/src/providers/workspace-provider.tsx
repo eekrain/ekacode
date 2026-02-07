@@ -101,7 +101,7 @@ interface WorkspaceHooksProps {
   workspace: string;
   activeSessionId: Accessor<string | null>;
   setActiveSessionId: (id: string | null) => void;
-  refreshSessions: () => void;
+  refreshSessions: () => Promise<void>;
   onReady: (chat: UseChatResult, permissions: UsePermissionsResult) => void;
 }
 
@@ -114,10 +114,11 @@ function WorkspaceHooks(props: WorkspaceHooksProps) {
     client: props.client,
     workspace: () => props.workspace,
     initialSessionId: props.activeSessionId() ?? undefined,
+    sessionId: props.activeSessionId,
     onSessionIdReceived: (id: string) => {
       if (id !== props.activeSessionId()) {
         props.setActiveSessionId(id);
-        props.refreshSessions();
+        void props.refreshSessions();
       }
     },
   });
@@ -131,12 +132,6 @@ function WorkspaceHooks(props: WorkspaceHooksProps) {
   // Notify parent that hooks are ready
   onMount(() => {
     props.onReady(chat, permissions);
-  });
-
-  // Update parent when activeSessionId changes (to keep hooks in sync)
-  createEffect(() => {
-    // Sync happens through the callbacks, but we ensure the signal is tracked
-    const _id = props.activeSessionId();
   });
 
   return null; // No visible output

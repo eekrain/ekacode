@@ -30,80 +30,39 @@ if (process.env.NODE_ENV !== "production") {
   console.log(`[server] Environment loaded - ZAI: ${hasZai}, OpenAI: ${hasOpenAI}`);
 }
 
-import { SessionManager, ShutdownHandler } from "@ekacode/core";
-import { initializePermissionRules } from "@ekacode/core/server";
+import { ShutdownHandler } from "@ekacode/core";
+import { initializePermissionRules, PermissionManager } from "@ekacode/core/server";
 import { createLogger } from "@ekacode/shared/logger";
 import { shutdown } from "@ekacode/shared/shutdown";
 import { serve } from "@hono/node-server";
-import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { randomBytes } from "node:crypto";
 import { v7 as uuidv7 } from "uuid";
-import { db, sessions } from "../db";
+import { PermissionAsked, publish } from "./bus";
 import { authMiddleware } from "./middleware/auth";
 import { cacheMiddleware } from "./middleware/cache";
 import { errorHandler } from "./middleware/error-handler";
 import { rateLimitMiddleware } from "./middleware/rate-limit";
+import agentRouter from "./routes/agent";
 import chatRouter from "./routes/chat";
-import eventsRouter from "./routes/events";
+import commandRouter from "./routes/command";
+import diffRouter from "./routes/diff";
+import eventRouter from "./routes/event";
 import healthRouter from "./routes/health";
+import lspRouter from "./routes/lsp";
+import mcpRouter from "./routes/mcp";
 import permissionsRouter from "./routes/permissions";
+import projectRouter from "./routes/project";
+import providerRouter from "./routes/provider";
 import rulesRouter from "./routes/rules";
+import sessionDataRouter from "./routes/session-data";
 import sessionsRouter from "./routes/sessions";
+import todoRouter from "./routes/todo";
+import vcsRouter from "./routes/vcs";
 import workspaceRouter from "./routes/workspace";
+import { getServerToken, getSessionManager } from "./runtime";
+export { getServerToken, getSessionManager } from "./runtime";
 
-/**
- * Database adapter for SessionManager
- *
- * Adapts Drizzle ORM to the interface expected by SessionManager.
- */
-const sessionDbAdapter = {
-  insert: (table: string) => ({
-    values: async (values: Record<string, unknown>) => {
-      if (table === "sessions") {
-        await db.insert(sessions).values(values as any); // eslint-disable-line @typescript-eslint/no-explicit-any
-      }
-    },
-  }),
-  query: {
-    sessions: {
-      findMany: async (_opts?: {
-        orderBy?: (sessions: unknown, { desc }: { desc: (col: unknown) => unknown }) => unknown[];
-      }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const results = await (db as any)
-          .select()
-          .from(sessions)
-          .orderBy(desc(sessions.last_accessed))
-          .all();
-        return results;
-      },
-      findFirst: async (opts: { where: { session_id: string } }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const result = await (db as any)
-          .select()
-          .from(sessions)
-          .where(eq(sessions.session_id, opts.where.session_id))
-          .limit(1)
-          .get();
-        return result || undefined;
-      },
-    },
-  },
-};
-
-// Global SessionManager instance
-let globalSessionManager: SessionManager | null = null;
-
-export function getSessionManager(): SessionManager {
-  if (!globalSessionManager) {
-    globalSessionManager = new SessionManager(
-      sessionDbAdapter as any, // eslint-disable-line @typescript-eslint/no-explicit-any
-      "./checkpoints"
-    );
-  }
-  return globalSessionManager;
-}
+let permissionBusBound = false;
 
 // Generic server type with close method
 interface CloseableServer {
@@ -124,14 +83,7 @@ export type Env = {
 const app = new Hono<Env>();
 const logger = createLogger("server");
 
-// Generated at startup);
-
-const SERVER_TOKEN = randomBytes(16).toString("hex"); // 32 characters
 const SERVER_PORT = parseInt(process.env.PORT || "0") || 0; // Random port
-
-export function getServerToken(): string {
-  return SERVER_TOKEN;
-}
 
 // CORS for localhost
 app.use("*", async (c, next) => {
@@ -195,8 +147,8 @@ app.route("/api/permissions", permissionsRouter);
 // Note: chatRouter uses full paths like "/api/chat", so mount at "/"
 app.route("/", chatRouter);
 
-// Mount events routes
-app.route("/", eventsRouter);
+// Mount unified event SSE endpoint (Opencode-style)
+app.route("/", eventRouter);
 
 // Mount rules routes
 app.route("/", rulesRouter);
@@ -204,8 +156,24 @@ app.route("/", rulesRouter);
 // Mount sessions routes
 app.route("/", sessionsRouter);
 
+// Mount session data routes (historical messages)
+app.route("/", sessionDataRouter);
+
 // Mount workspace routes
 app.route("/", workspaceRouter);
+
+// Mount bootstrap API routes
+app.route("/", projectRouter);
+app.route("/", providerRouter);
+app.route("/", agentRouter);
+app.route("/", commandRouter);
+app.route("/", mcpRouter);
+app.route("/", lspRouter);
+app.route("/", vcsRouter);
+
+// Mount diff and todo routes
+app.route("/", diffRouter);
+app.route("/", todoRouter);
 
 let currentPort = SERVER_PORT;
 let serverInstance: CloseableServer | null = null;
@@ -228,13 +196,27 @@ export async function startServer() {
   // Initialize permission rules from config
   initializePermissionRules();
 
+  if (!permissionBusBound) {
+    const permissionMgr = PermissionManager.getInstance();
+    permissionMgr.on("permission:request", request => {
+      publish(PermissionAsked, request).catch(error => {
+        logger.error("Failed to publish permission.asked event", error as Error, {
+          module: "permissions",
+          permissionId: request.id,
+          sessionId: request.sessionID,
+        });
+      });
+    });
+    permissionBusBound = true;
+  }
+
   // Initialize SessionManager
   const sessionManager = getSessionManager();
   await sessionManager.initialize();
   logger.info("SessionManager initialized", { module: "server:lifecycle" });
 
   // Initialize shutdown handler
-  const _shutdownHandler = new ShutdownHandler(sessionManager as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+  new ShutdownHandler(sessionManager as any); // eslint-disable-line @typescript-eslint/no-explicit-any
   logger.debug("Shutdown handler registered", { module: "server:lifecycle" });
 
   const server = await serve({
@@ -273,7 +255,7 @@ export async function startServer() {
     10
   ); // Very high priority (run first)
 
-  return { server, port, token: SERVER_TOKEN };
+  return { server, port, token: getServerToken() };
 }
 
 export default app;

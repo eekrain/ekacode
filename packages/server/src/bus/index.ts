@@ -1,0 +1,324 @@
+/**
+ * Event Bus System
+ *
+ * Opencode-style event bus for publish-subscribe messaging.
+ * Supports typed events, wildcard subscriptions, and global emission.
+ */
+
+import { MessageInfo as ChatMessageInfo, Part as ChatPart } from "@ekacode/core/chat";
+import { Instance } from "@ekacode/core/server";
+import { createLogger } from "@ekacode/shared/logger";
+import { z } from "zod";
+import { defineBusEvent, type BusEventDefinition } from "./bus-event";
+
+const logger = createLogger("bus");
+
+type EventPayload = { type: string; properties: unknown; directory?: string };
+type Subscription = (event: EventPayload) => void | Promise<void>;
+
+function resolveDirectory(properties: unknown): string | undefined {
+  if (properties && typeof properties === "object") {
+    const withDirectory = properties as { directory?: unknown };
+    if (typeof withDirectory.directory === "string" && withDirectory.directory.length > 0) {
+      return withDirectory.directory;
+    }
+  }
+
+  if (Instance.inContext) {
+    try {
+      return Instance.directory;
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Core event definitions
+ */
+export const ServerConnected = defineBusEvent("server.connected", z.object({}));
+export const ServerHeartbeat = defineBusEvent("server.heartbeat", z.object({}));
+export const ServerInstanceDisposed = defineBusEvent(
+  "server.instance.disposed",
+  z.object({
+    directory: z.string(),
+  })
+);
+
+export const MessageUpdated = defineBusEvent(
+  "message.updated",
+  z.object({
+    info: ChatMessageInfo,
+  })
+);
+
+export const MessagePartUpdated = defineBusEvent(
+  "message.part.updated",
+  z.object({
+    part: ChatPart,
+    delta: z.string().optional(),
+  })
+);
+
+export const MessagePartRemoved = defineBusEvent(
+  "message.part.removed",
+  z.object({
+    partID: z.string(),
+    messageID: z.string(),
+    sessionID: z.string(),
+  })
+);
+
+export const SessionCreated = defineBusEvent(
+  "session.created",
+  z.object({
+    sessionID: z.string(),
+    directory: z.string(),
+  })
+);
+
+export const SessionUpdated = defineBusEvent(
+  "session.updated",
+  z.object({
+    sessionID: z.string(),
+    status: z.enum(["idle", "running", "error"]),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+  })
+);
+
+export const SessionStatus = defineBusEvent(
+  "session.status",
+  z.object({
+    sessionID: z.string(),
+    status: z.union([
+      z.object({
+        type: z.literal("idle"),
+      }),
+      z.object({
+        type: z.literal("busy"),
+      }),
+      z.object({
+        type: z.literal("retry"),
+        attempt: z.number(),
+        message: z.string(),
+        next: z.number(),
+      }),
+    ]),
+  })
+);
+
+export const PermissionAsked = defineBusEvent(
+  "permission.asked",
+  z.object({
+    id: z.string(),
+    sessionID: z.string(),
+    permission: z.string(),
+    patterns: z.string().array(),
+    always: z.string().array(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+    tool: z
+      .object({
+        messageID: z.string(),
+        callID: z.string(),
+      })
+      .optional(),
+  })
+);
+
+export const PermissionReplied = defineBusEvent(
+  "permission.replied",
+  z.object({
+    sessionID: z.string(),
+    requestID: z.string(),
+    reply: z.enum(["once", "always", "reject"]),
+  })
+);
+
+/**
+ * In-memory subscription state
+ * In production, this could be backed by Redis or similar
+ */
+const subscriptions = new Map<string, Subscription[]>();
+
+/**
+ * Publish an event to all subscribers
+ * @param def - Event definition (from defineBusEvent)
+ * @param properties - Event properties (must match Zod schema)
+ */
+export async function publish<Definition extends BusEventDefinition>(
+  def: Definition,
+  properties: z.infer<Definition["properties"]>
+): Promise<void> {
+  const directory = resolveDirectory(properties);
+  const payload: EventPayload = {
+    type: def.type,
+    properties,
+    directory,
+  };
+
+  logger.info("publishing", { type: def.type });
+
+  const pending: Array<void | Promise<void>> = [];
+
+  // Subscribe to both specific type and wildcard
+  for (const key of [def.type, "*"]) {
+    const match = subscriptions.get(key);
+    if (match) {
+      for (const sub of match) {
+        pending.push(sub(payload));
+      }
+    }
+  }
+
+  // Emit to global bus (for cross-process communication if needed)
+  GlobalBus.emit("event", payload as Record<string, unknown>);
+
+  await Promise.all(pending);
+}
+
+/**
+ * Subscribe to a specific event type
+ * @param def - Event definition to subscribe to
+ * @param callback - Callback function that receives event
+ * @returns Unsubscribe function
+ */
+export function subscribe<Definition extends BusEventDefinition>(
+  def: Definition,
+  callback: (event: {
+    type: Definition["type"];
+    properties: z.infer<Definition["properties"]>;
+  }) => void | Promise<void>
+): () => void {
+  return raw(def.type, callback as (event: EventPayload) => void | Promise<void>);
+}
+
+/**
+ * Subscribe to a specific event type once
+ * @param def - Event definition to subscribe to
+ * @param callback - Callback function, return "done" to unsubscribe
+ * @returns Unsubscribe function
+ */
+export function once<Definition extends BusEventDefinition>(
+  def: Definition,
+  callback: (event: {
+    type: Definition["type"];
+    properties: z.infer<Definition["properties"]>;
+  }) => "done" | undefined | Promise<"done" | undefined>
+): () => void {
+  let unsub: () => void = () => {};
+  unsub = raw(def.type, async event => {
+    const result = await callback(
+      event as {
+        type: Definition["type"];
+        properties: z.infer<Definition["properties"]>;
+      }
+    );
+    if (result === "done") {
+      unsub();
+    }
+  });
+  return unsub;
+}
+
+/**
+ * Subscribe to all events
+ * @param callback - Callback function that receives all events
+ * @returns Unsubscribe function
+ */
+export function subscribeAll(callback: (event: EventPayload) => void | Promise<void>): () => void {
+  return raw("*", callback);
+}
+
+/**
+ * Raw subscription helper
+ * @param type - Event type or "*" for wildcard
+ * @param callback - Callback function
+ * @returns Unsubscribe function
+ */
+function raw(type: string, callback: (event: EventPayload) => void | Promise<void>): () => void {
+  logger.info("subscribing", { type });
+
+  let match = subscriptions.get(type) ?? [];
+  match.push(callback);
+  subscriptions.set(type, match);
+
+  return () => {
+    logger.info("unsubscribing", { type });
+    const match = subscriptions.get(type);
+    if (!match) return;
+
+    const index = match.indexOf(callback);
+    if (index === -1) return;
+
+    match.splice(index, 1);
+
+    // Clean up empty subscription arrays
+    if (match.length === 0) {
+      subscriptions.delete(type);
+    }
+  };
+}
+
+/**
+ * Clear all subscriptions (useful for testing)
+ */
+export function clearAll(): void {
+  subscriptions.clear();
+}
+
+/**
+ * Get subscription count for debugging
+ */
+export function getSubscriptionCount(): number {
+  let total = 0;
+  for (const subs of subscriptions.values()) {
+    total += subs.length;
+  }
+  return total;
+}
+
+/**
+ * Global bus for cross-instance communication
+ * Uses EventEmitter pattern for extensibility
+ */
+export const GlobalBus = {
+  listeners: new Map<string, Array<(data: Record<string, unknown>) => void>>(),
+
+  on(event: string, callback: (data: Record<string, unknown>) => void): () => void {
+    let listeners = this.listeners.get(event) ?? [];
+    listeners.push(callback);
+    this.listeners.set(event, listeners);
+
+    return () => {
+      const listeners = this.listeners.get(event);
+      if (!listeners) return;
+
+      const index = listeners.indexOf(callback);
+      if (index === -1) return;
+
+      listeners.splice(index, 1);
+
+      if (listeners.length === 0) {
+        this.listeners.delete(event);
+      }
+    };
+  },
+
+  emit(event: string, data: Record<string, unknown>): void {
+    const listeners = this.listeners.get(event);
+    if (listeners) {
+      for (const listener of listeners) {
+        try {
+          listener(data);
+        } catch (error) {
+          logger.error("GlobalBus listener error", error as Error, { event });
+        }
+      }
+    }
+  },
+};
+
+// Re-export types
+export type { BusEventDefinition };

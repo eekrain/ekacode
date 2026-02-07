@@ -55,7 +55,6 @@ export function createAutoScroll(options: CreateAutoScrollOptions): CreateAutoSc
   const settlingPeriod = options.settlingPeriod ?? 300;
 
   let settlingTimeout: ReturnType<typeof setTimeout> | undefined;
-  let lastScrollTime = 0;
   let lastScrollTop = 0;
 
   const isNearBottom = (el: HTMLElement): boolean => {
@@ -74,10 +73,6 @@ export function createAutoScroll(options: CreateAutoScrollOptions): CreateAutoSc
   };
 
   const handleScroll = (el: HTMLElement) => {
-    const now = Date.now();
-    const _timeSinceLastScroll = now - lastScrollTime;
-    lastScrollTime = now;
-
     // Check if this was a programmatic scroll (large jump, likely scrollIntoView)
     const scrollDelta = Math.abs(el.scrollTop - lastScrollTop);
     lastScrollTop = el.scrollTop;

@@ -169,33 +169,17 @@ describe("grepTool", () => {
   });
 
   it("should parse and format matches correctly", async () => {
-    // Need to delay exit to allow data processing
-    let exitCallback: (() => void) | null = null;
-    mockProc.once = vi.fn((event: string, callback: any) => {
-      if (event === "exit") {
-        exitCallback = callback;
-      }
-      return mockProc;
-    });
-
     // Use the correct format with | separator as configured in grep.tool.ts
     mockStdout.push("file1.txt|5| hello world");
     mockStdout.push("file2.txt|10| test pattern");
     mockStdout.push(null);
     mockStderr.push(null);
 
-    const resultPromise = runInInstance(async () => {
+    const result = await runInInstance(async () => {
       return grepTool.execute({
         pattern: "test",
       });
     });
-
-    // Trigger exit after data is pushed
-    setTimeout(() => {
-      if (exitCallback) exitCallback();
-    }, 10);
-
-    const result = await resultPromise;
 
     expect(result.content).toContain("Found");
     expect(result.content).toContain("file1.txt");

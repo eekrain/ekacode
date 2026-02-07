@@ -7,11 +7,11 @@
  * - chat: Standard message bubble (default)
  */
 
-import { Match, Switch, type Component } from "solid-js";
+import { For, Match, Switch, type Component, type JSX } from "solid-js";
 import type { AgentMode, ChatMessageMetadata, ChatUIMessage } from "../types/ui-message";
 import { ActivityFeed } from "./activity-feed/index";
+import { Part } from "./message-part";
 import { RunCard } from "./run-card/index";
-import { MessageBubble } from "/@/views/workspace-view/chat-area/message-bubble";
 
 export interface AssistantMessageProps {
   message: ChatUIMessage;
@@ -67,9 +67,46 @@ export const AssistantMessage: Component<AssistantMessageProps> = props => {
 
 /**
  * Default chat message view (standard bubbles)
+ * Now always renders via part registry - no fallback to MessageBubble
  */
 const ChatMessageView: Component<{ message: ChatUIMessage }> = props => {
-  return <MessageBubble message={props.message} />;
+  // Convert ChatUIMessage to core Message format for part rendering
+  const coreMessage = {
+    info: {
+      role: "assistant" as const,
+      id: props.message.id,
+    },
+    parts: props.message.parts as unknown as import("@ekacode/core/chat").Part[],
+    createdAt: Date.now(),
+  } as import("@ekacode/core/chat").Message;
+
+  return <AssistantMessageDisplay message={coreMessage} parts={coreMessage.parts} />;
 };
 
 export default AssistantMessage;
+
+/**
+ * Opencode-style assistant message display
+ * Renders message with parts array using the part component registry
+ */
+export function AssistantMessageDisplay(props: {
+  message: import("@ekacode/core/chat").Message;
+  parts: import("@ekacode/core/chat").Part[];
+}): JSX.Element {
+  // Filter out internal tools
+  const INTERNAL_TOOLS = ["todoread"];
+  const filteredParts = () =>
+    props.parts.filter(
+      p =>
+        p.type !== "tool" ||
+        !INTERNAL_TOOLS.includes((p as import("@ekacode/core/chat").ToolPart).tool)
+    );
+
+  return (
+    <div data-component="assistant-message" class="flex flex-col gap-2">
+      <For each={filteredParts()}>
+        {part => <Part part={part as import("@ekacode/core/chat").Part} message={props.message} />}
+      </For>
+    </div>
+  );
+}

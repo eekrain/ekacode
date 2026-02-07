@@ -5,45 +5,24 @@
  * workflow execution and user message processing.
  */
 
-import { EventEmitter } from "events";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SessionController } from "../../src/session/controller";
 import { SessionConfig } from "../../src/session/types";
 
-// Mock the workflow engine
-vi.mock("../../src/workflow/engine", () => ({
-  WorkflowEngine: class MockWorkflowEngine {
-    sessionId: string;
-    task = "";
-    phase: SessionPhase = "idle";
-
-    constructor(sessionId: string, _eventBus: EventEmitter, _checkpointSaver: unknown) {
-      this.sessionId = sessionId;
-    }
-
-    async start(task: string): Promise<void> {
-      this.task = task;
-      this.phase = "completed";
-    }
-
-    async resumeFromCheckpoint(_checkpoint: Checkpoint): Promise<void> {
-      this.phase = "completed";
-    }
-
-    getStatus() {
+vi.mock("../../src/session/processor", () => ({
+  AgentProcessor: class MockAgentProcessor {
+    async run() {
       return {
-        sessionId: this.sessionId,
-        phase: this.phase,
-        progress: 0,
-        hasIncompleteWork: false,
-        summary: "Test",
-        lastActivity: Date.now(),
-        activeAgents: [],
+        status: "completed" as const,
+        finalContent: "Done",
+        messages: [],
+        iterations: 1,
+        duration: 1,
       };
     }
 
     abort(): void {
-      // Mock
+      // no-op
     }
   },
 }));
@@ -56,12 +35,10 @@ vi.mock("fs/promises", () => ({
 }));
 
 describe("session/controller", () => {
-  let _mockEventBus: EventEmitter;
   let mockCheckpointDir: string;
   let mockConfig: SessionConfig;
 
   beforeEach(() => {
-    _mockEventBus = new EventEmitter();
     mockCheckpointDir = "/tmp/test-checkpoints";
     mockConfig = {
       resourceId: "local",
@@ -93,16 +70,18 @@ describe("session/controller", () => {
     });
   });
 
-  describe("start", () => {
-    it("should start workflow with task", async () => {
+  describe("processMessage", () => {
+    it("should run the controller with a task", async () => {
       const controller = new SessionController({
         sessionId: "test-session",
         sessionConfig: mockConfig,
         checkpointDir: mockCheckpointDir,
       });
 
-      await controller.start("Test task");
+      const result = await controller.processMessage("Test task");
 
+      expect(result).toBeDefined();
+      expect(result.status).toBe("completed");
       expect(controller.getStatus().phase).toBe("completed");
     });
   });

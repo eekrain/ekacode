@@ -6,6 +6,7 @@ import { PermissionManager } from "@ekacode/core/server";
 import { createLogger } from "@ekacode/shared/logger";
 import { Hono } from "hono";
 import { z } from "zod";
+import { PermissionReplied, publish } from "../bus";
 
 type Env = {
   Variables: {
@@ -39,7 +40,18 @@ app.post("/approve", async c => {
     });
 
     const permissionMgr = PermissionManager.getInstance();
+    const pending = permissionMgr.getPendingRequests();
+    const match = pending.find(request => request.id === id);
+
     permissionMgr.handleResponse({ id, approved, patterns });
+
+    if (match) {
+      await publish(PermissionReplied, {
+        sessionID: match.sessionID,
+        requestID: id,
+        reply: approved ? (patterns && patterns.length > 0 ? "always" : "once") : "reject",
+      });
+    }
 
     return c.json({ success: true });
   } catch (error: unknown) {

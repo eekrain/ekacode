@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./chat": "./src/chat/index.ts",
     "./server": "./src/server.ts",
     "./tools": "./src/tools/index.ts"
   },

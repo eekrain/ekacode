@@ -5,8 +5,11 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./binary": "./src/binary.ts",
     "./logger": "./src/logger/index.ts",
+    "./persist": "./src/persist.ts",
     "./paths": "./src/paths.ts",
+    "./retry": "./src/retry.ts",
     "./shutdown": "./src/shutdown.ts"
   },
   "scripts": {
