@@ -1,14 +1,16 @@
-import { Component, createEffect, For, Show } from "solid-js";
-import { MessageBubble, ThinkingBubble } from "./message-bubble";
-import { AssistantMessage } from "/@/components/assistant-message";
+import { Component, createEffect, createMemo, For, Show } from "solid-js";
+import { createStore } from "solid-js/store";
+import { ThinkingBubble } from "./message-bubble";
+import { SessionTurn } from "./session-turn";
 import { Icon } from "/@/components/icon";
 import { createAutoScroll } from "/@/hooks/create-auto-scroll";
 import { cn } from "/@/lib/utils";
-import type { ChatUIMessage } from "/@/types/ui-message";
+import type { Message } from "/@/providers/global-sync-provider";
+import { useSync } from "/@/providers/sync-provider";
 
 interface MessageListProps {
-  /** Messages to display */
-  messages: ChatUIMessage[];
+  /** Current session ID */
+  sessionId?: string;
   /** Whether AI is currently generating */
   isGenerating?: boolean;
   /** Current thinking content (if any) */
@@ -17,6 +19,18 @@ interface MessageListProps {
   class?: string;
   /** Callback when messages are scrolled to bottom */
   onScrollToBottom?: () => void;
+}
+
+// Stable empty constants to prevent re-renders
+const EMPTY_MESSAGES: Message[] = [];
+const EMPTY_IDS: string[] = [];
+const IDLE_STATUS = { type: "idle" } as const;
+
+// Custom equality for string ID arrays
+function idsEqual(a: readonly string[], b: readonly string[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  return a.every((x, i) => x === b[i]);
 }
 
 /**
@@ -32,13 +46,59 @@ interface MessageListProps {
  * - Visual indicator when auto-scroll is paused
  */
 export const MessageList: Component<MessageListProps> = props => {
+  const sync = useSync();
+  const [expanded, setExpanded] = createStore<Record<string, boolean>>({});
+
   const autoScroll = createAutoScroll({
     working: () => props.isGenerating ?? false,
     nearBottomDistance: 100,
     settlingPeriod: 300,
   });
 
-  createEffect(() => console.log(props.messages));
+  // Get messages for current session from store
+  const sessionMessages = createMemo(() => {
+    const sessionID = props.sessionId;
+    if (!sessionID) return EMPTY_MESSAGES;
+    return sync.data.message[sessionID] ?? EMPTY_MESSAGES;
+  }, EMPTY_MESSAGES);
+
+  // Compute timeline as array of user message IDs only
+  // Each user message ID represents a turn - SessionTurn will fetch its own data
+  const userMessageIDs = createMemo(
+    () => {
+      const messages = sessionMessages();
+      if (messages.length === 0) return EMPTY_IDS;
+      const ids: string[] = [];
+      for (const msg of messages) {
+        if (msg.info.role === "user") {
+          ids.push(msg.info.id);
+        }
+      }
+      return ids.length > 0 ? ids : EMPTY_IDS;
+    },
+    EMPTY_IDS,
+    { equals: idsEqual }
+  );
+
+  const sessionStatus = createMemo(() => {
+    const id = props.sessionId;
+    if (!id) return IDLE_STATUS;
+    return sync.data.sessionStatus[id]?.status ?? IDLE_STATUS;
+  });
+
+  // Determine last user message ID for "isLast" prop
+  const lastUserMessageID = createMemo(() => {
+    const ids = userMessageIDs();
+    return ids[ids.length - 1];
+  });
+
+  createEffect(() => {
+    const lastID = lastUserMessageID();
+    if (!lastID) return;
+    const status = sessionStatus();
+    const isWorking = (props.isGenerating ?? false) || status.type !== "idle";
+    setExpanded(lastID, isWorking);
+  });
 
   return (
     <div
@@ -48,16 +108,16 @@ export const MessageList: Component<MessageListProps> = props => {
     >
       {/* Messages */}
       <div class="mx-auto max-w-3xl">
-        <For each={props.messages}>
-          {(message, index) => (
-            <div class="group">
-              {/* Use AssistantMessage for assistant messages, MessageBubble for user messages */}
-              <Show
-                when={message.role === "assistant"}
-                fallback={<MessageBubble message={message} delay={Math.min(index() * 50, 300)} />}
-              >
-                <AssistantMessage message={message} />
-              </Show>
+        <For each={userMessageIDs()}>
+          {messageID => (
+            <div class="group mb-5">
+              <SessionTurn
+                sessionID={props.sessionId}
+                messageID={messageID}
+                isLast={messageID === lastUserMessageID()}
+                expanded={expanded[messageID] ?? false}
+                onToggleExpanded={() => setExpanded(messageID, value => !value)}
+              />
             </div>
           )}
         </For>

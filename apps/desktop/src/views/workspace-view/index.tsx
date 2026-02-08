@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 import { cn } from "/@/lib/utils";
 import type { DiffChange, FileTab, TerminalOutput } from "/@/types";
 
@@ -9,6 +9,9 @@ import { ChatPanel } from "./chat-area/chat-area";
 import { LeftSide } from "./left-side/left-side";
 import { ContextPanel } from "./right-side/right-side";
 import { PermissionDialog } from "/@/components/permission-dialog";
+import { useChat } from "/@/hooks/use-chat";
+import { usePermissions } from "/@/hooks/use-permissions";
+import type { EkacodeApiClient } from "/@/lib/api-client";
 import { SyncProvider } from "/@/providers/sync-provider";
 import { useWorkspace, WorkspaceProvider } from "/@/providers/workspace-provider";
 
@@ -137,12 +140,6 @@ function WorkspaceViewContent() {
     setTerminalOutput([]);
   };
 
-  // Get chat data for rendering
-  const messages = () => {
-    const chat = ctx.chat();
-    if (!chat) return [];
-    return chat.messages();
-  };
   const isGenerating = () => ctx.chat()?.isLoading() ?? false;
   const chatError = () => ctx.chat()?.error() ?? null;
   const activeSession = () => {
@@ -207,7 +204,7 @@ function WorkspaceViewContent() {
           {/* CENTER PANEL - Chat Interface */}
           <ChatPanel
             session={activeSession()}
-            messages={messages()}
+            sessionId={ctx.activeSessionId() ?? undefined}
             isGenerating={isGenerating()}
             thinkingContent={""}
             error={chatError()}
@@ -280,9 +277,47 @@ function WorkspaceViewWithSync() {
     <Show when={directory()} keyed>
       {currentDirectory => (
         <SyncProvider directory={currentDirectory}>
+          <Show when={ctx.client()} keyed>
+            {client => <WorkspaceHooksBridge client={client} workspace={currentDirectory} />}
+          </Show>
           <WorkspaceViewContent />
         </SyncProvider>
       )}
     </Show>
   );
+}
+
+function WorkspaceHooksBridge(props: { client: EkacodeApiClient; workspace: string }) {
+  const ctx = useWorkspace();
+
+  const chat = useChat({
+    client: props.client,
+    workspace: () => props.workspace,
+    initialSessionId: ctx.activeSessionId() ?? undefined,
+    sessionId: ctx.activeSessionId,
+    onSessionIdReceived: (id: string) => {
+      if (id !== ctx.activeSessionId()) {
+        ctx.setActiveSessionId(id);
+        void ctx.refreshSessions();
+      }
+    },
+  });
+
+  const permissions = usePermissions({
+    client: props.client,
+    workspace: () => props.workspace,
+    sessionId: ctx.activeSessionId,
+  });
+
+  createEffect(() => {
+    ctx.setChat(chat);
+    ctx.setPermissions(permissions);
+  });
+
+  onCleanup(() => {
+    ctx.setChat(null);
+    ctx.setPermissions(null);
+  });
+
+  return null;
 }

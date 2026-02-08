@@ -1,11 +1,12 @@
 import { Component, For, Match, mergeProps, Show, Switch } from "solid-js";
 import { Markdown } from "/@/components/markdown";
 import { cn } from "/@/lib/utils";
-import type { ChatUIMessage } from "/@/types/ui-message";
+import type { Message } from "/@/providers/global-sync-provider";
+import { useSync } from "/@/providers/sync-provider";
 
 interface MessageBubbleProps {
-  /** Message data */
-  message: ChatUIMessage;
+  /** Message data from store */
+  message: Message;
   /** Additional CSS classes */
   class?: string;
   /** Animation delay for stagger effect */
@@ -19,9 +20,10 @@ interface MessageBubbleProps {
  * - User messages: right-aligned, primary background
  * - Assistant messages: left-aligned, card background with border
  * - Fade-in animation with slide up
- * - Renders message.parts array (AI SDK UIMessage format)
+ * - Renders message parts from store
  */
 export const MessageBubble: Component<MessageBubbleProps> = props => {
+  const sync = useSync();
   const merged = mergeProps(
     {
       delay: 0,
@@ -29,14 +31,22 @@ export const MessageBubble: Component<MessageBubbleProps> = props => {
     props
   );
 
-  const isUser = () => props.message.role === "user";
+  const isUser = () => props.message.info.role === "user";
 
-  // Get text content from parts
+  // Get parts from store, falling back to embedded parts in message
+  const parts = () => {
+    const messageID = props.message.info.id;
+    const storeParts = sync.data.part[messageID];
+    // Use store parts if available, otherwise fall back to message.parts
+    if (storeParts && storeParts.length > 0) return storeParts;
+    return props.message.parts ?? [];
+  };
+
+  // Get text content from parts (fallback for when we have no parts data)
   const getTextContent = () => {
-    const parts = props.message.parts || [];
-    return parts
-      .filter((part): part is { type: "text"; text: string } => part.type === "text")
-      .map(part => part.text)
+    return parts()
+      .filter(part => part.type === "text")
+      .map(part => (part as { text?: string }).text || "")
       .join("");
   };
 
@@ -68,12 +78,12 @@ export const MessageBubble: Component<MessageBubbleProps> = props => {
       >
         {/* Message content - render parts */}
         <div class="break-words text-sm leading-relaxed">
-          <For each={props.message.parts}>
+          <For each={parts()}>
             {part => (
               <Switch>
                 <Match when={part.type === "text"}>
                   <Markdown
-                    text={(part as { text: string }).text}
+                    text={(part as { text?: string }).text || ""}
                     class={cn(
                       isUser()
                         ? "text-primary-foreground/90 prose-p:m-0 prose-invert"
@@ -81,14 +91,14 @@ export const MessageBubble: Component<MessageBubbleProps> = props => {
                     )}
                   />
                 </Match>
-                <Match when={part.type === "tool-call" || part.type === "tool-result"}>
+                <Match when={part.type === "tool" || part.type === "tool-result"}>
                   {/* Tool parts are handled by ActivityFeed/RunCard, not rendered here */}
                   {null}
                 </Match>
               </Switch>
             )}
           </For>
-          <Show when={props.message.parts?.length === 0}>
+          <Show when={parts().length === 0}>
             <span>{getTextContent()}</span>
           </Show>
         </div>

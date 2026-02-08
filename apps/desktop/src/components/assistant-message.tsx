@@ -1,112 +1,152 @@
-/**
- * AssistantMessage Component (Mode Router)
- *
- * Routes assistant messages to the appropriate UI based on mode:
- * - planning: RunCard component (aggregated view)
- * - build: ActivityFeed component (chronological timeline)
- * - chat: Standard message bubble (default)
- */
-
-import { For, Match, Switch, type Component, type JSX } from "solid-js";
-import type { AgentMode, ChatMessageMetadata, ChatUIMessage } from "../types/ui-message";
-import { ActivityFeed } from "./activity-feed/index";
-import { Part } from "./message-part";
-import { RunCard } from "./run-card/index";
+import type { Part as CorePart, ToolPart } from "@ekacode/core/chat";
+import { createMemo, For, Show, type Component, type JSX } from "solid-js";
+import type { Part } from "../providers/global-sync-provider";
+import { useSync } from "../providers/sync-provider";
+import { Markdown } from "./markdown";
+import { Part as PartComponent } from "./message-part";
 
 export interface AssistantMessageProps {
-  message: ChatUIMessage;
+  /** Message ID - component fetches parts from store */
+  messageID: string;
+  /** Session ID for store lookup */
+  sessionID?: string;
+  /** Fallback parts from message object if store parts are empty */
+  fallbackParts?: Part[];
+  hideSummary?: boolean;
+  hideReasoning?: boolean;
+  hideFinalTextPart?: boolean;
+  hidden?: ReadonlyArray<{ messageID: string; callID: string }>;
 }
 
-/**
- * Get the mode from message metadata, defaulting to "chat"
- * Prioritizes explicit metadata over heuristics to allow server-driven mode routing
- */
-function getMode(message: ChatUIMessage): AgentMode {
-  const metadata = message.metadata as ChatMessageMetadata | undefined;
+const INTERNAL_TOOLS = new Set(["todoread"]);
 
-  // Trust explicit metadata first - server is the source of truth
-  if (metadata?.mode) {
-    return metadata.mode;
-  }
-
-  // Fall back to heuristics only when no metadata is present
-  const partTypes = message.parts.map(part => (part as { type?: string }).type || "");
-  const hasToolParts =
-    partTypes.includes("tool-call") ||
-    partTypes.includes("tool-result") ||
-    partTypes.includes("data-action") ||
-    partTypes.includes("data-data-action");
-  const hasRunParts =
-    partTypes.includes("data-run") ||
-    partTypes.includes("data-data-run") ||
-    partTypes.includes("data-run-item") ||
-    partTypes.includes("data-data-run-item");
-
-  if (hasToolParts) return "build";
-  if (hasRunParts) return "planning";
-  return "chat";
-}
-
-/**
- * AssistantMessage - Routes to the appropriate UI based on mode
- */
 export const AssistantMessage: Component<AssistantMessageProps> = props => {
-  const mode = () => getMode(props.message);
+  const sync = useSync();
+
+  // Fetch parts from store, falling back to embedded parts from message
+  const parts = createMemo(() => {
+    const storeParts = sync.data.part[props.messageID];
+    if (storeParts && storeParts.length > 0) {
+      return storeParts as unknown as CorePart[];
+    }
+    // Fall back to parts passed from parent (embedded in message)
+    return (props.fallbackParts ?? []) as unknown as CorePart[];
+  });
+
+  // Create a minimal message info for Part component
+  const messageInfo = createMemo(
+    () =>
+      ({
+        info: {
+          role: "assistant" as const,
+          id: props.messageID,
+        },
+        parts: parts(),
+        createdAt: Date.now(),
+      }) as import("@ekacode/core/chat").Message
+  );
 
   return (
-    <Switch fallback={<ChatMessageView message={props.message} />}>
-      <Match when={mode() === "planning"}>
-        <RunCard message={props.message} />
-      </Match>
-      <Match when={mode() === "build"}>
-        <ActivityFeed message={props.message} />
-      </Match>
-    </Switch>
+    <AssistantMessageDisplay
+      message={messageInfo()}
+      parts={parts()}
+      hideSummary={props.hideSummary}
+      hideReasoning={props.hideReasoning}
+      hideFinalTextPart={props.hideFinalTextPart}
+      hidden={props.hidden}
+    />
   );
-};
-
-/**
- * Default chat message view (standard bubbles)
- * Now always renders via part registry - no fallback to MessageBubble
- */
-const ChatMessageView: Component<{ message: ChatUIMessage }> = props => {
-  // Convert ChatUIMessage to core Message format for part rendering
-  const coreMessage = {
-    info: {
-      role: "assistant" as const,
-      id: props.message.id,
-    },
-    parts: props.message.parts as unknown as import("@ekacode/core/chat").Part[],
-    createdAt: Date.now(),
-  } as import("@ekacode/core/chat").Message;
-
-  return <AssistantMessageDisplay message={coreMessage} parts={coreMessage.parts} />;
 };
 
 export default AssistantMessage;
 
 /**
- * Opencode-style assistant message display
- * Renders message with parts array using the part component registry
+ * Opencode-like rendering:
+ * - show operational parts (reasoning/tool/step/patch/snapshot) in order
+ * - if operational parts exist, show final text separately as the response block
  */
 export function AssistantMessageDisplay(props: {
   message: import("@ekacode/core/chat").Message;
   parts: import("@ekacode/core/chat").Part[];
+  hideSummary?: boolean;
+  hideReasoning?: boolean;
+  hideFinalTextPart?: boolean;
+  hidden?: ReadonlyArray<{ messageID: string; callID: string }>;
 }): JSX.Element {
-  // Filter out internal tools
-  const INTERNAL_TOOLS = ["todoread"];
-  const filteredParts = () =>
-    props.parts.filter(
-      p =>
-        p.type !== "tool" ||
-        !INTERNAL_TOOLS.includes((p as import("@ekacode/core/chat").ToolPart).tool)
+  const filteredParts = createMemo(() => {
+    let parts = props.parts.filter(
+      part => part.type !== "tool" || !INTERNAL_TOOLS.has((part as ToolPart).tool)
     );
+    if (props.hideReasoning) {
+      parts = parts.filter(part => part.type !== "reasoning");
+    }
+    const hidden = props.hidden ?? [];
+    if (hidden.length > 0) {
+      parts = parts.filter(part => {
+        if (part.type !== "tool") return true;
+        const callID = (part as ToolPart).callID;
+        if (!callID) return true;
+        return !hidden.some(
+          item => item.messageID === props.message.info.id && item.callID === callID
+        );
+      });
+    }
+    return parts;
+  });
+
+  const hasOperationalParts = createMemo(() =>
+    filteredParts().some(part => part.type !== "text" && part.type !== "reasoning")
+  );
+
+  const lastTextPart = createMemo(() => {
+    const parts = filteredParts();
+    for (let i = parts.length - 1; i >= 0; i -= 1) {
+      const part = parts[i];
+      if (part.type !== "text") continue;
+      return part as import("@ekacode/core/chat").TextPart;
+    }
+    return undefined;
+  });
+
+  const visibleParts = createMemo(() => {
+    const responseId = lastTextPart()?.id;
+    if (!responseId) return filteredParts();
+
+    // Summary view: hide response text from inline stream and render as summary block below.
+    if (!props.hideSummary && hasOperationalParts()) {
+      return filteredParts().filter(part => part.id !== responseId);
+    }
+
+    // Expanded steps view: optionally hide the final response text part.
+    if (props.hideFinalTextPart) {
+      return filteredParts().filter(part => part.id !== responseId);
+    }
+
+    return filteredParts();
+  });
+
+  const responseText = createMemo(() => {
+    const part = lastTextPart();
+    const text = typeof part?.text === "string" ? part.text.trim() : "";
+    return text;
+  });
 
   return (
     <div data-component="assistant-message" class="flex flex-col gap-2">
-      <For each={filteredParts()}>
-        {part => <Part part={part as import("@ekacode/core/chat").Part} message={props.message} />}
+      <For each={visibleParts()}>
+        {part => (
+          <PartComponent part={part as import("@ekacode/core/chat").Part} message={props.message} />
+        )}
       </For>
+
+      <Show when={!props.hideSummary && hasOperationalParts() && responseText()}>
+        <div
+          data-slot="assistant-response"
+          class="bg-card/30 border-border/30 rounded-xl border px-4 py-3"
+        >
+          <Markdown text={responseText()} class="prose-p:m-0" />
+        </div>
+      </Show>
     </div>
   );
 }

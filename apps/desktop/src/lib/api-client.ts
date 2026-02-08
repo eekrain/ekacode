@@ -33,6 +33,8 @@ export interface ApiClientConfig {
 export interface ChatOptions {
   /** Session ID for conversation continuity */
   sessionId?: string;
+  /** User message ID (used as assistant parentID on server) */
+  messageId?: string;
   /** Workspace directory path */
   workspace: string;
   /** Abort signal for request cancellation */
@@ -173,6 +175,7 @@ export class EkacodeApiClient {
         headers,
         body: JSON.stringify({
           message: messageText,
+          messageId: options.messageId,
           stream: true,
         }),
         signal: options.signal,
@@ -186,10 +189,17 @@ export class EkacodeApiClient {
 
       return response;
     } catch (error) {
-      logger.error("Chat request failed", error as Error, {
-        workspace: options.workspace,
-        sessionId: options.sessionId,
-      });
+      if ((error as Error).name === "AbortError") {
+        logger.debug("Chat request aborted", {
+          workspace: options.workspace,
+          sessionId: options.sessionId,
+        });
+      } else {
+        logger.error("Chat request failed", error as Error, {
+          workspace: options.workspace,
+          sessionId: options.sessionId,
+        });
+      }
       throw error;
     }
   }

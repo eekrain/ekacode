@@ -7,6 +7,7 @@
 
 import type { TextPart as TextPartType } from "@ekacode/core/chat";
 import { Show, createEffect, createSignal, onCleanup, type JSX } from "solid-js";
+import { Markdown } from "../markdown";
 import type { MessagePartProps, PartComponent } from "../message-part";
 
 /**
@@ -80,8 +81,7 @@ export const TextPartDisplay: PartComponent = (props: MessagePartProps): JSX.Ele
     <Show when={throttledText()}>
       <div data-component="text-part">
         <div data-slot="text-part-body">
-          {/* TODO: Add markdown component */}
-          <pre data-slot="text-content">{throttledText()}</pre>
+          <Markdown text={throttledText()} />
         </div>
       </div>
     </Show>

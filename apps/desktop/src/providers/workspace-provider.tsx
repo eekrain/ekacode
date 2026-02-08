@@ -22,8 +22,8 @@ import {
   type JSX,
   type ParentComponent,
 } from "solid-js";
-import { useChat, type UseChatResult } from "../hooks/use-chat";
-import { usePermissions, type UsePermissionsResult } from "../hooks/use-permissions";
+import type { UseChatResult } from "../hooks/use-chat";
+import type { UsePermissionsResult } from "../hooks/use-permissions";
 import { useSession } from "../hooks/use-session";
 import { EkacodeApiClient, type SessionInfo } from "../lib/api-client";
 import type { WorkspaceState } from "../types";
@@ -68,9 +68,11 @@ export interface WorkspaceContextValue {
 
   // Chat (active session)
   chat: Accessor<UseChatResult | null>;
+  setChat: (chat: UseChatResult | null) => void;
 
   // Permissions
   permissions: Accessor<UsePermissionsResult | null>;
+  setPermissions: (permissions: UsePermissionsResult | null) => void;
 }
 
 // ============================================================
@@ -90,51 +92,6 @@ export function useWorkspace(): WorkspaceContextValue {
     throw new Error("useWorkspace must be used within a WorkspaceProvider");
   }
   return ctx;
-}
-
-// ============================================================
-// Inner Hooks Component
-// ============================================================
-
-interface WorkspaceHooksProps {
-  client: EkacodeApiClient;
-  workspace: string;
-  activeSessionId: Accessor<string | null>;
-  setActiveSessionId: (id: string | null) => void;
-  refreshSessions: () => Promise<void>;
-  onReady: (chat: UseChatResult, permissions: UsePermissionsResult) => void;
-}
-
-/**
- * Component that initializes hooks and provides them via context
- * This only renders when client and workspace are available
- */
-function WorkspaceHooks(props: WorkspaceHooksProps) {
-  const chat = useChat({
-    client: props.client,
-    workspace: () => props.workspace,
-    initialSessionId: props.activeSessionId() ?? undefined,
-    sessionId: props.activeSessionId,
-    onSessionIdReceived: (id: string) => {
-      if (id !== props.activeSessionId()) {
-        props.setActiveSessionId(id);
-        void props.refreshSessions();
-      }
-    },
-  });
-
-  const permissions = usePermissions({
-    client: props.client,
-    workspace: () => props.workspace,
-    sessionId: props.activeSessionId,
-  });
-
-  // Notify parent that hooks are ready
-  onMount(() => {
-    props.onReady(chat, permissions);
-  });
-
-  return null; // No visible output
 }
 
 // ============================================================
@@ -289,35 +246,15 @@ export const WorkspaceProvider: ParentComponent<WorkspaceProviderProps> = props 
 
     // Chat
     chat: chatResult,
+    setChat: setChatResult,
 
     // Permissions
     permissions: permissionsResult,
+    setPermissions: setPermissionsResult,
   };
 
   return (
-    <WorkspaceContext.Provider value={contextValue}>
-      {props.children}
-      {/* Initialize hooks when client and workspace are ready */}
-      {(() => {
-        const c = client();
-        const ws = workspace();
-        if (!c || !ws) return null;
-
-        return (
-          <WorkspaceHooks
-            client={c}
-            workspace={ws}
-            activeSessionId={activeSessionId}
-            setActiveSessionId={setActiveSessionId}
-            refreshSessions={refreshSessions}
-            onReady={(chat, permissions) => {
-              setChatResult(chat);
-              setPermissionsResult(permissions);
-            }}
-          />
-        );
-      })()}
-    </WorkspaceContext.Provider>
+    <WorkspaceContext.Provider value={contextValue}>{props.children}</WorkspaceContext.Provider>
   );
 };
 

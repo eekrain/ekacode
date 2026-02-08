@@ -11,7 +11,7 @@
 
 import { Binary } from "@ekacode/shared/binary";
 import { batch, createContext, JSX, useContext } from "solid-js";
-import { createStore } from "solid-js/store";
+import { createStore, produce, reconcile } from "solid-js/store";
 import { useGlobalSDK } from "./global-sdk-provider";
 import type { Message, Part, Session } from "./global-sync-provider";
 import { useGlobalSync } from "./global-sync-provider";
@@ -25,6 +25,11 @@ const keyFor = (directory: string, id: string) => `${directory}:${id}`;
  * Compare strings for sorting
  */
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+const DEBUG_SYNC_LOG = false;
+const DEBUG_PREFIX = "[eka-debug]";
+
+const isNotFoundError = (error: unknown): boolean =>
+  error instanceof Error && /^HTTP 404\b/.test(error.message);
 
 /**
  * Optimistic store (subset of DirectoryStore for optimistic updates)
@@ -102,7 +107,7 @@ function createSync(directory: string) {
   const [store, setStore] = globalSync.child(directory, { bootstrap: true });
 
   // Mark as ready after child store is created
-  setStore(state => ({ ...state, ready: true }));
+  setStore("ready", true);
 
   const chunk = 400;
   const inflight = new Map<string, Promise<void>>();
@@ -136,6 +141,8 @@ function createSync(directory: string) {
     const key = keyFor(directory, sessionID);
     if (meta.loading[key]) return;
 
+    const prevCount = store.message[sessionID]?.length ?? 0;
+
     setMeta("loading", key, true);
 
     try {
@@ -145,27 +152,33 @@ function createSync(directory: string) {
         .slice()
         .sort((a, b) => cmp(a.info.id, b.info.id));
 
+      if (DEBUG_SYNC_LOG) {
+        const ids = messages.map(message => message.info.id);
+        const duplicateIDs = ids.filter((id, index) => ids.indexOf(id) !== index);
+        console.log(`${DEBUG_PREFIX} sync loadMessages`, {
+          directory,
+          sessionID,
+          limit,
+          prevCount,
+          nextCount: messages.length,
+          duplicateIDs,
+          sample: messages.slice(0, 5).map(message => ({
+            id: message.info.id,
+            role: message.info.role,
+            parts: ((message as { parts?: Part[] }).parts || []).length,
+          })),
+        });
+      }
+
       batch(() => {
-        // Update messages for session
-        setStore(state => ({
-          ...state,
-          message: {
-            ...state.message,
-            [sessionID]: messages,
-          },
-        }));
+        // Update messages for session with reconcile for granular updates
+        setStore("message", sessionID, reconcile(messages));
 
         // Update parts for each message
         for (const message of messages) {
           const parts = (message as { parts?: Part[] }).parts || [];
           const sortedParts = parts.filter(p => !!p?.id).sort((a, b) => cmp(a.id, b.id));
-          setStore(state => ({
-            ...state,
-            part: {
-              ...state.part,
-              [message.info.id]: sortedParts,
-            },
-          }));
+          setStore("part", message.info.id, reconcile(sortedParts));
         }
 
         setMeta("limit", key, limit);
@@ -192,18 +205,18 @@ function createSync(directory: string) {
       get: getSession,
       optimistic: {
         add(input: OptimisticAddInput) {
-          setStore(state => {
-            const draft = { ...state };
-            applyOptimisticAdd(draft, input);
-            return draft;
-          });
+          setStore(
+            produce(draft => {
+              applyOptimisticAdd(draft as unknown as OptimisticStore, input);
+            })
+          );
         },
         remove(input: OptimisticRemoveInput) {
-          setStore(state => {
-            const draft = { ...state };
-            applyOptimisticRemove(draft, input);
-            return draft;
-          });
+          setStore(
+            produce(draft => {
+              applyOptimisticRemove(draft as unknown as OptimisticStore, input);
+            })
+          );
         },
       },
       addOptimisticMessage(input: { sessionID: string; messageID: string; text: string }) {
@@ -227,15 +240,15 @@ function createSync(directory: string) {
 
         message.parts = [textPart];
 
-        setStore(state => {
-          const draft = { ...state };
-          applyOptimisticAdd(draft, {
-            sessionID: input.sessionID,
-            message,
-            parts: [textPart],
-          });
-          return draft;
-        });
+        setStore(
+          produce(draft => {
+            applyOptimisticAdd(draft as unknown as OptimisticStore, {
+              sessionID: input.sessionID,
+              message,
+              parts: [textPart],
+            });
+          })
+        );
       },
       async sync(sessionID: string) {
         const key = keyFor(directory, sessionID);
@@ -246,6 +259,16 @@ function createSync(directory: string) {
 
         const hasMessages = store.message[sessionID] !== undefined;
         const hydrated = meta.limit[key] !== undefined;
+        if (DEBUG_SYNC_LOG) {
+          console.log(`${DEBUG_PREFIX} sync session.sync`, {
+            directory,
+            sessionID,
+            hasSession,
+            hasMessages,
+            hydrated,
+            messageCount: store.message[sessionID]?.length ?? 0,
+          });
+        }
         if (hasSession && hasMessages && hydrated) return;
 
         const pending = inflight.get(key);
@@ -255,6 +278,7 @@ function createSync(directory: string) {
         const limit = hydrated ? (meta.limit[key] ?? chunk) : limitFor(count);
 
         // Load session if not exists
+        let sessionExists = hasSession;
         if (!hasSession) {
           try {
             const session = await globalSDK.client.session.get(sessionID);
@@ -266,24 +290,35 @@ function createSync(directory: string) {
               lastAccessed: new Date(session.lastAccessed).getTime(),
             };
 
-            setStore(state => {
-              const match = Binary(state.session, sessionID, (s: Session) => s.sessionId);
-              if (match.found) {
-                const newSession = [...state.session];
-                newSession[match.index] = transformed;
-                return { ...state, session: newSession };
-              }
-              const newSession = [...state.session];
-              newSession.splice(match.index, 0, transformed);
-              return { ...state, session: newSession };
-            });
+            const match = Binary(store.session, sessionID, (s: Session) => s.sessionId);
+            if (match.found) {
+              setStore("session", match.index, reconcile(transformed));
+            } else {
+              setStore(
+                "session",
+                produce(draft => {
+                  draft.splice(match.index, 0, transformed);
+                })
+              );
+            }
+            sessionExists = true;
           } catch (error) {
+            if (isNotFoundError(error)) {
+              if (DEBUG_SYNC_LOG) {
+                console.log(`${DEBUG_PREFIX} sync session not found`, { directory, sessionID });
+              }
+              return;
+            }
             console.error(`Failed to load session ${sessionID}:`, error);
           }
         }
 
-        // Load messages
-        const promise = loadMessages(sessionID, limit).finally(() => {
+        if (!sessionExists) return;
+
+        const messagesReq =
+          hasMessages && hydrated ? Promise.resolve() : loadMessages(sessionID, limit);
+
+        const promise = messagesReq.finally(() => {
           inflight.delete(key);
         });
 
@@ -311,7 +346,7 @@ function createSync(directory: string) {
         },
       },
       async fetch(count = 10) {
-        setStore(state => ({ ...state, limit: state.limit + count }));
+        setStore("limit", store.limit + count);
         const sessions = await globalSDK.client.session.list();
         const transformed: Session[] = sessions
           .map(s => ({
@@ -325,7 +360,7 @@ function createSync(directory: string) {
           .sort((a, b) => cmp(a.sessionId, b.sessionId))
           .slice(0, store.limit);
 
-        setStore(state => ({ ...state, session: transformed }));
+        setStore("session", reconcile(transformed));
       },
       get more() {
         return store.session.length >= store.limit;

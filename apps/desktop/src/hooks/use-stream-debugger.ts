@@ -102,6 +102,99 @@ function generateEventId(): string {
   return `evt_${Date.now()}_${++eventCounter}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function parseRawLine(line: string): {
+  type: StreamEventType;
+  messageId?: string;
+  payload: unknown;
+} | null {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("data:")) return null;
+
+  const payloadText = trimmed.slice(5).trim();
+  if (!payloadText) return null;
+  if (payloadText === "[DONE]") {
+    return {
+      type: "complete",
+      payload: { done: true },
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(payloadText);
+  } catch {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== "object") return null;
+  const chunk = parsed as Record<string, unknown>;
+  const rawType = typeof chunk.type === "string" ? chunk.type : "";
+  const id = typeof chunk.id === "string" ? chunk.id : undefined;
+
+  if (rawType === "text-delta") {
+    return {
+      type: "text-delta",
+      messageId: id,
+      payload: {
+        id,
+        delta: typeof chunk.delta === "string" ? chunk.delta : "",
+      },
+    };
+  }
+
+  if (rawType === "finish") {
+    return {
+      type: "complete",
+      messageId: id,
+      payload: {
+        id,
+        finishReason: chunk.finishReason,
+      },
+    };
+  }
+
+  if (rawType === "error") {
+    return {
+      type: "error",
+      messageId: id,
+      payload: {
+        id,
+        errorText: chunk.errorText,
+      },
+    };
+  }
+
+  if (rawType === "data-tool-call") {
+    return {
+      type: "tool-call-start",
+      messageId: undefined,
+      payload: chunk,
+    };
+  }
+
+  if (rawType === "data-tool-result") {
+    return {
+      type: "tool-result",
+      messageId: undefined,
+      payload: chunk,
+    };
+  }
+
+  if (rawType.startsWith("data-")) {
+    return {
+      type: "data-part",
+      messageId: id,
+      payload: chunk,
+    };
+  }
+
+  return {
+    type: "raw",
+    messageId: id,
+    payload: chunk,
+  };
+}
+
 /**
  * Hook for debugging stream processing
  *
@@ -180,7 +273,18 @@ export function useStreamDebugger(): UseStreamDebuggerResult {
       rawLines: [...prev.rawLines, line],
     }));
 
-    // Also log as a raw event
+    const parsed = parseRawLine(line);
+    if (parsed) {
+      logEvent({
+        type: parsed.type,
+        messageId: parsed.messageId,
+        payload: parsed.payload,
+        storeSnapshot,
+        rawLine: line,
+      });
+      return;
+    }
+
     logEvent({
       type: "raw",
       payload: { line },

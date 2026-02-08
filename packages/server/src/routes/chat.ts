@@ -277,6 +277,7 @@ const chatMessageSchema = z.object({
       ),
     }),
   ]),
+  messageId: z.string().optional(),
   stream: z.boolean().optional().default(true),
 });
 
@@ -339,6 +340,19 @@ function createPartPublishState(): PartPublishState {
   };
 }
 
+function cloneAssistantInfo(info: AssistantInfoPayload): AssistantInfoPayload {
+  return {
+    ...info,
+    time: { ...info.time },
+    tokens: info.tokens
+      ? {
+          ...info.tokens,
+          cache: { ...info.tokens.cache },
+        }
+      : undefined,
+  };
+}
+
 /**
  * Helper to publish Opencode-style part events to the Bus
  *
@@ -352,6 +366,26 @@ async function publishPartEvent(
   assistantInfo: AssistantInfoPayload,
   event: { type: string; [key: string]: unknown }
 ): Promise<void> {
+  const finalizeTextPart = async () => {
+    if (!state.text) return;
+    state.text.text = state.text.text.trimEnd();
+    if (!state.text.text) {
+      state.text = undefined;
+      return;
+    }
+    await publish(MessagePartUpdated, {
+      part: {
+        id: state.text.id,
+        sessionID: sessionId,
+        messageID: messageId,
+        type: "text",
+        text: state.text.text,
+        time: { start: state.text.startedAt, end: Date.now() },
+      },
+    });
+    state.text = undefined;
+  };
+
   switch (event.type) {
     case "text": {
       const delta = String(event.text ?? "");
@@ -381,6 +415,7 @@ async function publishPartEvent(
     }
 
     case "reasoning-start": {
+      await finalizeTextPart();
       const reasoningId = String(event.reasoningId ?? "");
       if (!reasoningId) break;
       if (state.reasoning.has(reasoningId)) break;
@@ -450,6 +485,7 @@ async function publishPartEvent(
     }
 
     case "step-start": {
+      await finalizeTextPart();
       await publish(MessagePartUpdated, {
         part: {
           id: uuidv7(),
@@ -463,6 +499,7 @@ async function publishPartEvent(
     }
 
     case "step-finish": {
+      await finalizeTextPart();
       const rawTokens =
         event.tokens && typeof event.tokens === "object"
           ? (event.tokens as Record<string, unknown>)
@@ -498,6 +535,7 @@ async function publishPartEvent(
     }
 
     case "snapshot": {
+      await finalizeTextPart();
       const snapshot = typeof event.snapshot === "string" ? event.snapshot : "";
       if (!snapshot) break;
       await publish(MessagePartUpdated, {
@@ -513,6 +551,7 @@ async function publishPartEvent(
     }
 
     case "patch": {
+      await finalizeTextPart();
       const files = Array.isArray(event.files)
         ? event.files.filter((value): value is string => typeof value === "string")
         : [];
@@ -531,6 +570,7 @@ async function publishPartEvent(
     }
 
     case "tool-call": {
+      await finalizeTextPart();
       const toolCallId = String(event.toolCallId ?? "");
       const toolName = String(event.toolName ?? "");
       if (!toolCallId || !toolName) break;
@@ -588,6 +628,7 @@ async function publishPartEvent(
     }
 
     case "tool-result": {
+      await finalizeTextPart();
       const toolCallId = String(event.toolCallId ?? "");
       const toolName = String(event.toolName ?? "");
       const toolState = state.tools.get(toolCallId);
@@ -644,19 +685,7 @@ async function publishPartEvent(
     }
 
     case "finish": {
-      if (state.text) {
-        state.text.text = state.text.text.trimEnd();
-        await publish(MessagePartUpdated, {
-          part: {
-            id: state.text.id,
-            sessionID: sessionId,
-            messageID: messageId,
-            type: "text",
-            text: state.text.text,
-            time: { start: state.text.startedAt, end: Date.now() },
-          },
-        });
-      }
+      await finalizeTextPart();
 
       for (const reasoningState of state.reasoning.values()) {
         await publish(MessagePartUpdated, {
@@ -703,7 +732,7 @@ async function publishPartEvent(
 
       // Publish message updated event
       await publish(MessageUpdated, {
-        info: assistantInfo,
+        info: cloneAssistantInfo(assistantInfo),
       });
       break;
     }
@@ -761,6 +790,8 @@ app.post("/api/chat", async c => {
 
   const body = await c.req.json();
   const rawMessage = body.message;
+  const clientMessageId =
+    typeof body.messageId === "string" && body.messageId.length > 0 ? body.messageId : undefined;
   const shouldStream = body.stream !== false;
 
   // Parse message - support both simple string and multimodal formats
@@ -854,13 +885,15 @@ app.post("/api/chat", async c => {
         }
 
         const messageId = uuidv7();
+        const userMessageId = clientMessageId ?? uuidv7();
         let hasTextDeltas = false;
         const partPublishState = createPartPublishState();
+        const userCreatedAt = Date.now();
         const assistantInfo: AssistantInfoPayload = {
           role: "assistant",
           id: messageId,
           sessionID: session.sessionId,
-          parentID: session.sessionId,
+          parentID: userMessageId,
           modelID: "unknown",
           providerID: "unknown",
           time: {
@@ -877,6 +910,34 @@ app.post("/api/chat", async c => {
             },
           },
         };
+
+        // Publish canonical user message/part first (opencode parity)
+        await publish(MessageUpdated, {
+          info: {
+            role: "user",
+            id: userMessageId,
+            sessionID: session.sessionId,
+            time: {
+              created: userCreatedAt,
+            },
+          },
+        });
+        await publish(MessagePartUpdated, {
+          part: {
+            id: `${userMessageId}-text`,
+            sessionID: session.sessionId,
+            messageID: userMessageId,
+            type: "text",
+            text: messageText,
+            time: {
+              start: userCreatedAt,
+              end: userCreatedAt,
+            },
+          },
+        });
+        await publish(MessageUpdated, {
+          info: cloneAssistantInfo(assistantInfo),
+        });
 
         // Check if AI provider is configured
         if (!process.env.ZAI_API_KEY && !process.env.OPENAI_API_KEY) {

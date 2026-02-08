@@ -232,7 +232,11 @@ export interface TerminalData {
  */
 export interface ChatMessageMetadata {
   /** UI mode for rendering this message */
-  mode: AgentMode;
+  mode?: AgentMode;
+  /** Session ID */
+  sessionID?: string;
+  /** Parent user message ID (assistant messages) */
+  parentID?: string;
   /** Run ID for planning mode */
   runId?: string;
   /** Timestamps */

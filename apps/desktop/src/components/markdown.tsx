@@ -285,7 +285,6 @@ export function Markdown(props: MarkdownProps) {
       // Add group class to parent for hover effect
       block.classList.add("group");
       block.style.position = "relative";
-      button.appendChild(block);
 
       // Insert button
       block.appendChild(button);

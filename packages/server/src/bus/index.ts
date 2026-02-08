@@ -9,6 +9,7 @@ import { MessageInfo as ChatMessageInfo, Part as ChatPart } from "@ekacode/core/
 import { Instance } from "@ekacode/core/server";
 import { createLogger } from "@ekacode/shared/logger";
 import { z } from "zod";
+import { removePart, upsertMessage, upsertPart } from "../state/session-message-store";
 import { defineBusEvent, type BusEventDefinition } from "./bus-event";
 
 const logger = createLogger("bus");
@@ -151,6 +152,27 @@ export async function publish<Definition extends BusEventDefinition>(
   def: Definition,
   properties: z.infer<Definition["properties"]>
 ): Promise<void> {
+  if (def.type === "message.updated") {
+    const info = (properties as { info?: ChatMessageInfo }).info;
+    if (info) {
+      upsertMessage(info);
+    }
+  } else if (def.type === "message.part.updated") {
+    const part = (properties as { part?: ChatPart }).part;
+    if (part) {
+      upsertPart(part);
+    }
+  } else if (def.type === "message.part.removed") {
+    const payload = properties as { sessionID?: string; messageID?: string; partID?: string };
+    if (payload.sessionID && payload.messageID && payload.partID) {
+      removePart({
+        sessionID: payload.sessionID,
+        messageID: payload.messageID,
+        partID: payload.partID,
+      });
+    }
+  }
+
   const directory = resolveDirectory(properties);
   const payload: EventPayload = {
     type: def.type,

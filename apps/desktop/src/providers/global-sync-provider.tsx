@@ -11,9 +11,10 @@
  * Based on opencode packages/app/src/context/global-sync.tsx
  */
 
+import { Binary } from "@ekacode/shared/binary";
 import { Persist, persisted } from "@ekacode/shared/persist";
 import { createContext, getOwner, JSX, onCleanup, onMount, useContext } from "solid-js";
-import { createStore, type SetStoreFunction } from "solid-js/store";
+import { createStore, produce, reconcile, type SetStoreFunction } from "solid-js/store";
 import {
   canDisposeDirectory,
   createInitialDirState,
@@ -42,6 +43,7 @@ export interface Message {
     | {
         role: "assistant";
         id: string;
+        parentID?: string;
         model?: string;
         provider?: string;
         sessionID?: string;
@@ -74,12 +76,20 @@ export interface PermissionRequest {
   sessionID: string;
   permission: string;
   patterns: string[];
+  tool?: {
+    messageID: string;
+    callID: string;
+  };
 }
 
 export interface QuestionRequest {
   id: string;
   sessionID: string;
   questions: unknown[];
+  tool?: {
+    messageID: string;
+    callID: string;
+  };
 }
 
 /**
@@ -97,9 +107,9 @@ export interface DirectoryStore {
 }
 
 /**
- * Store updater function - compatible with both produce and SetStoreFunction patterns
+ * Store updater function - path-based SetStoreFunction for granular updates
  */
-export type StoreUpdater<T> = (updater: (state: T) => T) => void;
+export type StoreUpdater<T> = SetStoreFunction<T>;
 
 /**
  * Global sync context value
@@ -133,29 +143,11 @@ export function createInitialDirectoryStore(): DirectoryStore {
 }
 
 const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+const DEBUG_GLOBAL_SYNC_LOG = false;
+const DEBUG_PREFIX = "[eka-debug]";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function upsertById<T extends { id: string }>(list: T[], item: T): T[] {
-  const index = list.findIndex(x => x.id === item.id);
-  if (index === -1) {
-    const next = [...list, item];
-    next.sort((a, b) => cmp(a.id, b.id));
-    return next;
-  }
-  const next = [...list];
-  next[index] = item;
-  return next;
-}
-
-function removeById<T extends { id: string }>(list: T[], id: string): T[] {
-  const index = list.findIndex(x => x.id === id);
-  if (index === -1) return list;
-  const next = [...list];
-  next.splice(index, 1);
-  return next;
 }
 
 function normalizeMessageRole(role: unknown): "user" | "assistant" | "system" {
@@ -196,14 +188,13 @@ function parseSession(input: unknown): Session | undefined {
   };
 }
 
-function parseMessageInfo(
-  input: unknown
-):
+function parseMessageInfo(input: unknown):
   | {
       id: string;
       role: "user" | "assistant" | "system";
       sessionID?: string;
       time?: { created: number; completed?: number };
+      parentID?: string;
       model?: string;
       provider?: string;
     }
@@ -223,6 +214,7 @@ function parseMessageInfo(
     role: normalizeMessageRole(input.role),
     sessionID: typeof input.sessionID === "string" ? input.sessionID : undefined,
     time,
+    parentID: typeof input.parentID === "string" ? input.parentID : undefined,
     model:
       typeof input.model === "string"
         ? input.model
@@ -262,27 +254,35 @@ export function applyDirectoryEvent(input: {
           : undefined);
       if (!session) break;
 
-      setStore(state => {
-        const sessionList = upsertById(
-          state.session.map(s => ({ ...s, id: s.sessionId })) as Array<Session & { id: string }>,
-          { ...(session as Session), id: session.sessionId }
-        ).map(({ id: _id, ...rest }) => rest as Session);
-        return { ...state, session: sessionList };
-      });
+      const result = Binary(store.session, session.sessionId, (s: Session) => s.sessionId);
+      if (result.found) {
+        setStore("session", result.index, reconcile(session));
+      } else {
+        setStore(
+          "session",
+          produce(draft => {
+            draft.splice(result.index, 0, session);
+          })
+        );
+      }
       break;
     }
 
     case "session.updated": {
       const props = isRecord(event.properties) ? event.properties : {};
       const parsed = parseSession(props.info);
-      if (parsed) {
-        setStore(state => {
-          const sessionList = upsertById(
-            state.session.map(s => ({ ...s, id: s.sessionId })) as Array<Session & { id: string }>,
-            { ...(parsed as Session), id: parsed.sessionId }
-          ).map(({ id: _id, ...rest }) => rest as Session);
-          return { ...state, session: sessionList };
-        });
+      if (!parsed) break;
+
+      const result = Binary(store.session, parsed.sessionId, (s: Session) => s.sessionId);
+      if (result.found) {
+        setStore("session", result.index, reconcile(parsed));
+      } else {
+        setStore(
+          "session",
+          produce(draft => {
+            draft.splice(result.index, 0, parsed);
+          })
+        );
       }
       break;
     }
@@ -292,13 +292,7 @@ export function applyDirectoryEvent(input: {
       const sessionID = typeof props.sessionID === "string" ? props.sessionID : undefined;
       const status = isRecord(props.status) ? (props.status as SessionStatus["status"]) : undefined;
       if (!sessionID || !status) break;
-      setStore(state => ({
-        ...state,
-        sessionStatus: {
-          ...state.sessionStatus,
-          [sessionID]: { status },
-        },
-      }));
+      setStore("sessionStatus", sessionID, reconcile({ status }));
       break;
     }
 
@@ -309,28 +303,60 @@ export function applyDirectoryEvent(input: {
       const sessionID = info.sessionID;
       if (!sessionID) break;
 
-      setStore(state => {
-        const existing = state.message[sessionID] ?? [];
-        const existingMessage = existing.find(m => m.info.id === info.id);
-        const nextMessage: Message = {
+      if (DEBUG_GLOBAL_SYNC_LOG) {
+        console.log(`${DEBUG_PREFIX} global-sync message.updated received`, {
+          sessionID,
+          messageID: info.id,
+          role: info.role,
+          existingCount: store.message[sessionID]?.length ?? 0,
+        });
+      }
+
+      const messages = store.message[sessionID];
+      if (!messages) {
+        // No messages yet for this session - create the array with this message
+        const existingParts = store.part[info.id] ?? [];
+        const newMessage: Message = {
           info,
-          parts: state.part[info.id] ?? existingMessage?.parts ?? [],
-          createdAt: existingMessage?.createdAt ?? info.time?.created,
+          parts: existingParts,
+          createdAt: info.time?.created,
           updatedAt: Date.now(),
         };
-        const nextMessages = upsertById(
-          existing.map(m => ({ ...m, id: m.info.id })) as Array<Message & { id: string }>,
-          { ...nextMessage, id: info.id }
-        ).map(({ id: _id, ...rest }) => rest as Message);
+        setStore("message", sessionID, [newMessage]);
+        break;
+      }
 
-        return {
-          ...state,
-          message: {
-            ...state.message,
-            [sessionID]: nextMessages,
-          },
-        };
-      });
+      const result = Binary(messages, info.id, (m: Message) => m.info.id);
+      const existingMessage = result.found ? messages[result.index] : undefined;
+      const newMessage: Message = {
+        info,
+        parts: store.part[info.id] ?? existingMessage?.parts ?? [],
+        createdAt: existingMessage?.createdAt ?? info.time?.created,
+        updatedAt: Date.now(),
+      };
+
+      if (result.found) {
+        // Update existing message at index with reconcile for granular updates
+        setStore("message", sessionID, result.index, reconcile(newMessage));
+      } else {
+        // Insert new message at correct position
+        setStore(
+          "message",
+          sessionID,
+          produce(draft => {
+            draft.splice(result.index, 0, newMessage);
+          })
+        );
+      }
+
+      if (DEBUG_GLOBAL_SYNC_LOG) {
+        console.log(`${DEBUG_PREFIX} global-sync message.updated applied`, {
+          sessionID,
+          messageID: info.id,
+          found: result.found,
+          index: result.index,
+        });
+      }
       break;
     }
 
@@ -346,53 +372,37 @@ export function applyDirectoryEvent(input: {
         break;
       }
 
-      setStore(state => {
-        const existingParts = state.part[part.messageID] ?? [];
-        const nextParts = upsertById(existingParts, part);
+      if (DEBUG_GLOBAL_SYNC_LOG) {
+        console.log(`${DEBUG_PREFIX} global-sync message.part.updated received`, {
+          sessionID: part.sessionID,
+          messageID: part.messageID,
+          partID: part.id,
+          partType: part.type,
+          existingPartCount: store.part[part.messageID]?.length ?? 0,
+        });
+      }
 
-        const existingSessionMessages = state.message[part.sessionID] ?? [];
-        const messageIndex = existingSessionMessages.findIndex(m => m.info.id === part.messageID);
-        let nextSessionMessages = existingSessionMessages;
+      const parts = store.part[part.messageID];
+      if (!parts) {
+        // No parts yet for this message - create the array
+        setStore("part", part.messageID, [part]);
+        break;
+      }
 
-        if (messageIndex === -1) {
-          nextSessionMessages = upsertById(
-            existingSessionMessages.map(m => ({ ...m, id: m.info.id })) as Array<
-              Message & { id: string }
-            >,
-            {
-              id: part.messageID,
-              info: {
-                id: part.messageID,
-                role: "assistant",
-                sessionID: part.sessionID,
-                time: { created: Date.now() },
-              },
-              parts: nextParts,
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
-            }
-          ).map(({ id: _id, ...rest }) => rest as Message);
-        } else {
-          nextSessionMessages = [...existingSessionMessages];
-          nextSessionMessages[messageIndex] = {
-            ...nextSessionMessages[messageIndex],
-            parts: nextParts,
-            updatedAt: Date.now(),
-          };
-        }
-
-        return {
-          ...state,
-          part: {
-            ...state.part,
-            [part.messageID]: nextParts,
-          },
-          message: {
-            ...state.message,
-            [part.sessionID]: nextSessionMessages,
-          },
-        };
-      });
+      const result = Binary(parts, part.id, (p: Part) => p.id);
+      if (result.found) {
+        // Update existing part with reconcile for granular updates
+        setStore("part", part.messageID, result.index, reconcile(part));
+      } else {
+        // Insert new part at correct position
+        setStore(
+          "part",
+          part.messageID,
+          produce(draft => {
+            draft.splice(result.index, 0, part);
+          })
+        );
+      }
       break;
     }
 
@@ -402,28 +412,36 @@ export function applyDirectoryEvent(input: {
       const partID = typeof props.partID === "string" ? props.partID : undefined;
       if (!messageID || !partID) break;
 
-      setStore(state => {
-        const existingParts = state.part[messageID] ?? [];
-        const nextParts = removeById(existingParts, partID);
-        if (nextParts === existingParts) return state;
+      const parts = store.part[messageID];
+      if (!parts) break;
 
-        const partMap = { ...state.part };
-        if (nextParts.length === 0) {
-          delete partMap[messageID];
-        } else {
-          partMap[messageID] = nextParts;
-        }
+      const result = Binary(parts, partID, (p: Part) => p.id);
+      if (!result.found) break;
 
-        return {
-          ...state,
-          part: partMap,
-        };
-      });
+      setStore(
+        produce(draft => {
+          const list = draft.part[messageID];
+          if (!list) return;
+          const next = Binary(list, partID, (p: Part) => p.id);
+          if (!next.found) return;
+          list.splice(next.index, 1);
+          if (list.length === 0) delete draft.part[messageID];
+        })
+      );
       break;
     }
 
     case "permission.asked": {
       const props = isRecord(event.properties) ? event.properties : {};
+      const tool =
+        isRecord(props.tool) &&
+        typeof props.tool.messageID === "string" &&
+        typeof props.tool.callID === "string"
+          ? {
+              messageID: props.tool.messageID,
+              callID: props.tool.callID,
+            }
+          : undefined;
       const permission =
         typeof props.id === "string" &&
         typeof props.sessionID === "string" &&
@@ -436,23 +454,29 @@ export function applyDirectoryEvent(input: {
               patterns: props.patterns.filter(
                 (value): value is string => typeof value === "string"
               ),
+              tool,
             } satisfies PermissionRequest)
           : undefined;
-      if (!permission) {
+      if (!permission) break;
+
+      const permissions = store.permission[permission.sessionID];
+      if (!permissions) {
+        setStore("permission", permission.sessionID, [permission]);
         break;
       }
 
-      setStore(state => {
-        const list = state.permission[permission.sessionID] ?? [];
-        const next = upsertById(list, permission);
-        return {
-          ...state,
-          permission: {
-            ...state.permission,
-            [permission.sessionID]: next,
-          },
-        };
-      });
+      const result = Binary(permissions, permission.id, (p: PermissionRequest) => p.id);
+      if (result.found) {
+        setStore("permission", permission.sessionID, result.index, reconcile(permission));
+      } else {
+        setStore(
+          "permission",
+          permission.sessionID,
+          produce(draft => {
+            draft.splice(result.index, 0, permission);
+          })
+        );
+      }
       break;
     }
 
@@ -462,24 +486,93 @@ export function applyDirectoryEvent(input: {
       const requestID = typeof props.requestID === "string" ? props.requestID : undefined;
       if (!sessionID || !requestID) break;
 
-      setStore(state => {
-        const list = state.permission[sessionID] ?? [];
-        const next = removeById(list, requestID);
-        if (next === list) return state;
-        return {
-          ...state,
-          permission: {
-            ...state.permission,
-            [sessionID]: next,
-          },
-        };
-      });
+      const permissions = store.permission[sessionID];
+      if (!permissions) break;
+
+      const result = Binary(permissions, requestID, (p: PermissionRequest) => p.id);
+      if (!result.found) break;
+
+      setStore(
+        "permission",
+        sessionID,
+        produce(draft => {
+          draft.splice(result.index, 1);
+        })
+      );
+      break;
+    }
+
+    case "question.asked": {
+      const props = isRecord(event.properties) ? event.properties : {};
+      const tool =
+        isRecord(props.tool) &&
+        typeof props.tool.messageID === "string" &&
+        typeof props.tool.callID === "string"
+          ? {
+              messageID: props.tool.messageID,
+              callID: props.tool.callID,
+            }
+          : undefined;
+      const question =
+        typeof props.id === "string" &&
+        typeof props.sessionID === "string" &&
+        Array.isArray(props.questions)
+          ? ({
+              id: props.id,
+              sessionID: props.sessionID,
+              questions: props.questions,
+              tool,
+            } satisfies QuestionRequest)
+          : undefined;
+      if (!question) break;
+
+      const questions = store.question[question.sessionID];
+      if (!questions) {
+        setStore("question", question.sessionID, [question]);
+        break;
+      }
+
+      const result = Binary(questions, question.id, (q: QuestionRequest) => q.id);
+      if (result.found) {
+        setStore("question", question.sessionID, result.index, reconcile(question));
+      } else {
+        setStore(
+          "question",
+          question.sessionID,
+          produce(draft => {
+            draft.splice(result.index, 0, question);
+          })
+        );
+      }
+      break;
+    }
+
+    case "question.replied":
+    case "question.rejected": {
+      const props = isRecord(event.properties) ? event.properties : {};
+      const sessionID = typeof props.sessionID === "string" ? props.sessionID : undefined;
+      const requestID = typeof props.requestID === "string" ? props.requestID : undefined;
+      if (!sessionID || !requestID) break;
+
+      const questions = store.question[sessionID];
+      if (!questions) break;
+
+      const result = Binary(questions, requestID, (q: QuestionRequest) => q.id);
+      if (!result.found) break;
+
+      setStore(
+        "question",
+        sessionID,
+        produce(draft => {
+          draft.splice(result.index, 1);
+        })
+      );
       break;
     }
   }
 
   if (!store.ready) {
-    setStore(state => ({ ...state, ready: true }));
+    setStore("ready", true);
   }
 }
 
@@ -558,17 +651,20 @@ function createChildStoreManager() {
   }
 
   /**
-   * Create a produce-compatible wrapper around SetStoreFunction
+   * Create a SetStoreFunction wrapper that persists after updates
    */
   function createUpdater(
     directory: string,
     store: DirectoryStore,
     setSolidStore: SetStoreFunction<DirectoryStore>
   ): StoreUpdater<DirectoryStore> {
-    return updater => {
-      setSolidStore(state => updater(state as DirectoryStore));
-      void savePersisted(directory, store);
-    };
+    // Return the SetStoreFunction directly wrapped with persistence scheduling
+    return ((...args: unknown[]) => {
+      // Apply the store update
+      (setSolidStore as (...args: unknown[]) => void)(...args);
+      // Schedule persistence after the reactive update completes
+      queueMicrotask(() => savePersisted(directory, store));
+    }) as StoreUpdater<DirectoryStore>;
   }
 
   /**
@@ -617,7 +713,7 @@ function createChildStoreManager() {
       if (options.bootstrap !== false) {
         // Trigger bootstrap asynchronously - mark as ready immediately
         setTimeout(() => {
-          updater(state => ({ ...state, ready: true }));
+          updater("ready", true);
         }, 0);
       }
 
@@ -681,14 +777,11 @@ export function GlobalSyncProvider(props: { children: JSX.Element }) {
         .filter(session => !!session.sessionId)
         .sort((a, b) => cmp(a.sessionId, b.sessionId));
 
-      setStore(state => ({
-        ...state,
-        session: transformed,
-        ready: true,
-      }));
+      setStore("session", reconcile(transformed));
+      setStore("ready", true);
     } catch (error) {
       console.error(`Failed to load sessions for ${directory}:`, error);
-      setStore(state => ({ ...state, ready: true }));
+      setStore("ready", true);
     }
   }
 

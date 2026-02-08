@@ -1,5 +1,5 @@
 import Resizable from "@corvu/resizable";
-import { Component, createSignal, mergeProps, Show } from "solid-js";
+import { Component, createMemo, createSignal, mergeProps, Show } from "solid-js";
 import { ChatHeader } from "./chat-header";
 import { ChatInput } from "./chat-input";
 import { MessageList } from "./message-list";
@@ -7,13 +7,12 @@ import { StreamDebuggerPanel } from "./stream-debugger-panel";
 import type { UseStreamDebuggerResult } from "/@/hooks/use-stream-debugger";
 import { cn } from "/@/lib/utils";
 import type { AgentMode, Session } from "/@/types";
-import type { ChatUIMessage } from "/@/types/ui-message";
 
 interface ChatPanelProps {
   /** Current active session */
   session?: Session | { sessionId: string; title: string };
-  /** All messages for current session */
-  messages?: ChatUIMessage[];
+  /** Session ID - passed directly for immediate availability */
+  sessionId?: string;
   /** Whether AI is currently generating */
   isGenerating?: boolean;
   /** Current thinking content */
@@ -53,7 +52,6 @@ interface ChatPanelProps {
 export const ChatPanel: Component<ChatPanelProps> = props => {
   const merged = mergeProps(
     {
-      messages: [],
       isGenerating: false,
       selectedModel: "claude-sonnet",
       initialMode: "plan" as AgentMode,
@@ -90,6 +88,15 @@ export const ChatPanel: Component<ChatPanelProps> = props => {
     return session.title ?? "Project";
   };
 
+  // Memoize sessionId to avoid re-computation on every render
+  const sessionId = createMemo(() => {
+    // Prefer direct sessionId prop, fall back to session.sessionId
+    if (props.sessionId) return props.sessionId;
+    const session = props.session;
+    if (!session) return undefined;
+    return "sessionId" in session ? session.sessionId : undefined;
+  });
+
   // Generate breadcrumbs from session/project path
   const breadcrumbs = () => {
     const path = getProjectName();
@@ -99,10 +106,11 @@ export const ChatPanel: Component<ChatPanelProps> = props => {
     }));
   };
 
-  // Get placeholder text
+  // Get placeholder text based on whether session has messages
   const getPlaceholder = (): string => {
-    const messageCount = merged.messages?.length ?? 0;
-    return messageCount === 0 ? "Start a conversation about your project..." : "Reply to Agent...";
+    const id = sessionId();
+    // Default to start conversation text - actual message count checking would need sync context
+    return !id ? "Start a conversation about your project..." : "Reply to Agent...";
   };
 
   return (
@@ -156,7 +164,7 @@ export const ChatPanel: Component<ChatPanelProps> = props => {
           <>
             {/* Message list */}
             <MessageList
-              messages={merged.messages as ChatUIMessage[]}
+              sessionId={sessionId()}
               isGenerating={merged.isGenerating}
               thinkingContent={props.thinkingContent}
             />

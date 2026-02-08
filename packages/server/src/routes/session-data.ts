@@ -13,6 +13,8 @@ import { join } from "path";
 import { z } from "zod";
 import type { Env } from "../index";
 import { getSessionManager } from "../runtime";
+import { getSessionMessages } from "../state/session-message-store";
+import { normalizeCheckpointMessages } from "./session-data-normalize";
 
 const app = new Hono<Env>();
 
@@ -45,35 +47,6 @@ interface Checkpoint {
 }
 
 /**
- * Opencode-style Message format for API response
- * Simplified version that matches our core Message types
- */
-interface MessageInfo {
-  role: "user" | "assistant" | "system";
-  id: string;
-  sessionID?: string;
-  time?: {
-    created: number;
-    completed?: number;
-  };
-}
-
-interface Part {
-  id: string;
-  sessionID: string;
-  messageID: string;
-  type: string;
-  [key: string]: unknown;
-}
-
-interface MessageResponse {
-  info: MessageInfo;
-  parts: Part[];
-  createdAt?: number;
-  updatedAt?: number;
-}
-
-/**
  * Get messages for a session
  *
  * Usage:
@@ -100,6 +73,21 @@ app.get("/api/chat/:sessionId/messages", async c => {
     }
     const { limit, offset } = query.data;
 
+    // Prefer live bus-backed messages (SSE parity with opencode store semantics)
+    const liveMessages = getSessionMessages(sessionId);
+    if (liveMessages.length > 0) {
+      const messages = liveMessages.slice(offset, offset + limit);
+      const hasMore = offset + limit < liveMessages.length;
+      return c.json({
+        sessionID: sessionId,
+        messages,
+        hasMore,
+        total: liveMessages.length,
+      });
+    }
+
+    // Fallback to checkpoint normalization for older sessions
+    // (kept only for compatibility with existing local checkpoint files)
     // Get session manager and controller
     const sessionManager = getSessionManager();
     const controller = await sessionManager.getSession(sessionId);
@@ -126,45 +114,19 @@ app.get("/api/chat/:sessionId/messages", async c => {
     // Extract messages from checkpoint
     const rawMessages = checkpoint.result?.messages || [];
 
-    // Convert to Opencode-style format
-    const messages: MessageResponse[] = rawMessages
-      .slice(offset, offset + limit)
-      .map((msg: unknown) => {
-        // Handle both core Message format and existing formats
-        const m = msg as Record<string, unknown>;
-        if (m.info && m.parts) {
-          // Core Message format
-          return {
-            info: m.info as MessageInfo,
-            parts: m.parts as Part[],
-            createdAt: m.createdAt as number | undefined,
-            updatedAt: m.updatedAt as number | undefined,
-          };
-        }
-        // Legacy format conversion - ensure role is properly typed
-        const role = (m.role as string) || "user";
-        const validRole = ["user", "assistant", "system"].includes(role)
-          ? (role as "user" | "assistant" | "system")
-          : "user";
+    const normalizedMessages = normalizeCheckpointMessages({
+      sessionID: sessionId,
+      rawMessages,
+    });
+    const messages = normalizedMessages.slice(offset, offset + limit);
 
-        return {
-          info: {
-            role: validRole,
-            id: (m.id as string) || sessionId,
-            sessionID: sessionId,
-          },
-          parts: (m.parts as Part[]) || [],
-          createdAt: m.createdAt as number | undefined,
-        };
-      });
-
-    const hasMore = offset + limit < rawMessages.length;
+    const hasMore = offset + limit < normalizedMessages.length;
 
     return c.json({
       sessionID: sessionId,
       messages,
       hasMore,
-      total: rawMessages.length,
+      total: normalizedMessages.length,
     });
   } catch (error) {
     console.error("Failed to fetch session messages:", error);
