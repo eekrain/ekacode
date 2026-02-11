@@ -161,19 +161,32 @@ export function selectAssistantMessagesForTurn(
   const userIndex = allMessages.findIndex(msg => msg.id === userMessageID && msg.role === "user");
   if (userIndex === -1) return [];
 
-  // Prefer explicit parent linkage when available.
+  // Get all assistants with explicit parent linkage to this user message
   const linked = allMessages.filter(
     msg => msg.role === "assistant" && msg.parentId === userMessageID
   );
-  if (linked.length > 0) return linked;
 
-  // Fallback: assistants between this user turn and the next user turn.
+  // Get window-based assistants (between this user and next user)
   const nextUserIndex = nextUserMessageIndex(allMessages, userIndex);
-  const window =
+  const windowMessages =
     nextUserIndex === -1
       ? allMessages.slice(userIndex + 1)
       : allMessages.slice(userIndex + 1, nextUserIndex);
-  return window.filter(msg => msg.role === "assistant");
+  const windowed = windowMessages.filter(msg => msg.role === "assistant");
+
+  // Merge both sets, preferring linked but including windowed as fallback
+  // This handles partial linkage and edge cases gracefully
+  const linkedIds = new Set(linked.map(msg => msg.id));
+  const merged = [...linked];
+
+  // Add windowed assistants that aren't already in linked set
+  for (const assistant of windowed) {
+    if (!linkedIds.has(assistant.id)) {
+      merged.push(assistant);
+    }
+  }
+
+  return merged;
 }
 
 export const SessionTurn: Component<SessionTurnProps> = props => {

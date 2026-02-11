@@ -26,6 +26,16 @@ vi.mock("@renderer/presentation/providers/store-provider", () => ({
       upsert: vi.fn(),
     },
   ],
+  useSessionStore: () => [
+    { sessions: {}, status: {} },
+    {
+      upsert: vi.fn(),
+      setStatus: vi.fn(),
+      clearStatus: vi.fn(),
+      clearAllStatuses: vi.fn(),
+      remove: vi.fn(),
+    },
+  ],
 }));
 
 vi.mock("@ekacode/desktop/lib/logger", () => ({

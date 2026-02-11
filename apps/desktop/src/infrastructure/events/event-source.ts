@@ -13,11 +13,14 @@ export interface EventSourceConfig {
   onError?: (error: EventSourceError) => void;
   onOpen?: () => void;
   onStatusChange?: (status: ConnectionStatus) => void;
+  onReconnect?: (lastEventId: string | null) => Promise<void>;
   reconnectDelay?: {
     base: number; // Default: 1000ms
     max: number; // Default: 30000ms
     jitter: number; // Default: 500ms
   };
+  /** Enable catch-up refetch on reconnect (default: true) */
+  enableCatchUp?: boolean;
 }
 
 export type ConnectionStatus =
@@ -60,13 +63,16 @@ export function createEventSource(config: EventSourceConfig): EventSourceConnect
     onError,
     onOpen,
     onStatusChange,
+    onReconnect,
     reconnectDelay = { base: 1000, max: 30000, jitter: 500 },
+    enableCatchUp = true,
   } = config;
 
   let eventSource: EventSource | undefined;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   let reconnectAttempts = 0;
   let lastEventId: string | null = null;
+  let lastSessionId: string | null = null;
   let disposed = false;
   let status: ConnectionStatus = "disconnected";
 
@@ -96,6 +102,53 @@ export function createEventSource(config: EventSourceConfig): EventSourceConnect
     return url.toString();
   };
 
+  const fetchCatchUpEvents = async (): Promise<void> => {
+    if (!enableCatchUp || !lastEventId) return;
+    if (!lastSessionId) {
+      console.warn("[EventSource] Skipping catch-up: no known session ID");
+      return;
+    }
+
+    try {
+      const url = new URL(`${baseUrl}/api/events`);
+      url.searchParams.set("sessionId", lastSessionId);
+      url.searchParams.set("afterEventId", lastEventId);
+      url.searchParams.set("limit", "1000");
+      if (token) {
+        url.searchParams.set("token", token);
+      }
+
+      const response = await fetch(url.toString());
+
+      if (!response.ok) {
+        throw new Error(`Catch-up fetch failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = (await response.json()) as { events?: TypedSSEEvent[] };
+      const events = data.events ?? [];
+
+      // Emit catch-up events
+      for (const event of events) {
+        if (typeof event.eventId === "string" && event.eventId.length > 0) {
+          lastEventId = event.eventId;
+        }
+        if (typeof event.sessionID === "string" && event.sessionID.length > 0) {
+          lastSessionId = event.sessionID;
+        }
+        onEvent?.(event);
+      }
+
+      console.info("[EventSource] Catch-up complete", { eventCount: events.length });
+    } catch (error) {
+      console.error("[EventSource] Catch-up fetch failed:", error);
+      onError?.({
+        type: "network_error",
+        message: `Catch-up fetch failed: ${error instanceof Error ? error.message : String(error)}`,
+        retryable: true,
+      });
+    }
+  };
+
   const scheduleReconnect = () => {
     if (disposed || reconnectTimer) return;
 
@@ -111,8 +164,15 @@ export function createEventSource(config: EventSourceConfig): EventSourceConnect
     metrics.currentReconnectDelay = delay;
     reconnectAttempts += 1;
 
-    reconnectTimer = setTimeout(() => {
+    reconnectTimer = setTimeout(async () => {
       reconnectTimer = undefined;
+
+      // Trigger catch-up refetch before reconnecting
+      if (enableCatchUp && lastEventId) {
+        await onReconnect?.(lastEventId);
+        await fetchCatchUpEvents();
+      }
+
       connect();
     }, delay);
   };
@@ -136,14 +196,22 @@ export function createEventSource(config: EventSourceConfig): EventSourceConnect
 
   const handleMessage = (evt: MessageEvent) => {
     try {
+      const parsed = JSON.parse(evt.data) as unknown;
+      const typed = parsed as Partial<TypedSSEEvent>;
+
       if (evt.lastEventId) {
         lastEventId = evt.lastEventId;
+      } else if (typeof typed.eventId === "string" && typed.eventId.length > 0) {
+        // Fallback when SSE id field is unavailable but payload carries eventId.
+        lastEventId = typed.eventId;
+      }
+
+      if (typeof typed.sessionID === "string" && typed.sessionID.length > 0) {
+        lastSessionId = typed.sessionID;
       }
 
       metrics.totalEventsReceived += 1;
-
-      const parsed = JSON.parse(evt.data) as unknown;
-      onEvent?.(parsed as TypedSSEEvent);
+      onEvent?.(typed as TypedSSEEvent);
     } catch (error) {
       handleError({
         type: "parse_error",

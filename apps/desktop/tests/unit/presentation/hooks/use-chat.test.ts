@@ -12,7 +12,11 @@ type MockTextPart = {
 const mockRemove = vi.fn();
 const mockGetBySession = vi.fn(() => []);
 const mockGetById = vi.fn();
-const mockGetByMessage = vi.fn((_messageId: string): MockTextPart[] => []);
+const mockGetByMessage = vi.fn((messageId: string): MockTextPart[] => {
+  void messageId;
+  return [];
+});
+const mockSessionUpsert = vi.fn();
 const mockWriteText = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@renderer/presentation/providers/store-provider", () => ({
@@ -32,6 +36,16 @@ vi.mock("@renderer/presentation/providers/store-provider", () => ({
       getById: vi.fn(),
       remove: vi.fn(),
       upsert: vi.fn(),
+    },
+  ],
+  useSessionStore: () => [
+    { sessions: {}, status: {} },
+    {
+      upsert: mockSessionUpsert,
+      setStatus: vi.fn(),
+      clearStatus: vi.fn(),
+      clearAllStatuses: vi.fn(),
+      remove: vi.fn(),
     },
   ],
 }));

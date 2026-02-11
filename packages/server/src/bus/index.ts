@@ -80,6 +80,33 @@ function resolveDirectory(properties: unknown): string | undefined {
   return undefined;
 }
 
+function extractSessionID(properties: unknown): string | undefined {
+  if (!properties || typeof properties !== "object") return undefined;
+  const record = properties as Record<string, unknown>;
+
+  if (typeof record.sessionID === "string" && record.sessionID.length > 0) {
+    return record.sessionID;
+  }
+
+  const info = record.info;
+  if (info && typeof info === "object") {
+    const infoSession = (info as { sessionID?: unknown }).sessionID;
+    if (typeof infoSession === "string" && infoSession.length > 0) {
+      return infoSession;
+    }
+  }
+
+  const part = record.part;
+  if (part && typeof part === "object") {
+    const partSession = (part as { sessionID?: unknown }).sessionID;
+    if (typeof partSession === "string" && partSession.length > 0) {
+      return partSession;
+    }
+  }
+
+  return undefined;
+}
+
 /**
  * Core event definitions
  */
@@ -220,7 +247,7 @@ export async function publish<Definition extends BusEventDefinition>(
   const directory = resolveDirectory(properties);
 
   // Extract sessionID from properties if available
-  const sessionID = (properties as { sessionID?: string }).sessionID;
+  const sessionID = extractSessionID(properties);
 
   // Generate integrity fields (Batch 2: Data Integrity)
   const eventId = uuidv7();

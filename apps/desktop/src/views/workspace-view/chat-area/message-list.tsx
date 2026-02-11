@@ -121,14 +121,14 @@ export const MessageList: Component<MessageListProps> = props => {
           <ThinkingBubble content={props.thinkingContent || ""} />
         </Show>
 
-        {/* Typing indicator */}
+        {/* Typing indicator - content priority: hide when thinking content exists */}
         <Show when={props.isGenerating && !props.thinkingContent}>
           <div class={cn("mb-4 flex items-center gap-2", "animate-fade-in-up")}>
             <div class={cn("rounded-xl px-4 py-3", "bg-card/30 border-border/30 border")}>
               <div class="flex gap-1">
-                <span class="typing-dot bg-primary/60 h-2 w-2 rounded-full" />
-                <span class="typing-dot bg-primary/60 h-2 w-2 rounded-full" />
-                <span class="typing-dot bg-primary/60 h-2 w-2 rounded-full" />
+                <span class="typing-dot bg-primary/60 h-2 w-2 animate-pulse rounded-full" />
+                <span class="typing-dot bg-primary/60 animation-delay-150 h-2 w-2 animate-pulse rounded-full" />
+                <span class="typing-dot bg-primary/60 animation-delay-300 h-2 w-2 animate-pulse rounded-full" />
               </div>
             </div>
           </div>

@@ -15,6 +15,7 @@
 import { createLogger } from "@ekacode/shared/logger";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
+import { v7 as uuidv7 } from "uuid";
 import { ServerInstanceDisposed, subscribeAll } from "../bus";
 import type { Env } from "../index";
 
@@ -50,16 +51,22 @@ app.get("/event", async c => {
 
   return streamSSE(c, async stream => {
     // Send connection confirmation
+    const connectedEvent = {
+      type: "server.connected",
+      properties: {},
+      eventId: uuidv7(),
+      sequence: 0,
+      timestamp: Date.now(),
+    };
     await stream.writeSSE({
-      data: JSON.stringify({
-        type: "server.connected",
-        properties: {},
-      }),
+      id: connectedEvent.eventId,
+      data: JSON.stringify(connectedEvent),
     });
 
     // Subscribe to all bus events
     const unsub = subscribeAll(async event => {
       await stream.writeSSE({
+        id: event.eventId,
         data: JSON.stringify(event),
       });
 
@@ -71,12 +78,11 @@ app.get("/event", async c => {
 
     // Send heartbeat every 30s to prevent WKWebView timeout (60s default)
     const heartbeat = setInterval(() => {
+      const heartbeatEvent = heartbeatEventFactory();
       stream
         .writeSSE({
-          data: JSON.stringify({
-            type: "server.heartbeat",
-            properties: {},
-          }),
+          id: heartbeatEvent.eventId,
+          data: JSON.stringify(heartbeatEvent),
         })
         .catch(err => {
           logger.error("Failed to send heartbeat", err, {
@@ -101,4 +107,18 @@ app.get("/event", async c => {
   });
 });
 
+function heartbeatEventFactory() {
+  return {
+    type: "server.heartbeat",
+    properties: {},
+    eventId: uuidv7(),
+    sequence: 0,
+    timestamp: Date.now(),
+  };
+}
+
+/**
+ * NOTE: `stream.writeSSE` supports `id`, which browsers store as `lastEventId`.
+ * This enables reconnect catch-up with `afterEventId`.
+ */
 export default app;

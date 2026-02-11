@@ -116,7 +116,12 @@ function parseMessageInfo(input: unknown):
     role: normalizeMessageRole(input.role),
     sessionID: typeof input.sessionID === "string" ? input.sessionID : undefined,
     time,
-    parentID: typeof input.parentID === "string" ? input.parentID : undefined,
+    parentID:
+      typeof input.parentID === "string"
+        ? input.parentID
+        : typeof input.parentId === "string"
+          ? input.parentId
+          : undefined,
     model:
       typeof input.model === "string"
         ? input.model
@@ -152,6 +157,12 @@ const orderingBuffer = new EventOrderingBuffer({
 const deduplicator = new EventDeduplicator({
   maxSize: 1000,
 });
+
+/**
+ * Buffer parts that arrive before their parent message exists.
+ * These are replayed once the message is created.
+ */
+const pendingPartsByMessage = new Map<string, Part[]>();
 
 /**
  * Process a single event after validation, ordering, and deduplication
@@ -215,6 +226,21 @@ function processEvent(
       };
 
       messageActions.upsert(messageWithId);
+
+      const pendingParts = pendingPartsByMessage.get(info.id);
+      if (pendingParts && pendingParts.length > 0) {
+        for (const pendingPart of pendingParts) {
+          try {
+            partActions.upsert(pendingPart);
+          } catch (error) {
+            logger.error("Failed to apply buffered part after message creation", error as Error, {
+              messageID: info.id,
+              partID: pendingPart.id,
+            });
+          }
+        }
+        pendingPartsByMessage.delete(info.id);
+      }
       break;
     }
 
@@ -229,6 +255,19 @@ function processEvent(
       ) {
         break;
       }
+
+      if (!messageActions.getById(part.messageID)) {
+        const queue = pendingPartsByMessage.get(part.messageID) ?? [];
+        const existingIndex = queue.findIndex(item => item.id === part.id);
+        if (existingIndex >= 0) {
+          queue[existingIndex] = part;
+        } else {
+          queue.push(part);
+        }
+        pendingPartsByMessage.set(part.messageID, queue);
+        break;
+      }
+
       partActions.upsert(part);
       break;
     }
@@ -353,6 +392,7 @@ export function getDeduplicatorStats(): ReturnType<typeof deduplicator.getStats>
 export function clearEventProcessingState(): void {
   orderingBuffer.clear();
   deduplicator.clear();
+  pendingPartsByMessage.clear();
   logger.info("Event processing state cleared");
 }
 
@@ -361,6 +401,14 @@ export function clearEventProcessingState(): void {
  */
 export function clearSessionState(sessionId: string): void {
   orderingBuffer.clearSession(sessionId);
+  for (const [messageID, parts] of pendingPartsByMessage.entries()) {
+    const remaining = parts.filter(part => part.sessionID !== sessionId);
+    if (remaining.length === 0) {
+      pendingPartsByMessage.delete(messageID);
+      continue;
+    }
+    pendingPartsByMessage.set(messageID, remaining);
+  }
   logger.info("Session state cleared", { sessionId });
 }
 

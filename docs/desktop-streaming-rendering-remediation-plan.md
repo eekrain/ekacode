@@ -131,19 +131,49 @@ This indicates the suite over-indexes on isolated unit mocks and under-covers re
 
 - Turn rendering resilient to event ordering gaps.
 - UI displays available assistant content even with partial linkage.
+- Content-priority typing indicator (content always takes precedence over typing dots).
+
+### Design Decisions
+
+**Content-Priority Approach (replaces timeout-based fallback):**
+
+- Typing indicator shows only when `isGenerating=true` AND no assistant content exists
+- Assistant content (text, tool calls, reasoning) immediately hides typing indicator
+- Tool call steps count as content (hide typing while tools execute)
+- Fade-out animation (300ms) when content arrives
+- Error states show partial content with error indicator
+
+**Rationale:** Timeout-based approaches risk cutting off legitimate typing or leaving typing dots too long. Content-priority is data-driven and always correct—when content exists, it renders.
 
 ### Changes
 
 - Harden turn selection and fallback in:
   - `apps/desktop/src/views/workspace-view/chat-area/session-turn.tsx`
   - `apps/desktop/src/views/workspace-view/chat-area/message-list.tsx`
-- Ensure “typing only” state has a timeout/fallback when real assistant parts already exist.
+- Implement content-priority typing indicator with fade-out animation.
+- Add defensive fallbacks for partial linkage (merge parentId + window-based selection).
+- Handle partial data gracefully (skeleton states for loading messages).
 - Validate virtualization behavior with dynamic row changes.
+
+### Implementation Phases (TDD)
+
+1. **Event Ordering Fixtures** - Create fixtures for edge cases (in-order, part-before-message, assistant-before-user, partial-stream, error-with-content)
+2. **Turn Selection Tests** - Write failing tests for defensive selection logic
+3. **Turn Selection Implementation** - Add validation, fallback merging, skeleton states
+4. **Content-Priority Typing Tests** - Write failing tests for typing indicator behavior
+5. **Content-Priority Implementation** - Implement content-aware typing with fade-out
+6. **Partial Data Tests** - Write failing tests for incomplete data handling
+7. **Partial Data Implementation** - Add `isLoading` flag, handle orphaned parts
+8. **Integration Tests** - End-to-end tests with real providers and fixtures
+9. **Animation Styles** - Add CSS fade-out transition
 
 ### Exit Criteria
 
 - User turn always renders immediately after send.
 - Assistant output always appears once any valid text/tool part is ingested.
+- Typing indicator never blocks existing content.
+- Fade-out animation smooth (300ms).
+- Error states show partial content with error indicator.
 
 ## WS5: SSE Lifecycle and Catch-up Completion
 
@@ -287,7 +317,14 @@ Workstreams are grouped into batches with similar goals to enable focused, incre
 
 **Goal**: Robust turn rendering regardless of event ordering
 
+**Key Design Decision**: Content-priority typing indicator
+
+- Assistant content always takes precedence over typing dots
+- No timeout-based fallbacks (data-driven approach)
+- Fade-out animation when content arrives
+
 - **Why separate**: Depends on batches 2-3; needs correct data to render
+- **Implementation**: TDD approach with 9 phases (fixtures → tests → implementation)
 
 ### Batch 5: Testing (WS7)
 

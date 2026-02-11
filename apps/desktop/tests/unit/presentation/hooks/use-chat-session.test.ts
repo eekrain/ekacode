@@ -17,6 +17,7 @@ const mockGetById = vi.fn();
 const mockGetByMessage = vi.fn(() => []);
 const mockUpsertMessage = vi.fn();
 const mockUpsertPart = vi.fn();
+const mockUpsertSession = vi.fn();
 
 vi.mock("@renderer/presentation/providers/store-provider", () => ({
   useMessageStore: () => [
@@ -35,6 +36,16 @@ vi.mock("@renderer/presentation/providers/store-provider", () => ({
       getById: vi.fn(),
       remove: vi.fn(),
       upsert: mockUpsertPart,
+    },
+  ],
+  useSessionStore: () => [
+    { sessions: {}, status: {} },
+    {
+      upsert: mockUpsertSession,
+      setStatus: vi.fn(),
+      clearStatus: vi.fn(),
+      clearAllStatuses: vi.fn(),
+      remove: vi.fn(),
     },
   ],
 }));

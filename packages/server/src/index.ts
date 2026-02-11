@@ -47,6 +47,7 @@ import chatRouter from "./routes/chat";
 import commandRouter from "./routes/command";
 import diffRouter from "./routes/diff";
 import eventRouter from "./routes/event";
+import eventsRouter from "./routes/events";
 import healthRouter from "./routes/health";
 import lspRouter from "./routes/lsp";
 import mcpRouter from "./routes/mcp";
@@ -149,6 +150,9 @@ app.route("/", chatRouter);
 
 // Mount unified event SSE endpoint (Opencode-style)
 app.route("/", eventRouter);
+
+// Mount events catch-up endpoint (Batch 3: WS5)
+app.route("/", eventsRouter);
 
 // Mount rules routes
 app.route("/", rulesRouter);

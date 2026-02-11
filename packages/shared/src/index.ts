@@ -9,6 +9,8 @@ export * from "./event-deduplication";
 export * from "./event-guards";
 export * from "./event-ordering";
 export * from "./event-types";
+export * from "./fixtures/chat-streams";
+export * from "./fixtures/event-ordering";
 export * from "./paths";
 export * from "./persist";
 export * from "./retry";

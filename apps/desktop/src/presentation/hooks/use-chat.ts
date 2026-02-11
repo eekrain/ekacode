@@ -29,10 +29,15 @@
  * ```
  */
 
-import { useMessageStore, usePartStore } from "@renderer/presentation/providers/store-provider";
+import {
+  useMessageStore,
+  usePartStore,
+  useSessionStore,
+} from "@renderer/presentation/providers/store-provider";
 import { createEffect, createSignal, onCleanup, type Accessor } from "solid-js";
 import { v7 as uuidv7 } from "uuid";
 import type { EkacodeApiClient } from "../../lib/api-client";
+import { parseChatStream } from "../../lib/chat/chat-stream-parser";
 import { createLogger } from "../../lib/logger";
 import type { ChatUIMessage } from "../../types/ui-message";
 import { useMessages } from "./use-messages";
@@ -141,6 +146,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
 
   const [, messageActions] = useMessageStore();
   const [, partActions] = usePartStore();
+  const [, sessionActions] = useSessionStore();
   const [effectiveSessionId, setEffectiveSessionId] = createSignal<string | null>(
     options.sessionId()
   );
@@ -273,6 +279,13 @@ export function useChat(options: UseChatOptions): UseChatResult {
         throw new Error(`Invalid session ID format received from server: ${serverSessionId}`);
       }
 
+      // Server header is authoritative for this request lifecycle.
+      // Upsert the session first so FK validation for message/part upserts always passes.
+      sessionActions.upsert({
+        sessionID: serverSessionId,
+        directory: ws,
+      });
+
       // Handle session ID transition
       if (serverSessionId !== currentSessionId) {
         if (currentSessionId) {
@@ -313,23 +326,99 @@ export function useChat(options: UseChatOptions): UseChatResult {
       const reader = response.body?.getReader();
       if (reader) {
         streaming.setStatus("streaming");
-        const decoder = new TextDecoder();
+
+        let assistantMessageId: string | null = null;
+        const textPartBuffers = new Map<string, string>();
 
         try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+          await parseChatStream(
+            reader,
+            {
+              onTextDelta: (messageId, delta) => {
+                // Track assistant message ID
+                if (!assistantMessageId) {
+                  assistantMessageId = messageId;
+                  // Create assistant message
+                  messageActions.upsert({
+                    id: messageId,
+                    role: "assistant",
+                    sessionID: currentSessionId,
+                    parentID: userMessageId,
+                    time: { created: Date.now() },
+                  });
+                }
 
-            // Decode stream chunks to ensure transport completes cleanly.
-            decoder.decode(value, { stream: true });
-          }
-        } finally {
-          reader.releaseLock();
+                // Buffer text deltas
+                const existing = textPartBuffers.get(messageId) || "";
+                textPartBuffers.set(messageId, existing + delta);
+
+                // Update text part
+                const partId = `${messageId}-text`;
+                partActions.upsert({
+                  id: partId,
+                  type: "text",
+                  messageID: messageId,
+                  sessionID: currentSessionId,
+                  text: textPartBuffers.get(messageId),
+                  time: {
+                    start: Date.now(),
+                    end: Date.now(),
+                  },
+                });
+              },
+              onToolCallStart: toolCall => {
+                logger.debug("Tool call started", toolCall);
+              },
+              onToolResult: result => {
+                logger.debug("Tool result received", result);
+              },
+              onDataPart: (type, id, data) => {
+                logger.debug("Data part received", { type, id, data });
+                // Handle data-thought, data-action, etc.
+                if (type === "data-thought") {
+                  // Create reasoning part
+                  const partId = `${id}-thought`;
+                  partActions.upsert({
+                    id: partId,
+                    type: "reasoning",
+                    messageID: assistantMessageId || userMessageId,
+                    sessionID: currentSessionId,
+                    reasoning: data,
+                    time: {
+                      start: Date.now(),
+                      end: Date.now(),
+                    },
+                  });
+                }
+              },
+              onComplete: finishReason => {
+                logger.debug("Stream completed", { finishReason });
+                streaming.complete(userMessageId);
+                onFinish?.(userMessageId);
+              },
+              onError: error => {
+                logger.error("Stream error", error);
+                streaming.setStatus("error");
+                streaming.setError(error);
+                onError?.(error);
+              },
+            },
+            {
+              signal: abortController.signal,
+              timeoutMs: 300000, // 5 minute timeout
+            }
+          );
+        } catch (error) {
+          logger.error("Failed to parse stream", error as Error);
+          streaming.setStatus("error");
+          streaming.setError(error as Error);
+          onError?.(error as Error);
         }
+      } else {
+        // No stream, just complete
+        streaming.complete(userMessageId);
+        onFinish?.(userMessageId);
       }
-
-      streaming.complete(userMessageId);
-      onFinish?.(userMessageId);
     } catch (error) {
       const errorName =
         error && typeof error === "object" && "name" in error
