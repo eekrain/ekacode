@@ -1,6 +1,5 @@
 import { Markdown } from "@renderer/components/markdown";
 import { cn } from "@renderer/lib/utils";
-import { usePart } from "@renderer/presentation/contexts/part-context";
 import type { Message } from "@renderer/types/sync";
 import { Component, For, Match, mergeProps, Show, Switch } from "solid-js";
 
@@ -23,7 +22,6 @@ interface MessageBubbleProps {
  * - Renders message parts from store
  */
 export const MessageBubble: Component<MessageBubbleProps> = props => {
-  const part = usePart();
   const merged = mergeProps(
     {
       delay: 0,
@@ -33,12 +31,8 @@ export const MessageBubble: Component<MessageBubbleProps> = props => {
 
   const isUser = () => props.message.info.role === "user";
 
-  // Get parts from store, falling back to embedded parts in message
+  // Message parts are provided by SessionTurn via useMessages projection.
   const parts = () => {
-    const messageID = props.message.info.id;
-    const storeParts = part.getByMessage(messageID);
-    // Use store parts if available, otherwise fall back to message.parts
-    if (storeParts && storeParts.length > 0) return storeParts;
     return props.message.parts ?? [];
   };
 

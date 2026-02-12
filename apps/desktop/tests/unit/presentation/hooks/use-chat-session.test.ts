@@ -18,6 +18,8 @@ const mockGetByMessage = vi.fn(() => []);
 const mockUpsertMessage = vi.fn();
 const mockUpsertPart = vi.fn();
 const mockUpsertSession = vi.fn();
+const mockGetSessionByDirectory = vi.fn(() => []);
+const mockGetSessionById = vi.fn();
 
 vi.mock("@renderer/presentation/providers/store-provider", () => ({
   useMessageStore: () => [
@@ -46,6 +48,8 @@ vi.mock("@renderer/presentation/providers/store-provider", () => ({
       clearStatus: vi.fn(),
       clearAllStatuses: vi.fn(),
       remove: vi.fn(),
+      getByDirectory: mockGetSessionByDirectory,
+      getById: mockGetSessionById,
     },
   ],
 }));
@@ -94,6 +98,8 @@ describe("useChat - Session Identity", () => {
     mockGetBySession.mockReturnValue([]);
     mockGetById.mockReturnValue(undefined);
     mockGetByMessage.mockReturnValue([]);
+    mockGetSessionByDirectory.mockReturnValue([]);
+    mockGetSessionById.mockReturnValue(undefined);
   });
 
   describe("Server-Authoritative Session Creation", () => {
@@ -309,7 +315,7 @@ describe("useChat - Session Identity", () => {
       });
     });
 
-    it("handles missing X-Session-ID header in response", async () => {
+    it("continues without error when X-Session-ID is missing for new session", async () => {
       const { useChat } = await import("@ekacode/desktop/presentation/hooks");
       const onError = vi.fn();
 
@@ -326,10 +332,9 @@ describe("useChat - Session Identity", () => {
 
         await chat.sendMessage("hello");
 
-        // Should call error handler
-        expect(onError).toHaveBeenCalled();
-        const errorArg = onError.mock.calls[0][0];
-        expect(errorArg.message).toContain("Server did not return session ID");
+        // Should not hard-fail; SSE/session sync can provide authoritative session later.
+        expect(onError).not.toHaveBeenCalled();
+        expect(chat.streaming.status()).toBe("done");
 
         dispose();
       });

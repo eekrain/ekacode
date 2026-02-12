@@ -9,6 +9,11 @@ type MockTextPart = {
   text: string;
 };
 
+type MockSessionInfo = {
+  sessionID: string;
+  directory: string;
+};
+
 const mockRemove = vi.fn();
 const mockGetBySession = vi.fn(() => []);
 const mockGetById = vi.fn();
@@ -17,6 +22,10 @@ const mockGetByMessage = vi.fn((messageId: string): MockTextPart[] => {
   return [];
 });
 const mockSessionUpsert = vi.fn();
+const mockSessionGetByDirectory = vi.fn<(directory: string) => MockSessionInfo[]>(() => []);
+const mockSessionGetById = vi.fn();
+const mockMessageUpsert = vi.fn();
+const mockPartUpsert = vi.fn();
 const mockWriteText = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@renderer/presentation/providers/store-provider", () => ({
@@ -26,7 +35,7 @@ vi.mock("@renderer/presentation/providers/store-provider", () => ({
       getBySession: mockGetBySession,
       getById: mockGetById,
       remove: mockRemove,
-      upsert: vi.fn(),
+      upsert: mockMessageUpsert,
     },
   ],
   usePartStore: () => [
@@ -35,7 +44,7 @@ vi.mock("@renderer/presentation/providers/store-provider", () => ({
       getByMessage: mockGetByMessage,
       getById: vi.fn(),
       remove: vi.fn(),
-      upsert: vi.fn(),
+      upsert: mockPartUpsert,
     },
   ],
   useSessionStore: () => [
@@ -46,6 +55,8 @@ vi.mock("@renderer/presentation/providers/store-provider", () => ({
       clearStatus: vi.fn(),
       clearAllStatuses: vi.fn(),
       remove: vi.fn(),
+      getByDirectory: mockSessionGetByDirectory,
+      getById: mockSessionGetById,
     },
   ],
 }));
@@ -80,6 +91,36 @@ function okResponse(): Response {
   } as unknown as Response;
 }
 
+function streamResponse(
+  lines: string[],
+  sessionId = "019c4da0-fc0b-713c-984e-b2aca339c9aa"
+): Response {
+  const headers = new Headers();
+  headers.set("X-Session-ID", sessionId);
+  const bodyText = lines.join("\n");
+  const encoded = new TextEncoder().encode(bodyText);
+
+  return {
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    headers,
+    body: {
+      getReader: () => {
+        let consumed = false;
+        return {
+          read: vi.fn(async () => {
+            if (consumed) return { done: true, value: undefined };
+            consumed = true;
+            return { done: false, value: encoded };
+          }),
+          releaseLock: vi.fn(),
+        };
+      },
+    },
+  } as unknown as Response;
+}
+
 describe("useChat", () => {
   let mockChatFn: ReturnType<typeof vi.fn>;
   let mockClient: EkacodeApiClient;
@@ -95,6 +136,10 @@ describe("useChat", () => {
     mockGetBySession.mockReturnValue([]);
     mockGetById.mockReturnValue(undefined);
     mockGetByMessage.mockReturnValue([]);
+    mockSessionGetByDirectory.mockReturnValue([]);
+    mockSessionGetById.mockReturnValue(undefined);
+    mockMessageUpsert.mockReset();
+    mockPartUpsert.mockReset();
   });
 
   it("sends messages with expected payload and completes streaming", async () => {
@@ -242,6 +287,149 @@ describe("useChat", () => {
 
       expect(mockWriteText).toHaveBeenCalledWith("copy me");
       expect(mockRemove).toHaveBeenCalledWith("msg-2");
+      dispose();
+    });
+  });
+
+  it("does not fail when server omits X-Session-ID for new session", async () => {
+    const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+    const responseWithoutHeader = {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers(),
+      body: null,
+    } as unknown as Response;
+    mockChatFn.mockResolvedValue(responseWithoutHeader);
+
+    await createRoot(async dispose => {
+      const onError = vi.fn();
+      const chat = useChat({
+        sessionId: () => null,
+        workspace: () => "/repo",
+        client: mockClient,
+        onError,
+      });
+
+      await chat.sendMessage("hello");
+
+      expect(chat.streaming.status()).toBe("done");
+      expect(onError).not.toHaveBeenCalled();
+      dispose();
+    });
+  });
+
+  it("adopts discovered session from session store when header is missing", async () => {
+    const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+    const discoveredSessionId = "019c4da0-fc0b-713c-984e-b2aca339c9ab";
+    mockSessionGetByDirectory.mockReturnValue([
+      { sessionID: discoveredSessionId, directory: "/repo" },
+    ]);
+    mockChatFn.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: new Headers(),
+      body: null,
+    } as unknown as Response);
+
+    await createRoot(async dispose => {
+      const onSessionIdReceived = vi.fn();
+      const chat = useChat({
+        sessionId: () => null,
+        workspace: () => "/repo",
+        client: mockClient,
+        onSessionIdReceived,
+      });
+
+      await chat.sendMessage("hello");
+
+      expect(chat.sessionId()).toBe(discoveredSessionId);
+      expect(onSessionIdReceived).toHaveBeenCalledWith(discoveredSessionId);
+      expect(mockMessageUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({ role: "user", sessionID: discoveredSessionId })
+      );
+      dispose();
+    });
+  });
+
+  it("routes data-thought and tool events to assistant message parts", async () => {
+    const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+    mockChatFn.mockResolvedValue(
+      streamResponse([
+        'data: {"type":"data-thought","id":"reason-1","data":{"text":"Analyzing","status":"thinking"}}',
+        'data: {"type":"data-tool-call","id":"call-1","data":{"toolCallId":"call-1","toolName":"read_file","args":{"path":"README.md"}}}',
+        'data: {"type":"data-tool-result","id":"call-1","data":{"toolCallId":"call-1","result":"ok"}}',
+        'data: {"type":"text-delta","id":"assistant-1","delta":"Final answer"}',
+        'data: {"type":"finish","finishReason":"stop"}',
+      ])
+    );
+
+    await createRoot(async dispose => {
+      const chat = useChat({
+        sessionId: () => "019c4da0-fc0b-713c-984e-b2aca339c9aa",
+        workspace: () => "/repo",
+        client: mockClient,
+      });
+
+      await chat.sendMessage("hello");
+
+      const assistantMessageCall = mockMessageUpsert.mock.calls.find(
+        call => call[0]?.role === "assistant"
+      );
+      expect(assistantMessageCall).toBeTruthy();
+      const assistantMessageId = assistantMessageCall?.[0]?.id as string;
+
+      const reasoningCall = mockPartUpsert.mock.calls.find(
+        call => call[0]?.type === "reasoning" && call[0]?.id === "reason-1-thought"
+      );
+      expect(reasoningCall?.[0]).toMatchObject({
+        messageID: assistantMessageId,
+        text: "Analyzing",
+      });
+
+      const toolCallPart = mockPartUpsert.mock.calls.find(call => call[0]?.id === "call-1-tool");
+      expect(toolCallPart?.[0]).toMatchObject({
+        type: "tool",
+        messageID: assistantMessageId,
+      });
+      expect(chat.streaming.status()).toBe("done");
+      dispose();
+    });
+  });
+
+  it("backfills user message when session resolves during stream", async () => {
+    const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+    const lateSessionId = "019c4da0-fc0b-713c-984e-b2aca339c9ac";
+    let lookupCount = 0;
+    mockSessionGetByDirectory.mockImplementation(() => {
+      lookupCount += 1;
+      return lookupCount >= 2 ? [{ sessionID: lateSessionId, directory: "/repo" }] : [];
+    });
+    mockChatFn.mockResolvedValue(
+      streamResponse(
+        [
+          'data: {"type":"text-delta","id":"assistant-late","delta":"Hello"}',
+          'data: {"type":"finish","finishReason":"stop"}',
+        ],
+        ""
+      )
+    );
+
+    await createRoot(async dispose => {
+      const chat = useChat({
+        sessionId: () => null,
+        workspace: () => "/repo",
+        client: mockClient,
+      });
+
+      await chat.sendMessage("hello");
+
+      const userMessageCall = mockMessageUpsert.mock.calls.find(
+        call => call[0]?.role === "user" && call[0]?.sessionID === lateSessionId
+      );
+      expect(userMessageCall).toBeTruthy();
+      expect(chat.sessionId()).toBe(lateSessionId);
       dispose();
     });
   });

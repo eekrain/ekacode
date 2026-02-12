@@ -8,13 +8,13 @@
  * @package @ekacode/desktop/tests
  */
 
+import { allEventOrderingFixtures } from "@ekacode/shared";
+import type { Part } from "@ekacode/shared/event-types";
 import {
   useMessageStore,
   usePartStore,
   useSessionStore,
-} from "@ekacode/desktop/presentation/providers/store-provider";
-import { allEventOrderingFixtures } from "@ekacode/shared";
-import type { Part } from "@ekacode/shared/event-types";
+} from "@renderer/presentation/providers/store-provider";
 import { createMemo, createSignal, For } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, it } from "vitest";

@@ -3,8 +3,7 @@ import { createAutoScroll } from "@renderer/hooks/create-auto-scroll";
 import { createLogger } from "@renderer/lib/logger";
 import { cn } from "@renderer/lib/utils";
 import { useMessages } from "@renderer/presentation/hooks/use-messages";
-import { VirtualList } from "@solid-primitives/virtual";
-import { Component, createEffect, createMemo, Show } from "solid-js";
+import { Component, createEffect, createMemo, For, Show } from "solid-js";
 import { createStore } from "solid-js/store";
 import { ThinkingBubble } from "./message-bubble";
 import { SessionTurn } from "./session-turn";
@@ -55,36 +54,40 @@ export const MessageList: Component<MessageListProps> = props => {
   // Get messages for current session using new useMessages hook
   const messages = useMessages(() => props.sessionId ?? null);
 
-  // Compute timeline as array of user message IDs only
-  // Each user message ID represents a turn - SessionTurn will fetch its own data
-  const userMessageIDs = createMemo(
+  // Compute timeline as array of turn anchor IDs.
+  // Prefer user turns; fallback to assistant anchors when user turn is missing.
+  const turnIDs = createMemo(
     () => {
       const userMsgs = messages.userMessages();
-      if (userMsgs.length === 0) return [];
-      return userMsgs.map(m => m.id);
+      if (userMsgs.length > 0) return userMsgs.map(m => m.id);
+      const assistantMsgs = messages.assistantMessages();
+      return assistantMsgs.map(m => m.id);
     },
     { equals: idsEqual }
   );
 
-  // Determine last user message ID for "isLast" prop
-  const lastUserMessageID = createMemo(() => {
-    const ids = userMessageIDs();
+  // Determine last turn ID for "isLast" prop
+  const lastTurnID = createMemo(() => {
+    const ids = turnIDs();
     return ids[ids.length - 1];
   });
 
   createEffect(() => {
-    const lastID = lastUserMessageID();
+    const lastID = lastTurnID();
     if (!lastID) return;
     const isWorking = props.isGenerating ?? false;
     setExpanded(lastID, isWorking);
   });
 
   createEffect(() => {
-    logger.debug("Message list projection updated", {
+    logger.info("Message list projection updated", {
       sessionId: props.sessionId,
-      userTurnCount: userMessageIDs().length,
+      totalMessageCount: messages.count(),
+      userTurnCount: messages.userMessages().length,
+      assistantCount: messages.assistantMessages().length,
+      renderedTurnCount: turnIDs().length,
       isGenerating: props.isGenerating ?? false,
-      lastUserMessageId: lastUserMessageID(),
+      lastTurnId: lastTurnID(),
     });
   });
 
@@ -96,25 +99,20 @@ export const MessageList: Component<MessageListProps> = props => {
     >
       {/* Messages */}
       <div class="mx-auto max-w-3xl">
-        <VirtualList
-          each={userMessageIDs()}
-          fallback={null}
-          rowHeight={300}
-          rootHeight={800}
-          overscanCount={3}
-          children={messageID => (
+        <For each={turnIDs()}>
+          {messageID => (
             <div class="group mb-5">
               <SessionTurn
                 sessionID={props.sessionId}
                 messageID={messageID}
-                isLast={messageID === lastUserMessageID()}
+                isLast={messageID === lastTurnID()}
                 isGenerating={props.isGenerating}
                 expanded={expanded[messageID] ?? false}
                 onToggleExpanded={() => setExpanded(messageID, value => !value)}
               />
             </div>
           )}
-        />
+        </For>
 
         {/* Current thinking (while generating) */}
         <Show when={props.isGenerating && props.thinkingContent}>

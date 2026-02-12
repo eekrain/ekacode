@@ -21,8 +21,8 @@
  * ```
  */
 
-import type { MessageWithId } from "@ekacode/desktop/core/stores";
 import type { Part } from "@ekacode/shared/event-types";
+import type { MessageWithId } from "@renderer/core/stores";
 import { useMessageStore, usePartStore } from "@renderer/presentation/providers/store-provider";
 import { createMemo, onCleanup, type Accessor } from "solid-js";
 import { createLogger } from "../../lib/logger";

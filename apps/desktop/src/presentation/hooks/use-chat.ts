@@ -166,6 +166,21 @@ export function useChat(options: UseChatOptions): UseChatResult {
     }
   });
 
+  // Adopt server-created sessions when header-based session propagation is unavailable.
+  createEffect(() => {
+    if (effectiveSessionId()) return;
+    const ws = options.workspace();
+    if (!ws) return;
+
+    const sessions = sessionActions.getByDirectory(ws);
+    const latest = sessions[sessions.length - 1];
+    const discoveredSessionId = latest?.sessionID;
+    if (!discoveredSessionId) return;
+
+    setEffectiveSessionId(discoveredSessionId);
+    onSessionIdReceived?.(discoveredSessionId);
+  });
+
   const getText = (messageId: string): string => {
     return partActions
       .getByMessage(messageId)
@@ -237,6 +252,12 @@ export function useChat(options: UseChatOptions): UseChatResult {
     const now = Date.now();
     const abortController = new AbortController();
     activeRequest = { messageId: userMessageId, abortController };
+    let userMessagePersisted = false;
+    let assistantMessagePersisted = false;
+    let droppedTextEvents = 0;
+    let droppedDataEvents = 0;
+    let messageUpserts = 0;
+    let partUpserts = 0;
 
     // Start streaming with active message id
     streaming.start(userMessageId);
@@ -266,61 +287,161 @@ export function useChat(options: UseChatOptions): UseChatResult {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      // Check for session ID from response headers (server-authoritative)
+      // Resolve session ID for this request lifecycle.
+      // Prefer server response header when present. If missing, keep current session
+      // or defer to SSE/session store synchronization instead of failing hard.
       const serverSessionId = response.headers.get("X-Session-ID");
+      let resolvedSessionId = currentSessionId;
 
-      if (!serverSessionId) {
-        // Server must provide session ID
-        throw new Error("Server did not return session ID in X-Session-ID header");
-      }
+      if (serverSessionId) {
+        if (!isValidSessionId(serverSessionId)) {
+          throw new Error(`Invalid session ID format received from server: ${serverSessionId}`);
+        }
 
-      // Validate session ID format
-      if (!isValidSessionId(serverSessionId)) {
-        throw new Error(`Invalid session ID format received from server: ${serverSessionId}`);
-      }
+        // Header session ID is authoritative when provided.
+        sessionActions.upsert({
+          sessionID: serverSessionId,
+          directory: ws,
+        });
 
-      // Server header is authoritative for this request lifecycle.
-      // Upsert the session first so FK validation for message/part upserts always passes.
-      sessionActions.upsert({
-        sessionID: serverSessionId,
-        directory: ws,
-      });
-
-      // Handle session ID transition
-      if (serverSessionId !== currentSessionId) {
-        if (currentSessionId) {
-          logger.info("Session ID changed by server", {
-            oldSessionId: currentSessionId,
-            newSessionId: serverSessionId,
-          });
-        } else {
-          logger.info("Received new session ID from server", {
-            sessionId: serverSessionId,
-          });
+        if (serverSessionId !== currentSessionId) {
+          if (currentSessionId) {
+            logger.info("Session ID changed by server", {
+              oldSessionId: currentSessionId,
+              newSessionId: serverSessionId,
+            });
+          } else {
+            logger.info("Received new session ID from server", {
+              sessionId: serverSessionId,
+            });
+          }
         }
 
         setEffectiveSessionId(serverSessionId);
         onSessionIdReceived?.(serverSessionId);
-        currentSessionId = serverSessionId;
+        resolvedSessionId = serverSessionId;
+      } else if (currentSessionId) {
+        // Existing session can still be authoritative for this request.
+        sessionActions.upsert({
+          sessionID: currentSessionId,
+          directory: ws,
+        });
+      } else {
+        logger.warn(
+          "Server did not return X-Session-ID; continuing with SSE-authoritative session sync"
+        );
       }
 
-      // Now that we have a valid session ID, create the optimistic message
-      // This ensures the message is always associated with the correct session
-      const optimisticTextPartId = `${userMessageId}-text`;
-      messageActions.upsert({
-        id: userMessageId,
-        role: "user",
-        sessionID: currentSessionId,
-        time: { created: now },
-      });
-      partActions.upsert({
-        id: optimisticTextPartId,
-        type: "text",
-        messageID: userMessageId,
-        sessionID: currentSessionId,
-        text: trimmed,
-        time: { start: now, end: now },
-      });
+      const ensureResolvedSessionId = (candidateMessageId?: string): string | null => {
+        if (resolvedSessionId) return resolvedSessionId;
+
+        if (candidateMessageId) {
+          const message = messageActions.getById(candidateMessageId) as
+            | { sessionID?: string }
+            | undefined;
+          if (message?.sessionID) {
+            resolvedSessionId = message.sessionID;
+          }
+        }
+
+        if (!resolvedSessionId) {
+          const sessions = sessionActions.getByDirectory(ws);
+          const latest = sessions[sessions.length - 1];
+          if (latest?.sessionID) {
+            resolvedSessionId = latest.sessionID;
+            logger.debug("Resolved session from directory lookup", {
+              workspace: ws,
+              sessionId: resolvedSessionId,
+            });
+          }
+        }
+
+        if (resolvedSessionId && resolvedSessionId !== effectiveSessionId()) {
+          setEffectiveSessionId(resolvedSessionId);
+          onSessionIdReceived?.(resolvedSessionId);
+        }
+
+        return resolvedSessionId;
+      };
+
+      // Create optimistic user message only when session is known.
+      const optimisticSessionId = ensureResolvedSessionId();
+      if (optimisticSessionId) {
+        const optimisticTextPartId = `${userMessageId}-text`;
+        messageActions.upsert({
+          id: userMessageId,
+          role: "user",
+          sessionID: optimisticSessionId,
+          time: { created: now },
+        });
+        messageUpserts += 1;
+        userMessagePersisted = true;
+        partActions.upsert({
+          id: optimisticTextPartId,
+          type: "text",
+          messageID: userMessageId,
+          sessionID: optimisticSessionId,
+          text: trimmed,
+          time: { start: now, end: now },
+        });
+        partUpserts += 1;
+      } else {
+        logger.warn("Unable to resolve session before stream start; waiting for SSE/session sync", {
+          workspace: ws,
+          userMessageId,
+        });
+      }
+
+      const persistUserMessageIfNeeded = (activeSessionId: string): void => {
+        if (userMessagePersisted) return;
+        const existing = messageActions.getById(userMessageId);
+        if (existing) {
+          userMessagePersisted = true;
+          return;
+        }
+
+        const optimisticTextPartId = `${userMessageId}-text`;
+        messageActions.upsert({
+          id: userMessageId,
+          role: "user",
+          sessionID: activeSessionId,
+          time: { created: now },
+        });
+        messageUpserts += 1;
+        partActions.upsert({
+          id: optimisticTextPartId,
+          type: "text",
+          messageID: userMessageId,
+          sessionID: activeSessionId,
+          text: trimmed,
+          time: { start: now, end: now },
+        });
+        partUpserts += 1;
+        userMessagePersisted = true;
+        logger.info("Persisted deferred user message after session resolution", {
+          userMessageId,
+          sessionId: activeSessionId,
+        });
+      };
+
+      const persistAssistantMessageIfNeeded = (
+        assistantId: string,
+        activeSessionId: string
+      ): void => {
+        if (assistantMessagePersisted) return;
+        const existing = messageActions.getById(assistantId);
+        if (!existing) {
+          messageActions.upsert({
+            id: assistantId,
+            role: "assistant",
+            sessionID: activeSessionId,
+            parentID: userMessageId,
+            time: { created: Date.now() },
+          });
+          messageUpserts += 1;
+        }
+        assistantMessagePersisted = true;
+      };
 
       // Consume stream if available
       const reader = response.body?.getReader();
@@ -335,64 +456,210 @@ export function useChat(options: UseChatOptions): UseChatResult {
             reader,
             {
               onTextDelta: (messageId, delta) => {
-                // Track assistant message ID
+                const activeSessionId = ensureResolvedSessionId(messageId);
+                if (!activeSessionId) {
+                  droppedTextEvents += 1;
+                  if (droppedTextEvents <= 3) {
+                    logger.warn("Dropping text delta due to unresolved session", {
+                      messageId,
+                      deltaLength: delta.length,
+                      droppedTextEvents,
+                    });
+                  }
+                  return;
+                }
+                persistUserMessageIfNeeded(activeSessionId);
+
+                // Track assistant message ID (first stream event owns the assistant turn).
                 if (!assistantMessageId) {
-                  assistantMessageId = messageId;
-                  // Create assistant message
-                  messageActions.upsert({
-                    id: messageId,
-                    role: "assistant",
-                    sessionID: currentSessionId,
-                    parentID: userMessageId,
-                    time: { created: Date.now() },
-                  });
+                  assistantMessageId = messageId || uuidv7();
                 }
 
-                // Buffer text deltas
-                const existing = textPartBuffers.get(messageId) || "";
-                textPartBuffers.set(messageId, existing + delta);
+                persistAssistantMessageIfNeeded(assistantMessageId, activeSessionId);
 
-                // Update text part
-                const partId = `${messageId}-text`;
+                // Buffer text deltas on the canonical assistant message id.
+                const existing = textPartBuffers.get(assistantMessageId) || "";
+                textPartBuffers.set(assistantMessageId, existing + delta);
+
+                // Update text part.
+                const partId = `${assistantMessageId}-text`;
                 partActions.upsert({
                   id: partId,
                   type: "text",
-                  messageID: messageId,
-                  sessionID: currentSessionId,
-                  text: textPartBuffers.get(messageId),
+                  messageID: assistantMessageId,
+                  sessionID: activeSessionId,
+                  text: textPartBuffers.get(assistantMessageId),
                   time: {
                     start: Date.now(),
                     end: Date.now(),
                   },
                 });
+                partUpserts += 1;
               },
               onToolCallStart: toolCall => {
-                logger.debug("Tool call started", toolCall);
+                const activeSessionId = ensureResolvedSessionId(assistantMessageId ?? undefined);
+                if (!activeSessionId) return;
+                persistUserMessageIfNeeded(activeSessionId);
+
+                if (!assistantMessageId) {
+                  assistantMessageId = uuidv7();
+                }
+                persistAssistantMessageIfNeeded(assistantMessageId, activeSessionId);
+
+                const partId = `${toolCall.toolCallId}-tool`;
+                partActions.upsert({
+                  id: partId,
+                  type: "tool",
+                  messageID: assistantMessageId,
+                  sessionID: activeSessionId,
+                  tool: toolCall.toolName,
+                  callID: toolCall.toolCallId,
+                  state: {
+                    status: "running",
+                    input: toolCall.args && typeof toolCall.args === "object" ? toolCall.args : {},
+                  },
+                });
+                partUpserts += 1;
               },
               onToolResult: result => {
-                logger.debug("Tool result received", result);
+                const activeSessionId = ensureResolvedSessionId(assistantMessageId ?? undefined);
+                if (!activeSessionId) return;
+                persistUserMessageIfNeeded(activeSessionId);
+
+                if (!assistantMessageId) {
+                  assistantMessageId = uuidv7();
+                }
+                persistAssistantMessageIfNeeded(assistantMessageId, activeSessionId);
+
+                const partId = `${result.toolCallId}-tool`;
+                partActions.upsert({
+                  id: partId,
+                  type: "tool",
+                  messageID: assistantMessageId,
+                  sessionID: activeSessionId,
+                  tool: "tool",
+                  callID: result.toolCallId,
+                  state: {
+                    status: "completed",
+                    output:
+                      typeof result.result === "string"
+                        ? result.result
+                        : JSON.stringify(result.result),
+                  },
+                });
+                partUpserts += 1;
               },
               onDataPart: (type, id, data) => {
                 logger.debug("Data part received", { type, id, data });
+                const activeSessionId = ensureResolvedSessionId(assistantMessageId ?? undefined);
+                if (!activeSessionId) {
+                  droppedDataEvents += 1;
+                  if (droppedDataEvents <= 3) {
+                    logger.warn("Dropping data part due to unresolved session", {
+                      type,
+                      id,
+                      droppedDataEvents,
+                    });
+                  }
+                  return;
+                }
+                persistUserMessageIfNeeded(activeSessionId);
+
+                if (!assistantMessageId) {
+                  assistantMessageId = uuidv7();
+                }
+                persistAssistantMessageIfNeeded(assistantMessageId, activeSessionId);
+
                 // Handle data-thought, data-action, etc.
                 if (type === "data-thought") {
+                  const thought = data as { text?: unknown; status?: unknown };
+                  const thoughtText =
+                    typeof thought?.text === "string"
+                      ? thought.text
+                      : typeof data === "string"
+                        ? data
+                        : "";
                   // Create reasoning part
                   const partId = `${id}-thought`;
                   partActions.upsert({
                     id: partId,
                     type: "reasoning",
-                    messageID: assistantMessageId || userMessageId,
-                    sessionID: currentSessionId,
-                    reasoning: data,
+                    messageID: assistantMessageId,
+                    sessionID: activeSessionId,
+                    text: thoughtText,
                     time: {
                       start: Date.now(),
                       end: Date.now(),
                     },
                   });
+                  partUpserts += 1;
+                } else if (type === "data-tool-call") {
+                  const payload = data as {
+                    toolCallId?: unknown;
+                    toolName?: unknown;
+                    args?: unknown;
+                  };
+                  const toolCallId =
+                    typeof payload?.toolCallId === "string" ? payload.toolCallId : id;
+                  const toolName =
+                    typeof payload?.toolName === "string" ? payload.toolName : "tool";
+                  partActions.upsert({
+                    id: `${toolCallId}-tool`,
+                    type: "tool",
+                    messageID: assistantMessageId,
+                    sessionID: activeSessionId,
+                    tool: toolName,
+                    callID: toolCallId,
+                    state: {
+                      status: "running",
+                      input: payload?.args && typeof payload.args === "object" ? payload.args : {},
+                    },
+                  });
+                  partUpserts += 1;
+                } else if (type === "data-tool-result") {
+                  const payload = data as {
+                    toolCallId?: unknown;
+                    result?: unknown;
+                  };
+                  const toolCallId =
+                    typeof payload?.toolCallId === "string" ? payload.toolCallId : id;
+                  partActions.upsert({
+                    id: `${toolCallId}-tool`,
+                    type: "tool",
+                    messageID: assistantMessageId,
+                    sessionID: activeSessionId,
+                    tool: "tool",
+                    callID: toolCallId,
+                    state: {
+                      status: "completed",
+                      output:
+                        typeof payload?.result === "string"
+                          ? payload.result
+                          : JSON.stringify(payload?.result),
+                    },
+                  });
+                  partUpserts += 1;
                 }
               },
               onComplete: finishReason => {
-                logger.debug("Stream completed", { finishReason });
+                const completedSessionId = ensureResolvedSessionId(assistantMessageId ?? undefined);
+                if (completedSessionId) {
+                  persistUserMessageIfNeeded(completedSessionId);
+                  if (assistantMessageId) {
+                    persistAssistantMessageIfNeeded(assistantMessageId, completedSessionId);
+                  }
+                }
+                logger.info("Stream completed", {
+                  finishReason,
+                  userMessageId,
+                  assistantMessageId: assistantMessageId ?? undefined,
+                  resolvedSessionId:
+                    ensureResolvedSessionId(assistantMessageId ?? undefined) ?? undefined,
+                  droppedTextEvents,
+                  droppedDataEvents,
+                  messageUpserts,
+                  partUpserts,
+                });
                 streaming.complete(userMessageId);
                 onFinish?.(userMessageId);
               },

@@ -1,10 +1,10 @@
-import type { MessageWithId } from "@ekacode/desktop/core/stores/message-store";
+import type { MessageWithId } from "@renderer/core/stores/message-store";
 import {
   StoreProvider,
   useMessageStore,
   usePartStore,
   useSessionStore,
-} from "@ekacode/desktop/presentation/providers/store-provider";
+} from "@renderer/presentation/providers/store-provider";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

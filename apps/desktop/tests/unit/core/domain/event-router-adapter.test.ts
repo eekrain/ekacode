@@ -104,4 +104,41 @@ describe("event-router-adapter", () => {
     expect(specificListener).toHaveBeenCalledTimes(1);
     expect(globalListener).toHaveBeenCalledTimes(1);
   });
+
+  it("creates missing session from event.sessionID before applying message.updated", async () => {
+    const { messageActions, partActions, sessionActions } = createActions();
+    const messageId = "019c4da0-fc0b-713c-984e-b2aca339c97d";
+
+    await applyEventToStores(
+      {
+        type: "message.updated",
+        properties: {
+          info: {
+            id: messageId,
+            role: "assistant",
+          },
+          directory: "/repo",
+        },
+        sessionID: SESSION_ID_1,
+        directory: "/repo",
+        eventId: uuidv7(),
+        sequence: 1,
+        timestamp: Date.now(),
+      } as ServerEvent,
+      messageActions,
+      partActions,
+      sessionActions
+    );
+
+    expect(sessionActions.getById(SESSION_ID_1)).toEqual({
+      sessionID: SESSION_ID_1,
+      directory: "/repo",
+    });
+    expect(messageActions.getById(messageId)).toEqual(
+      expect.objectContaining({
+        id: messageId,
+        sessionID: SESSION_ID_1,
+      })
+    );
+  });
 });

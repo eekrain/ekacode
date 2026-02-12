@@ -207,12 +207,25 @@ function processEvent(
       const sessionID =
         info.sessionID ??
         (typeof props.sessionID === "string" ? props.sessionID : undefined) ??
+        (typeof event.sessionID === "string" ? event.sessionID : undefined) ??
         (() => {
           if (!info.parentID) return undefined;
           return (messageActions.getById(info.parentID) as { sessionID?: string } | undefined)
             ?.sessionID;
         })();
       if (!sessionID) break;
+
+      if (!sessionActions.getById(sessionID)) {
+        sessionActions.upsert({
+          sessionID,
+          directory:
+            typeof props.directory === "string"
+              ? props.directory
+              : typeof event.directory === "string"
+                ? event.directory
+                : "default",
+        });
+      }
 
       // Convert MessageInfo to MessageWithId format expected by store
       const messageWithId = {
@@ -297,6 +310,17 @@ function processEvent(
       const sessionID = typeof props.sessionID === "string" ? props.sessionID : undefined;
       const status = toSessionStatus(props.status);
       if (sessionID && status) {
+        if (!sessionActions.getById(sessionID)) {
+          sessionActions.upsert({
+            sessionID,
+            directory:
+              typeof props.directory === "string"
+                ? props.directory
+                : typeof event.directory === "string"
+                  ? event.directory
+                  : "default",
+          });
+        }
         sessionActions.setStatus(sessionID, status);
       }
       break;

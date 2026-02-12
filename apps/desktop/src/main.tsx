@@ -1,6 +1,5 @@
 /* @refresh reload */
 import { registerDefaultPartComponents } from "@renderer/components/parts/register";
-import { AppProvider } from "@renderer/presentation/providers";
 import App from "@renderer/routes";
 import { render } from "solid-js/web";
 import "./assets/main.css";
@@ -22,14 +21,7 @@ const getServerConfig = async () => {
 
 const root = document.getElementById("root");
 
-// Initialize app with server config and new AppProvider
+// Initialize app with server config
 getServerConfig().then(config => {
-  render(
-    () => (
-      <AppProvider config={config}>
-        <App />
-      </AppProvider>
-    ),
-    root!
-  );
+  render(() => <App config={config} />, root!);
 });

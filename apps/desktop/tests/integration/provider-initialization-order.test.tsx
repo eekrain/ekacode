@@ -7,16 +7,13 @@
  * @package @ekacode/desktop/tests
  */
 
-import type { EkacodeApiClient } from "@ekacode/desktop/lib/api-client";
-import {
-  ChatProvider,
-  useChatContext,
-} from "@ekacode/desktop/presentation/providers/chat-provider";
+import type { EkacodeApiClient } from "@renderer/lib/api-client";
+import { ChatProvider, useChatContext } from "@renderer/presentation/providers/chat-provider";
 import {
   useMessageStore,
   usePartStore,
   useSessionStore,
-} from "@ekacode/desktop/presentation/providers/store-provider";
+} from "@renderer/presentation/providers/store-provider";
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

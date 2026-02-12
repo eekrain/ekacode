@@ -24,12 +24,8 @@
  * ```
  */
 
-import {
-  createMessageStore,
-  createPartStore,
-  createSessionStore,
-} from "@ekacode/desktop/core/stores";
-import { Component, createContext, JSX, useContext } from "solid-js";
+import { createMessageStore, createPartStore, createSessionStore } from "@renderer/core/stores";
+import { Component, createContext, JSX, onCleanup, useContext } from "solid-js";
 import type { MessageActions, MessageState } from "../../core/stores/message-store";
 import type { PartActions, PartState } from "../../core/stores/part-store";
 import type { SessionActions, SessionState } from "../../core/stores/session-store";
@@ -43,6 +39,9 @@ interface StoreContextValue {
   session: [get: SessionState, actions: SessionActions];
 }
 
+const STORE_CONTEXT_KEY = Symbol.for("ekacode.desktop.store-context");
+const ACTIVE_STORES_KEY = Symbol.for("ekacode.desktop.active-stores");
+
 /**
  * Store context for provider-scoped stores
  *
@@ -50,7 +49,13 @@ interface StoreContextValue {
  * masked real provider initialization errors. Now strictly requires
  * StoreProvider in the component tree.
  */
-const StoreContext = createContext<StoreContextValue | null>(null);
+const globalStoreContextRef = globalThis as typeof globalThis & {
+  [STORE_CONTEXT_KEY]?: ReturnType<typeof createContext<StoreContextValue | null>>;
+  [ACTIVE_STORES_KEY]?: StoreContextValue | null;
+};
+const StoreContext =
+  globalStoreContextRef[STORE_CONTEXT_KEY] ?? createContext<StoreContextValue | null>(null);
+globalStoreContextRef[STORE_CONTEXT_KEY] = StoreContext;
 
 /**
  * StoreProvider - Creates and provides provider-scoped stores
@@ -89,6 +94,13 @@ export const StoreProvider: Component<{ children: JSX.Element }> = props => {
   });
 
   const value: StoreContextValue = { message, part, session };
+  globalStoreContextRef[ACTIVE_STORES_KEY] = value;
+
+  onCleanup(() => {
+    if (globalStoreContextRef[ACTIVE_STORES_KEY] === value) {
+      globalStoreContextRef[ACTIVE_STORES_KEY] = null;
+    }
+  });
 
   return <StoreContext.Provider value={value}>{props.children}</StoreContext.Provider>;
 };
@@ -99,13 +111,19 @@ export const StoreProvider: Component<{ children: JSX.Element }> = props => {
  */
 function useStores(): StoreContextValue {
   const context = useContext(StoreContext);
-  if (!context) {
-    throw new Error(
-      "useStores must be used within StoreProvider. " +
-        "Ensure your component is wrapped in a StoreProvider."
-    );
+  if (context) {
+    return context;
   }
-  return context;
+
+  const activeStores = globalStoreContextRef[ACTIVE_STORES_KEY] ?? null;
+  if (activeStores) {
+    return activeStores;
+  }
+
+  throw new Error(
+    "useStores must be used within StoreProvider. " +
+      "Ensure your component is wrapped in a StoreProvider."
+  );
 }
 
 /**

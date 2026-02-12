@@ -1,5 +1,4 @@
 import type { Part as CorePart, ToolPart } from "@ekacode/core/chat";
-import { usePart } from "@renderer/presentation/contexts/part-context";
 import { createMemo, For, Show, type Component, type JSX } from "solid-js";
 import type { Part } from "../types/sync";
 import { Markdown } from "./markdown";
@@ -21,15 +20,8 @@ export interface AssistantMessageProps {
 const INTERNAL_TOOLS = new Set(["todoread"]);
 
 export const AssistantMessage: Component<AssistantMessageProps> = props => {
-  const part = usePart();
-
-  // Fetch parts from store, falling back to embedded parts from message
+  // Use parts passed from parent projection; avoids context crashes during live updates.
   const parts = createMemo(() => {
-    const storeParts = part.getByMessage(props.messageID);
-    if (storeParts && storeParts.length > 0) {
-      return storeParts as unknown as CorePart[];
-    }
-    // Fall back to parts passed from parent (embedded in message)
     return (props.fallbackParts ?? []) as unknown as CorePart[];
   });
 

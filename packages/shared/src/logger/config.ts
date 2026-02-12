@@ -10,12 +10,16 @@ import type { LoggerConfig } from "./types";
 export function getDefaultConfig(): LoggerConfig {
   const logLevel = process.env.LOG_LEVEL as LoggerConfig["level"];
   const validLevels = ["debug", "info", "warn", "error", "silent"];
+  const filePath = process.env.LOG_FILE_PATH;
+  const fileOutputEnv = (process.env.LOG_FILE_OUTPUT || "").toLowerCase();
+  const fileOutputFromEnv = ["1", "true", "yes", "on"].includes(fileOutputEnv);
 
   return {
     level: validLevels.includes(logLevel || "") ? logLevel! : "info",
     prettyPrint: process.env.NODE_ENV !== "production",
-    fileOutput: process.env.NODE_ENV === "production",
-    filePath: process.env.LOG_FILE_PATH,
+    // Production always writes to file. Development can opt in via LOG_FILE_PATH/LOG_FILE_OUTPUT.
+    fileOutput: process.env.NODE_ENV === "production" || fileOutputFromEnv || Boolean(filePath),
+    filePath,
     redact: [
       "req.headers.authorization",
       "req.headers.cookie",

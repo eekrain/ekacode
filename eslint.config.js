@@ -36,4 +36,32 @@ module.exports = [
       ],
     },
   },
+  {
+    files: ["apps/desktop/src/**/*.ts", "apps/desktop/src/**/*.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@ekacode/desktop/presentation/providers",
+                "@ekacode/desktop/presentation/providers/*",
+              ],
+              message: "Use @renderer/presentation/providers/* imports in runtime desktop code.",
+            },
+            {
+              group: [
+                "../presentation/providers/*",
+                "../../presentation/providers/*",
+                "../../../presentation/providers/*",
+                "../../../../presentation/providers/*",
+              ],
+              message: "Use @renderer/presentation/providers/* imports in runtime desktop code.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];

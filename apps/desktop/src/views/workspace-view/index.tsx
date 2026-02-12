@@ -7,7 +7,7 @@ import Resizable from "@corvu/resizable";
 import { PermissionDialog } from "@renderer/components/permission-dialog";
 import { ResizeableHandle } from "@renderer/components/resizeable-handle";
 import { usePermissions } from "@renderer/hooks/use-permissions";
-import { ChatProvider, useChatContext } from "@renderer/presentation/providers";
+import { ChatProvider, useChatContext } from "@renderer/presentation/providers/chat-provider";
 import { useWorkspace, WorkspaceProvider } from "@renderer/providers/workspace-provider";
 import { ChatPanel } from "./chat-area/chat-area";
 import { LeftSide } from "./left-side/left-side";

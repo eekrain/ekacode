@@ -1,6 +1,7 @@
 import type { Part as CorePart } from "@ekacode/core/chat";
 import { AssistantMessage } from "@renderer/components/assistant-message";
 import { Markdown } from "@renderer/components/markdown";
+import { createLogger } from "@renderer/lib/logger";
 import { cn } from "@renderer/lib/utils";
 import type { ChatMessage } from "@renderer/presentation/hooks/use-messages";
 import { useMessages } from "@renderer/presentation/hooks/use-messages";
@@ -29,6 +30,8 @@ interface SessionTurnProps {
   onToggleExpanded: () => void;
   class?: string;
 }
+
+const logger = createLogger("desktop:views:session-turn");
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -199,10 +202,13 @@ export const SessionTurn: Component<SessionTurnProps> = props => {
   let lastStatusAt = Date.now();
   let statusTimer: ReturnType<typeof setTimeout> | undefined;
 
+  const anchorMessage = createMemo(() => messages.get(props.messageID));
+
   // Get user message for this turn - convert to SyncMessage format for MessageBubble
   const userMessage = createMemo((): SyncMessage | undefined => {
-    const msg = messages.get(props.messageID);
+    const msg = anchorMessage();
     if (!msg) return undefined;
+    if (msg.role !== "user") return undefined;
 
     // Convert ChatMessage to SyncMessage format for MessageBubble
     return {
@@ -220,7 +226,23 @@ export const SessionTurn: Component<SessionTurnProps> = props => {
 
   // Get assistant messages that respond to this user message
   const assistantMessages = createMemo(() => {
+    const anchor = anchorMessage();
+    if (anchor?.role === "assistant") return [anchor];
     return selectAssistantMessagesForTurn(messages.list(), props.messageID);
+  });
+
+  createEffect(() => {
+    const assistants = assistantMessages();
+    const partCount = assistants.reduce((total, msg) => total + msg.parts.length, 0);
+    logger.info("Session turn projection", {
+      sessionId: props.sessionID,
+      userMessageId: props.messageID,
+      anchorRole: anchorMessage()?.role ?? "missing",
+      assistantCount: assistants.length,
+      assistantPartCount: partCount,
+      isGenerating: props.isGenerating ?? false,
+      isLast: props.isLast ?? false,
+    });
   });
 
   // Compute derived state
@@ -306,96 +328,92 @@ export const SessionTurn: Component<SessionTurnProps> = props => {
   };
 
   return (
-    <Show when={userMessage()}>
-      {user => (
-        <div class={cn("mb-6", props.class)}>
-          <MessageBubble message={user()} />
+    <Show when={userMessage() || assistantMessages().length > 0}>
+      <div class={cn("mb-6", props.class)}>
+        <Show when={userMessage()}>{user => <MessageBubble message={user()} />}</Show>
 
-          <Show when={showTrigger()}>
-            <div class="mt-2 flex justify-start">
+        <Show when={showTrigger()}>
+          <div class="mt-2 flex justify-start">
+            <button
+              class={cn(
+                "bg-card/30 border-border/30 hover:bg-card/50 rounded-lg border px-3 py-1.5 text-xs",
+                "text-muted-foreground inline-flex items-center gap-2 transition-colors"
+              )}
+              onClick={props.onToggleExpanded}
+              aria-expanded={props.expanded}
+            >
+              <Switch>
+                <Match when={props.isLast && props.isGenerating}>
+                  <span class="bg-primary/70 inline-block h-2 w-2 animate-pulse rounded-full" />
+                </Match>
+                <Match when={!props.expanded}>
+                  <span>▽</span>
+                </Match>
+                <Match when={props.expanded}>
+                  <span>△</span>
+                </Match>
+              </Switch>
+
+              <Switch>
+                <Match when={props.isLast && props.isGenerating}>
+                  <span>{statusText()}</span>
+                </Match>
+                <Match when={props.expanded}>
+                  <span>Hide steps</span>
+                </Match>
+                <Match when={!props.expanded}>
+                  <span>Show steps</span>
+                </Match>
+              </Switch>
+
+              <span aria-hidden="true">·</span>
+              <span aria-live="off">{durationText()}</span>
+            </button>
+          </div>
+        </Show>
+
+        <Show when={props.expanded && assistantMessages().length > 0}>
+          <div class="mt-3 space-y-3" aria-hidden={props.isLast && props.isGenerating}>
+            <For each={assistantMessages()}>
+              {assistant => (
+                <AssistantMessage
+                  messageID={assistant.id}
+                  sessionID={props.sessionID}
+                  fallbackParts={assistant.parts as import("@renderer/types/sync").Part[]}
+                  hideSummary
+                  hideReasoning={!props.isLast || !props.isGenerating}
+                  hideFinalTextPart={
+                    hideResponsePart() && !props.isGenerating && assistant.id === lastAssistantID()
+                  }
+                />
+              )}
+            </For>
+          </div>
+        </Show>
+
+        <div class="sr-only" aria-live="polite">
+          {!props.isGenerating && responseText() ? responseText() : ""}
+        </div>
+        <Show when={!props.isGenerating && responseText()}>
+          <div class="border-border/30 bg-card/30 mt-3 rounded-xl border px-4 py-3">
+            <div class="mb-2 flex items-center justify-between">
+              <div class="text-muted-foreground text-xs font-medium">Response</div>
               <button
-                class={cn(
-                  "bg-card/30 border-border/30 hover:bg-card/50 rounded-lg border px-3 py-1.5 text-xs",
-                  "text-muted-foreground inline-flex items-center gap-2 transition-colors"
-                )}
-                onClick={props.onToggleExpanded}
-                aria-expanded={props.expanded}
+                onMouseDown={event => event.preventDefault()}
+                onClick={event => {
+                  event.stopPropagation();
+                  void handleCopy();
+                }}
+                class="bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded px-2 py-1 text-xs"
+                aria-label={copied() ? "Copied" : "Copy"}
               >
-                <Switch>
-                  <Match when={props.isLast && props.isGenerating}>
-                    <span class="bg-primary/70 inline-block h-2 w-2 animate-pulse rounded-full" />
-                  </Match>
-                  <Match when={!props.expanded}>
-                    <span>▽</span>
-                  </Match>
-                  <Match when={props.expanded}>
-                    <span>△</span>
-                  </Match>
-                </Switch>
-
-                <Switch>
-                  <Match when={props.isLast && props.isGenerating}>
-                    <span>{statusText()}</span>
-                  </Match>
-                  <Match when={props.expanded}>
-                    <span>Hide steps</span>
-                  </Match>
-                  <Match when={!props.expanded}>
-                    <span>Show steps</span>
-                  </Match>
-                </Switch>
-
-                <span aria-hidden="true">·</span>
-                <span aria-live="off">{durationText()}</span>
+                {copied() ? "Copied" : "Copy"}
               </button>
             </div>
-          </Show>
-
-          <Show when={props.expanded && assistantMessages().length > 0}>
-            <div class="mt-3 space-y-3" aria-hidden={props.isLast && props.isGenerating}>
-              <For each={assistantMessages()}>
-                {assistant => (
-                  <AssistantMessage
-                    messageID={assistant.id}
-                    sessionID={props.sessionID}
-                    fallbackParts={assistant.parts as import("@renderer/types/sync").Part[]}
-                    hideSummary
-                    hideReasoning={!props.isLast || !props.isGenerating}
-                    hideFinalTextPart={
-                      hideResponsePart() &&
-                      !props.isGenerating &&
-                      assistant.id === lastAssistantID()
-                    }
-                  />
-                )}
-              </For>
-            </div>
-          </Show>
-
-          <div class="sr-only" aria-live="polite">
-            {!props.isGenerating && responseText() ? responseText() : ""}
+            <Markdown text={responseText()} class="prose-p:m-0" />
           </div>
-          <Show when={!props.isGenerating && responseText()}>
-            <div class="border-border/30 bg-card/30 mt-3 rounded-xl border px-4 py-3">
-              <div class="mb-2 flex items-center justify-between">
-                <div class="text-muted-foreground text-xs font-medium">Response</div>
-                <button
-                  onMouseDown={event => event.preventDefault()}
-                  onClick={event => {
-                    event.stopPropagation();
-                    void handleCopy();
-                  }}
-                  class="bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded px-2 py-1 text-xs"
-                  aria-label={copied() ? "Copied" : "Copy"}
-                >
-                  {copied() ? "Copied" : "Copy"}
-                </button>
-              </div>
-              <Markdown text={responseText()} class="prose-p:m-0" />
-            </div>
-          </Show>
-        </div>
-      )}
+        </Show>
+      </div>
     </Show>
   );
 };

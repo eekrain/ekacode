@@ -11,7 +11,7 @@ import {
   useMessageStore,
   usePartStore,
   useSessionStore,
-} from "@ekacode/desktop/presentation/providers/store-provider";
+} from "@renderer/presentation/providers/store-provider";
 import { createSignal, For } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -38,7 +38,7 @@ describe("Integration: Reconnect and Catch-up Rendering", () => {
     // Mock fetch for catch-up requests
     originalFetch = global.fetch;
     mockFetch = vi.fn();
-    global.fetch = mockFetch;
+    global.fetch = mockFetch as unknown as typeof fetch;
 
     // Store original EventSource
     originalEventSource = global.EventSource;
@@ -58,6 +58,11 @@ describe("Integration: Reconnect and Catch-up Rendering", () => {
     const [, messageActions] = useMessageStore();
     const [, partActions] = usePartStore();
     const [sessionState] = useSessionStore();
+    const toText = (value: unknown): string => (typeof value === "string" ? value : "");
+    const getPartText = (part: unknown): string => {
+      if (!part || typeof part !== "object") return "";
+      return toText((part as { text?: unknown }).text);
+    };
 
     const messages = () => {
       const sessionId = props.sessionId();
@@ -94,14 +99,16 @@ describe("Integration: Reconnect and Catch-up Rendering", () => {
           <For each={messages()}>
             {msg => (
               <div data-role={msg.role} data-message-id={msg.id} data-testid={`message-${msg.id}`}>
-                <span data-testid="message-content">{msg.content ?? ""}</span>
+                <span data-testid="message-content">
+                  {toText((msg as { content?: unknown }).content)}
+                </span>
                 {msg.role === "assistant" && (
                   <div data-testid="assistant-parts">
                     <For each={partActions.getByMessage(msg.id)}>
                       {part => (
                         <div data-part-id={part.id} data-part-type={part.type}>
-                          {part.type === "text" && (part.text || "")}
-                          {part.type === "tool-call" && "[Tool Call]"}
+                          {part.type === "text" ? getPartText(part) : null}
+                          {part.type === "tool-call" ? "[Tool Call]" : null}
                         </div>
                       )}
                     </For>
@@ -117,7 +124,7 @@ describe("Integration: Reconnect and Catch-up Rendering", () => {
           data-visible={showTypingIndicator() ? "true" : "false"}
           style={{ display: showTypingIndicator() ? "block" : "none" }}
         >
-          <span>Typing... (content-priority: {!hasAssistantContent()})</span>
+          <span>{`Typing... (content-priority: ${!hasAssistantContent()})`}</span>
         </div>
       </div>
     );

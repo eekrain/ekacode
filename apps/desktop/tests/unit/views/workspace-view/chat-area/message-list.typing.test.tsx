@@ -15,6 +15,8 @@ vi.mock("@renderer/presentation/hooks/use-messages", () => ({
   useMessages: vi.fn(() => ({
     list: vi.fn(() => []),
     userMessages: vi.fn(() => []),
+    assistantMessages: vi.fn(() => []),
+    count: vi.fn(() => 0),
     get: vi.fn(() => undefined),
   })),
 }));

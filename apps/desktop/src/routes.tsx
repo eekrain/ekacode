@@ -1,11 +1,21 @@
+import { AppProvider } from "@renderer/presentation/providers/app-provider";
 import HomeView from "@renderer/views/home-view/home-view";
 import SettingsView from "@renderer/views/settings-view";
 import WorkspaceView from "@renderer/views/workspace-view";
 import { Route, Router } from "@solidjs/router";
 
-export default function Routes() {
+interface RoutesProps {
+  config: {
+    baseUrl: string;
+    token?: string;
+  };
+}
+
+export default function Routes(props: RoutesProps) {
   return (
-    <Router>
+    <Router
+      root={routerProps => <AppProvider config={props.config}>{routerProps.children}</AppProvider>}
+    >
       <Route path="/" component={HomeView} />
       <Route path="/workspace/:id" component={WorkspaceView} />
       <Route path="/settings" component={SettingsView} />
