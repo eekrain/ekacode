@@ -4,7 +4,7 @@
  * Displays the current status of a run (planning, executing, done, error)
  */
 
-import type { RunCardData } from "@/chat/types/ui-message";
+import type { RunCardData } from "@/core/chat/types/ui-message";
 import type { Component } from "solid-js";
 
 export interface StatusChipProps {

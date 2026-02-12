@@ -1,13 +1,13 @@
-import type { DiffChange, FileTab, TerminalOutput } from "@/chat/types";
-import { cn } from "@/shared/utils";
+import type { DiffChange, FileTab, TerminalOutput } from "@/core/chat/types";
+import { cn } from "@/core/shared/utils";
 import { createEffect, createMemo, createSignal, onMount, Show } from "solid-js";
 
 // Import workspace components
-import { ChatProvider, useChatContext } from "@/chat/contexts/chat-provider";
 import { PermissionDialog } from "@/components/permissions/permission-dialog";
 import { ResizeableHandle } from "@/components/shared/resizeable-handle";
-import { useWorkspace, WorkspaceProvider } from "@/core/providers";
-import { usePermissions } from "@/permissions/hooks/use-permissions";
+import { usePermissions } from "@/core/permissions/hooks/use-permissions";
+import { ChatProvider, useChatContext } from "@/state/contexts/chat-provider";
+import { useWorkspace, WorkspaceProvider } from "@/state/providers";
 import Resizable from "@corvu/resizable";
 import { ChatPanel } from "./chat-area/chat-area";
 import { LeftSide } from "./left-side/left-side";

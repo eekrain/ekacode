@@ -29,11 +29,11 @@
  * ```
  */
 
-import { parseChatStream } from "@/chat/services/chat-stream-parser";
-import type { ChatUIMessage } from "@/chat/types/ui-message";
-import { useMessageStore, usePartStore, useSessionStore } from "@/core/providers";
-import type { EkacodeApiClient } from "@/services/api/api-client";
-import { createLogger } from "@/shared/logger";
+import { parseChatStream } from "@/core/chat/services/chat-stream-parser";
+import type { ChatUIMessage } from "@/core/chat/types/ui-message";
+import type { EkacodeApiClient } from "@/core/services/api/api-client";
+import { createLogger } from "@/core/shared/logger";
+import { useMessageStore, usePartStore, useSessionStore } from "@/state/providers";
 import { createEffect, createSignal, onCleanup, type Accessor } from "solid-js";
 import { v7 as uuidv7 } from "uuid";
 import { useMessages } from "./use-messages";

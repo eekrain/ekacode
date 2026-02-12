@@ -1,6 +1,6 @@
-import type { StreamEvent, UseStreamDebuggerResult } from "@/chat/hooks/use-stream-debugger";
 import { CollapsibleJson } from "@/components/shared/collapsible-json";
-import { cn } from "@/shared/utils";
+import type { StreamEvent, UseStreamDebuggerResult } from "@/core/chat/hooks/use-stream-debugger";
+import { cn } from "@/core/shared/utils";
 import { Component, createMemo, createSignal, For, Show } from "solid-js";
 
 interface StreamDebuggerPanelProps {

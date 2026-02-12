@@ -11,7 +11,7 @@
  * - Configurable initial expansion depth
  * - Handles circular references gracefully
  */
-import { cn } from "@/shared/utils";
+import { cn } from "@/core/shared/utils";
 import { Component, createSignal, For, Match, mergeProps, Show, Switch } from "solid-js";
 
 interface CollapsibleJsonProps {

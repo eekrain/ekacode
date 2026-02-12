@@ -11,9 +11,9 @@
  * Part of Phase 5: Hooks Refactor - Chat and permissions are now
  * provided by ChatProvider instead of WorkspaceProvider.
  */
-import type { WorkspaceState } from "@/chat/types";
-import { EkacodeApiClient, type SessionInfo } from "@/services/api/api-client";
-import { useSession } from "@/session/hooks/use-session";
+import type { WorkspaceState } from "@/core/chat/types";
+import { EkacodeApiClient, type SessionInfo } from "@/core/services/api/api-client";
+import { useSession } from "@/state/hooks/use-session";
 import { useParams } from "@solidjs/router";
 import {
   createContext,

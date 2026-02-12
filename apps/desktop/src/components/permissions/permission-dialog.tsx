@@ -4,8 +4,8 @@
  * Displays when a tool requires user approval before execution.
  * Shows tool name, arguments, and allow/deny buttons.
  */
-import type { PermissionRequestData } from "@/chat/types/ui-message";
-import { cn } from "@/shared/utils";
+import type { PermissionRequestData } from "@/core/chat/types/ui-message";
+import { cn } from "@/core/shared/utils";
 import { Component, Show } from "solid-js";
 
 interface PermissionDialogProps {

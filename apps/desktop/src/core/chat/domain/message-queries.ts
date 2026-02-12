@@ -4,7 +4,7 @@
  * Query functions for message data projections.
  */
 
-import type { MessageState, MessageWithId } from "@/chat/stores/message-store";
+import type { MessageState, MessageWithId } from "@/state/stores/message-store";
 
 export interface MessageQueries {
   getBySession: (sessionId: string) => MessageWithId[];

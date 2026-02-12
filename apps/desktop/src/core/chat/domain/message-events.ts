@@ -5,9 +5,9 @@
  * Uses dependency injection for testability.
  */
 
-import type { MessageActions } from "@/chat/stores/message-store";
-import type { PartActions } from "@/chat/stores/part-store";
-import type { SessionActions } from "@/chat/stores/session-store";
+import type { MessageActions } from "@/state/stores/message-store";
+import type { PartActions } from "@/state/stores/part-store";
+import type { SessionActions } from "@/state/stores/session-store";
 import type { MessageUpdatedPayload } from "@ekacode/shared/event-types";
 
 export interface MessageHandlerDependencies {

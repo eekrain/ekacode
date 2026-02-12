@@ -1,5 +1,5 @@
-import type { Part } from "@/chat/types/sync";
 import { Markdown } from "@/components/shared/markdown";
+import type { Part } from "@/core/chat/types/sync";
 import type { Part as CorePart, ToolPart } from "@ekacode/core/chat";
 import { createMemo, For, Show, type Component, type JSX } from "solid-js";
 import { Part as PartComponent } from "./message-part";

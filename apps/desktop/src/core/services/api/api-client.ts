@@ -12,8 +12,8 @@
  * - Comprehensive logging for all operations
  */
 
-import type { ChatUIMessage } from "@/chat/types/ui-message";
-import { createLogger } from "@/shared/logger";
+import type { ChatUIMessage } from "@/core/chat/types/ui-message";
+import { createLogger } from "@/core/shared/logger";
 
 const logger = createLogger("desktop:api");
 

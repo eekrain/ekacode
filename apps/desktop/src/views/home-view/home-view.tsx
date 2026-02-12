@@ -1,4 +1,4 @@
-import type { RecentProject, WorkspaceState } from "@/chat/types";
+import type { RecentProject, WorkspaceState } from "@/core/chat/types";
 import { useNavigate } from "@solidjs/router";
 import { createSignal, onMount } from "solid-js";
 import { CloneDialog } from "./components/clone-dialog";

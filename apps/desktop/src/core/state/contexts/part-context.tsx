@@ -7,8 +7,13 @@
  * Part of Phase 4: Component Refactor with Domain Contexts
  */
 
-import { getById, getByMessage, getTextParts, getToolCallParts } from "@/chat/domain/part-queries";
-import { usePartStore } from "@/core/providers";
+import {
+  getById,
+  getByMessage,
+  getTextParts,
+  getToolCallParts,
+} from "@/core/chat/domain/part-queries";
+import { usePartStore } from "@/state/providers";
 import type { Part } from "@ekacode/shared/event-types";
 import { Component, createContext, JSX, useContext } from "solid-js";
 

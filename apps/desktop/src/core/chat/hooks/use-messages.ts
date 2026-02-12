@@ -21,9 +21,9 @@
  * ```
  */
 
-import type { MessageWithId } from "@/chat/stores";
-import { useMessageStore, usePartStore } from "@/core/providers";
-import { createLogger } from "@/shared/logger";
+import { createLogger } from "@/core/shared/logger";
+import { useMessageStore, usePartStore } from "@/state/providers";
+import type { MessageWithId } from "@/state/stores/message-store";
 import type { Part } from "@ekacode/shared/event-types";
 import { createMemo, onCleanup, type Accessor } from "solid-js";
 import { toTimeline, type ChatTimelineItem } from "./timeline-projection";

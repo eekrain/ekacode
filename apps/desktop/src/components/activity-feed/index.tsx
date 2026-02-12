@@ -5,7 +5,7 @@
  * Shows all events in a flat list with timestamps.
  */
 
-import type { AgentEvent, ChatUIMessage, ThoughtData } from "@/chat/types/ui-message";
+import type { AgentEvent, ChatUIMessage, ThoughtData } from "@/core/chat/types/ui-message";
 import { For, Show, createMemo, type Component } from "solid-js";
 import { MessageParts } from "../message-parts";
 import { ActionRow } from "./action-row";

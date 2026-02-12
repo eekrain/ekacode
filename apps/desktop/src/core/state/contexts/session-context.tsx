@@ -12,9 +12,9 @@ import {
   getByDirectory,
   getById,
   getStatus,
-} from "@/chat/domain/session-queries";
-import type { SessionInfo } from "@/chat/stores/session-store";
-import { useSessionStore } from "@/core/providers";
+} from "@/core/chat/domain/session-queries";
+import { useSessionStore } from "@/state/providers";
+import type { SessionInfo } from "@/state/stores/session-store";
 import type { SessionStatusPayload } from "@ekacode/shared/event-types";
 import { Component, createContext, JSX, useContext } from "solid-js";
 

@@ -1,4 +1,4 @@
-import { cn } from "@/shared/utils";
+import { cn } from "@/core/shared/utils";
 import { createSignal, JSX, mergeProps, onCleanup, onMount, Show } from "solid-js";
 
 interface ResizablePanelProps {

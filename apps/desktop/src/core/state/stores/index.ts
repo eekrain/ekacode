@@ -16,5 +16,5 @@ export { createEmptyMessageState, createMessageStore } from "./message-store";
 export { createEmptyPartState, createPartStore } from "./part-store";
 export { createEmptySessionState, createSessionStore } from "./session-store";
 
-// Provider-scoped hooks are in presentation/providers/store-provider.tsx
+// Provider-scoped hooks are in state/providers/store-provider.tsx
 // DO NOT create singleton instances here - violates SSR safety and test isolation

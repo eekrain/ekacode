@@ -4,7 +4,7 @@
  * Pure query functions for part data.
  */
 
-import type { PartState } from "@/chat/stores/part-store";
+import type { PartState } from "@/state/stores/part-store";
 import type { Part } from "@ekacode/shared/event-types";
 
 /**

@@ -8,7 +8,7 @@
  * Part of Phase 4: Component Refactor with Domain Contexts
  */
 
-import { cn } from "@/shared/utils";
+import { cn } from "@/core/shared/utils";
 import { Component } from "solid-js";
 
 export interface TypingIndicatorProps {

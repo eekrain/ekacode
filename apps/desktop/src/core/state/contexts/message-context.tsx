@@ -7,8 +7,8 @@
  * Part of Phase 4: Component Refactor with Domain Contexts
  */
 
-import type { MessageWithId } from "@/chat/stores/message-store";
-import { useMessageStore, usePartStore } from "@/core/providers";
+import { useMessageStore, usePartStore } from "@/state/providers";
+import type { MessageWithId } from "@/state/stores/message-store";
 import { Component, createContext, JSX, useContext } from "solid-js";
 
 export type MessageStatus = "unknown" | "pending" | "streaming" | "complete" | "error";

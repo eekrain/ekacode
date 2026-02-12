@@ -9,13 +9,16 @@
  */
 
 import { createLogger } from "@/shared/logger";
+import type { MessageActions } from "@/state/stores/message-store";
+import type { PartActions } from "@/state/stores/part-store";
+import type {
+  SessionInfo as DomainSessionInfo,
+  SessionActions,
+} from "@/state/stores/session-store";
 import { EventDeduplicator } from "@ekacode/shared/event-deduplication";
 import { validateEventComprehensive } from "@ekacode/shared/event-guards";
 import { EventOrderingBuffer } from "@ekacode/shared/event-ordering";
 import type { Part, ServerEvent } from "@ekacode/shared/event-types";
-import type { MessageActions } from "../stores/message-store";
-import type { PartActions } from "../stores/part-store";
-import type { SessionInfo as DomainSessionInfo, SessionActions } from "../stores/session-store";
 
 const logger = createLogger("event-router-adapter");
 

@@ -13,7 +13,7 @@ import type {
   RunCardData,
   RunFileData,
   RunGroupData,
-} from "@/chat/types/ui-message";
+} from "@/core/chat/types/ui-message";
 import { For, Show, createMemo, type Component } from "solid-js";
 import { ThoughtIndicator } from "../activity-feed/thought-indicator";
 import { FileRow } from "./file-row";

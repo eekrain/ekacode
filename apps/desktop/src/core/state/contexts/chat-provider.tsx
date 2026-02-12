@@ -28,9 +28,9 @@
  * ```
  */
 
-import type { EkacodeApiClient } from "@/services/api/api-client";
+import { useChat } from "@/core/chat/hooks/use-chat";
+import type { EkacodeApiClient } from "@/core/services/api/api-client";
 import { createContext, useContext, type Accessor, type JSX, type ParentComponent } from "solid-js";
-import { useChat } from "../hooks/use-chat";
 
 /**
  * Chat context value

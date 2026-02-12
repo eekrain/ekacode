@@ -11,9 +11,9 @@
  * - Connection status tracking
  * - Comprehensive logging
  */
-import type { PermissionRequestData } from "@/chat/types/ui-message";
-import type { EkacodeApiClient } from "@/services/api/api-client";
-import { createLogger } from "@/shared/logger";
+import type { PermissionRequestData } from "@/core/chat/types/ui-message";
+import type { EkacodeApiClient } from "@/core/services/api/api-client";
+import { createLogger } from "@/core/shared/logger";
 import { createEffect, createSignal, onCleanup, type Accessor } from "solid-js";
 
 const logger = createLogger("desktop:permissions");

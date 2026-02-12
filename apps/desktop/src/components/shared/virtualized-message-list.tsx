@@ -5,7 +5,7 @@
  * Part of Phase 6: Cleanup & Optimization
  */
 
-import type { ChatMessage } from "@/chat/hooks";
+import type { ChatMessage } from "@/core/chat/hooks/use-messages";
 import { VirtualList } from "@solid-primitives/virtual";
 import { Accessor, Component, JSX, createEffect, onMount } from "solid-js";
 

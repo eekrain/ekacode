@@ -11,9 +11,9 @@
  * - Performance metrics (tokens/sec, duration)
  * - Manual clear/reset
  */
+import type { ChatState } from "@/core/chat/types/ui-message";
 import { createSignal, type Accessor } from "solid-js";
 import { unwrap } from "solid-js/store";
-import type { ChatState } from "../types/ui-message";
 
 export type StreamEventType =
   | "text-delta"

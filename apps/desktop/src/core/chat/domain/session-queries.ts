@@ -4,7 +4,7 @@
  * Pure query functions for session data.
  */
 
-import type { SessionInfo, SessionState } from "@/chat/stores/session-store";
+import type { SessionInfo, SessionState } from "@/state/stores/session-store";
 
 /**
  * Get sessions by directory

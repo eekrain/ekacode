@@ -5,11 +5,11 @@
  * Uses SolidJS batch() for efficient reactive updates when handling multiple events.
  */
 
+import type { MessageActions } from "@/state/stores/message-store";
+import type { PartActions } from "@/state/stores/part-store";
+import type { SessionActions } from "@/state/stores/session-store";
 import type { AllServerEvents, EventType } from "@ekacode/shared/event-types";
 import { batch } from "solid-js";
-import type { MessageActions } from "../stores/message-store";
-import type { PartActions } from "../stores/part-store";
-import type { SessionActions } from "../stores/session-store";
 
 export interface EventRouterDependencies {
   messageActions: MessageActions;

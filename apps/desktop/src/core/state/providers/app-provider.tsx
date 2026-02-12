@@ -19,15 +19,15 @@
  * ```
  */
 
-import { MessageProvider } from "@/chat/contexts/message-context";
-import { PartProvider } from "@/chat/contexts/part-context";
-import { UIProvider } from "@/chat/contexts/ui-context";
-import { applyEventToStores } from "@/chat/domain/event-router-adapter";
-import { StoreProvider, useStores } from "@/core/providers";
-import { createSDKClient } from "@/services/api/sdk-client";
-import { createSSEManager } from "@/services/sse/sse-manager";
-import { SessionProvider } from "@/session/contexts/session-context";
-import { createLogger } from "@/shared/logger";
+import { applyEventToStores } from "@/core/chat/domain/event-router-adapter";
+import { createSDKClient } from "@/core/services/api/sdk-client";
+import { createSSEManager } from "@/core/services/sse/sse-manager";
+import { createLogger } from "@/core/shared/logger";
+import { MessageProvider } from "@/state/contexts/message-context";
+import { PartProvider } from "@/state/contexts/part-context";
+import { SessionProvider } from "@/state/contexts/session-context";
+import { UIProvider } from "@/state/contexts/ui-context";
+import { StoreProvider, useStores } from "@/state/providers";
 import { Component, JSX, onCleanup, onMount } from "solid-js";
 
 interface AppConfig {

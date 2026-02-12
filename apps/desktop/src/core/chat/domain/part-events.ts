@@ -4,8 +4,8 @@
  * Handles part-related SSE events and updates stores.
  */
 
-import type { MessageActions } from "@/chat/stores/message-store";
-import type { PartActions } from "@/chat/stores/part-store";
+import type { MessageActions } from "@/state/stores/message-store";
+import type { PartActions } from "@/state/stores/part-store";
 import type {
   MessagePartRemovedPayload,
   MessagePartUpdatedPayload,

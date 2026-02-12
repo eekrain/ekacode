@@ -12,10 +12,10 @@
  * - Copy button for args/results
  */
 
-import type { ToolCall } from "@/chat/types";
 import { Collapsible } from "@/components/shared/collapsible";
 import { Icon } from "@/components/shared/icon";
-import { cn } from "@/shared/utils";
+import type { ToolCall } from "@/core/chat/types";
+import { cn } from "@/core/shared/utils";
 import { Component, Show, createSignal } from "solid-js";
 
 interface ToolCallBlockProps {

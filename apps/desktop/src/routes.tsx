@@ -1,4 +1,4 @@
-import { AppProvider } from "@/core/providers";
+import { AppProvider } from "@/state/providers";
 import HomeView from "@/views/home-view/home-view";
 import SettingsView from "@/views/settings-view";
 import WorkspaceView from "@/views/workspace-view";

@@ -4,9 +4,9 @@
  * Handles session-related SSE events and updates stores.
  */
 
-import type { MessageActions } from "@/chat/stores/message-store";
-import type { PartActions } from "@/chat/stores/part-store";
-import type { SessionActions } from "@/chat/stores/session-store";
+import type { MessageActions } from "@/state/stores/message-store";
+import type { PartActions } from "@/state/stores/part-store";
+import type { SessionActions } from "@/state/stores/session-store";
 import type {
   ServerInstanceDisposedPayload,
   SessionCreatedPayload,

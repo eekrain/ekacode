@@ -24,10 +24,10 @@
  * ```
  */
 
-import { createMessageStore, createPartStore, createSessionStore } from "@/chat/stores";
-import type { MessageActions, MessageState } from "@/chat/stores/message-store";
-import type { PartActions, PartState } from "@/chat/stores/part-store";
-import type { SessionActions, SessionState } from "@/chat/stores/session-store";
+import { createMessageStore, createPartStore, createSessionStore } from "@/state/stores";
+import type { MessageActions, MessageState } from "@/state/stores/message-store";
+import type { PartActions, PartState } from "@/state/stores/part-store";
+import type { SessionActions, SessionState } from "@/state/stores/session-store";
 import { Component, createContext, JSX, onCleanup, useContext } from "solid-js";
 
 /**

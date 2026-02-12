@@ -4,7 +4,7 @@
  * Displays terminal command output in a dark terminal-like card.
  */
 
-import type { TerminalData } from "@/chat/types/ui-message";
+import type { TerminalData } from "@/core/chat/types/ui-message";
 import { Show, type Component } from "solid-js";
 
 export interface TerminalCardProps {

@@ -9,14 +9,14 @@
  * - Each part type has its own component
  * - Custom data-* parts for RLM state, progress, etc.
  */
+import { Markdown } from "@/components/shared/markdown";
 import type {
   ProgressData,
   RLMStateData,
   ToolCallPartData,
   ToolResultPartData,
-} from "@/chat/types/ui-message";
-import { Markdown } from "@/components/shared/markdown";
-import { cn } from "@/shared/utils";
+} from "@/core/chat/types/ui-message";
+import { cn } from "@/core/shared/utils";
 import { Component, For, Match, Show, Switch, createSignal } from "solid-js";
 
 /**
