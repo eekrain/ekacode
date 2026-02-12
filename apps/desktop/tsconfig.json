@@ -23,6 +23,8 @@
       "@ekacode/*": ["../../packages/*/src"],
       "@/*": ["src/*"],
       "@/components": ["src/components"],
+      "@/components/*": ["src/components/*"],
+      "@/components/parts": ["src/components/parts"],
       "@/views": ["src/views"],
       "@/core": ["src/core"],
       "@/core/*": ["src/core/*"],
