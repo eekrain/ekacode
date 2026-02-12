@@ -8,13 +8,14 @@ import { createPrefix } from "./formatters";
 import type { Logger, LoggerConfig, LoggerContext } from "./types";
 
 /**
- * Shared transport instance to prevent multiple exit listeners
+ * Shared transports keyed by config.
  *
  * Pino's pino.transport() registers a process.on('exit') listener for each
- * instance. By sharing a single transport across all loggers, we prevent
- * MaxListenersExceededWarning.
+ * instance. We share by transport config so loggers with identical needs reuse
+ * one transport, while differing configs (e.g., file output on/off) don't
+ * incorrectly share state.
  */
-let sharedTransport: ReturnType<typeof pino.transport> | null = null;
+const sharedTransports = new Map<string, ReturnType<typeof pino.transport>>();
 
 /**
  * Get or create the shared transport
@@ -25,8 +26,16 @@ function getSharedTransport(
   level: string,
   filePath?: string
 ): ReturnType<typeof pino.transport> {
-  if (sharedTransport) {
-    return sharedTransport;
+  const transportKey = JSON.stringify({
+    prettyPrint,
+    fileOutput,
+    level,
+    filePath: filePath || null,
+  });
+
+  const existing = sharedTransports.get(transportKey);
+  if (existing) {
+    return existing;
   }
 
   const targets: Array<{
@@ -43,11 +52,8 @@ function getSharedTransport(
         colorize: true,
         translateTime: "HH:MM:ss",
         ignore: "pid,hostname",
-        messageFormat: (log: Record<string, unknown>) => {
-          const prefix = (log.prefix as string) || "";
-          const msg = (log.msg as string) || "";
-          return prefix ? `${prefix} ${msg}` : msg;
-        },
+        // Must remain structured-cloneable because pino.transport runs in a worker thread.
+        messageFormat: "{prefix} {msg}",
         customColors: "debug:blue,info:green,warn:yellow,error:red",
       },
     });
@@ -73,11 +79,13 @@ function getSharedTransport(
     });
   }
 
-  sharedTransport = pino.transport({
+  const transport = pino.transport({
     targets,
   });
 
-  return sharedTransport;
+  sharedTransports.set(transportKey, transport);
+
+  return transport;
 }
 
 /**

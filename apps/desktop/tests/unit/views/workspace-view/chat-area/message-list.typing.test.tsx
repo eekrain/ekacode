@@ -16,6 +16,8 @@ vi.mock("@renderer/presentation/hooks/use-messages", () => ({
     list: vi.fn(() => []),
     userMessages: vi.fn(() => []),
     assistantMessages: vi.fn(() => []),
+    timeline: vi.fn(() => []),
+    hasRenderableAssistantContent: vi.fn(() => false),
     count: vi.fn(() => 0),
     get: vi.fn(() => undefined),
   })),

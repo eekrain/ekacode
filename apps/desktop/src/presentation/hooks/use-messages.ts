@@ -26,6 +26,7 @@ import type { MessageWithId } from "@renderer/core/stores";
 import { useMessageStore, usePartStore } from "@renderer/presentation/providers/store-provider";
 import { createMemo, onCleanup, type Accessor } from "solid-js";
 import { createLogger } from "../../lib/logger";
+import { toTimeline, type ChatTimelineItem } from "./timeline-projection";
 
 const logger = createLogger("desktop:hooks:use-messages");
 
@@ -63,6 +64,12 @@ export interface UseMessagesResult {
 
   /** Assistant messages only */
   assistantMessages: Accessor<ChatMessage[]>;
+
+  /** Chronological timeline items for rendering */
+  timeline: Accessor<ChatTimelineItem[]>;
+
+  /** Whether assistant content is already renderable */
+  hasRenderableAssistantContent: Accessor<boolean>;
 }
 
 /**
@@ -127,10 +134,17 @@ export function useMessages(sessionId: Accessor<string | null>): UseMessagesResu
     const messages = messageActions.getBySession(sid);
     logger.debug("Projecting messages", { sessionId: sid, count: messages.length });
 
-    return messages.map(msg => {
+    const projected = messages.map(msg => {
       const parts = partActions.getByMessage(msg.id);
       return toChatMessage(msg, parts);
     });
+
+    projected.sort((a, b) => {
+      if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
+      return a.id.localeCompare(b.id);
+    });
+
+    return projected;
   });
 
   /**
@@ -172,6 +186,19 @@ export function useMessages(sessionId: Accessor<string | null>): UseMessagesResu
    */
   const assistantMessages = createMemo(() => list().filter(m => m.role === "assistant"));
 
+  const timeline = createMemo(() => toTimeline(list()));
+
+  const hasRenderableAssistantContent = createMemo(() => {
+    return assistantMessages().some(message =>
+      message.parts.some(part => {
+        if (part.type === "text") {
+          return typeof part.text === "string" && part.text.trim().length > 0;
+        }
+        return part.type !== "step-start" && part.type !== "step-finish";
+      })
+    );
+  });
+
   /**
    * Cleanup on unmount
    */
@@ -186,5 +213,7 @@ export function useMessages(sessionId: Accessor<string | null>): UseMessagesResu
     lastAssistant,
     userMessages,
     assistantMessages,
+    timeline,
+    hasRenderableAssistantContent,
   };
 }

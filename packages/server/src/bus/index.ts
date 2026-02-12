@@ -265,6 +265,16 @@ export async function publish<Definition extends BusEventDefinition>(
   };
 
   logger.info("publishing", { type: def.type, eventId, sequence, sessionID });
+  if (process.env.EKACODE_LOG_BUS_EVENT_PAYLOADS === "true") {
+    logger.debug("publishing payload", {
+      type: def.type,
+      eventId,
+      sequence,
+      sessionID,
+      directory,
+      properties,
+    });
+  }
 
   const pending: Array<void | Promise<void>> = [];
 

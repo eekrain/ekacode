@@ -33,11 +33,8 @@ export function logFormatter() {
         colorize: true,
         translateTime: "HH:MM:ss",
         ignore: "pid,hostname",
-        messageFormat: (log: Record<string, unknown>) => {
-          const prefix = (log.prefix as string) || "";
-          const msg = (log.msg as string) || "";
-          return prefix ? `${prefix} ${msg}` : msg;
-        },
+        // Keep this as a string so transport options stay clone-safe for worker threads.
+        messageFormat: "{prefix} {msg}",
         customColors: "debug:blue,info:green,warn:yellow,error:red",
       },
     },

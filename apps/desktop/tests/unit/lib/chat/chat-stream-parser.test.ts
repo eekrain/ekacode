@@ -15,10 +15,36 @@ import {
   rawProtocolFixture,
   reasoningFixture,
   simpleTextFixture,
+  type StreamFixture,
   toolCallFixture,
 } from "@ekacode/shared";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { createStreamParser, parseChatStream } from "../../../../src/lib/chat/chat-stream-parser";
+
+const recordedFixtureCandidates = [
+  path.resolve(process.cwd(), "tests/fixtures/recorded/chat-stream.from-log.json"),
+  path.resolve(process.cwd(), "apps/desktop/tests/fixtures/recorded/chat-stream.from-log.json"),
+];
+
+const recordedFixturePath = recordedFixtureCandidates.find(candidate => existsSync(candidate));
+
+function loadRecordedStreamFixtures(): StreamFixture[] {
+  if (!recordedFixturePath || !existsSync(recordedFixturePath)) return [];
+  const raw = readFileSync(recordedFixturePath, "utf8");
+  const parsed = JSON.parse(raw) as unknown;
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter(
+    (fixture): fixture is StreamFixture =>
+      typeof fixture === "object" &&
+      fixture !== null &&
+      typeof (fixture as StreamFixture).name === "string" &&
+      Array.isArray((fixture as StreamFixture).chunks)
+  );
+}
+
+const recordedFixtures = loadRecordedStreamFixtures();
 
 describe("chat-stream-parser", () => {
   describe("parseChatStream", () => {
@@ -135,6 +161,21 @@ describe("chat-stream-parser", () => {
       expect(onTextDelta).toHaveBeenNthCalledWith(1, firstMessageId, "Hello");
       expect(onTextDelta).toHaveBeenNthCalledWith(2, firstMessageId, " world");
       expect(onComplete).toHaveBeenCalledWith("stop");
+    });
+
+    const recordedTest = recordedFixtures.length > 0 ? it : it.skip;
+    recordedTest("parses recorded stream fixture generated from server logs", async () => {
+      const fixture = recordedFixtures[0];
+      const reader = createMockStreamReader(fixture);
+      const onTextDelta = vi.fn();
+      const onDataPart = vi.fn();
+      const onComplete = vi.fn();
+
+      await parseChatStream(reader, { onTextDelta, onDataPart, onComplete });
+
+      expect(onComplete).toHaveBeenCalledTimes(1);
+      expect(onComplete).toHaveBeenCalledWith(expect.any(String));
+      expect(onTextDelta.mock.calls.length + onDataPart.mock.calls.length).toBeGreaterThan(0);
     });
 
     it("should handle partial chunks across boundaries", async () => {

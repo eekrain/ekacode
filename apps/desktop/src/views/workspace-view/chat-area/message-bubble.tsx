@@ -31,7 +31,7 @@ export const MessageBubble: Component<MessageBubbleProps> = props => {
 
   const isUser = () => props.message.info.role === "user";
 
-  // Message parts are provided by SessionTurn via useMessages projection.
+  // Message parts are provided by timeline projection in MessageList.
   const parts = () => {
     return props.message.parts ?? [];
   };

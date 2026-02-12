@@ -1,12 +1,13 @@
+import type { Part as SharedPart } from "@ekacode/shared/event-types";
 import { Icon } from "@renderer/components/icon";
 import { createAutoScroll } from "@renderer/hooks/create-auto-scroll";
 import { createLogger } from "@renderer/lib/logger";
 import { cn } from "@renderer/lib/utils";
 import { useMessages } from "@renderer/presentation/hooks/use-messages";
-import { Component, createEffect, createMemo, For, Show } from "solid-js";
-import { createStore } from "solid-js/store";
-import { ThinkingBubble } from "./message-bubble";
-import { SessionTurn } from "./session-turn";
+import type { Message, Part } from "@renderer/types/sync";
+import { Component, createEffect, For, Show } from "solid-js";
+import AssistantMessage from "../../../components/assistant-message";
+import { MessageBubble, ThinkingBubble } from "./message-bubble";
 
 interface MessageListProps {
   /** Current session ID */
@@ -23,11 +24,20 @@ interface MessageListProps {
 
 const logger = createLogger("desktop:views:message-list");
 
-// Custom equality for string ID arrays
-function idsEqual(a: readonly string[], b: readonly string[]): boolean {
-  if (a === b) return true;
-  if (a.length !== b.length) return false;
-  return a.every((x, i) => x === b[i]);
+function toSyncParts(parts: SharedPart[], messageId: string, sessionId: string): Part[] {
+  return parts.map((part, index) => {
+    const raw = part as Record<string, unknown>;
+    const rawMessageId = raw.messageID;
+    const rawSessionId = raw.sessionID;
+
+    return {
+      ...raw,
+      id: typeof part.id === "string" ? part.id : `${messageId}-part-${index}`,
+      type: part.type,
+      messageID: typeof rawMessageId === "string" ? rawMessageId : messageId,
+      sessionID: typeof rawSessionId === "string" ? rawSessionId : sessionId,
+    };
+  });
 }
 
 /**
@@ -43,8 +53,6 @@ function idsEqual(a: readonly string[], b: readonly string[]): boolean {
  * - Visual indicator when auto-scroll is paused
  */
 export const MessageList: Component<MessageListProps> = props => {
-  const [expanded, setExpanded] = createStore<Record<string, boolean>>({});
-
   const autoScroll = createAutoScroll({
     working: () => props.isGenerating ?? false,
     nearBottomDistance: 100,
@@ -54,40 +62,13 @@ export const MessageList: Component<MessageListProps> = props => {
   // Get messages for current session using new useMessages hook
   const messages = useMessages(() => props.sessionId ?? null);
 
-  // Compute timeline as array of turn anchor IDs.
-  // Prefer user turns; fallback to assistant anchors when user turn is missing.
-  const turnIDs = createMemo(
-    () => {
-      const userMsgs = messages.userMessages();
-      if (userMsgs.length > 0) return userMsgs.map(m => m.id);
-      const assistantMsgs = messages.assistantMessages();
-      return assistantMsgs.map(m => m.id);
-    },
-    { equals: idsEqual }
-  );
-
-  // Determine last turn ID for "isLast" prop
-  const lastTurnID = createMemo(() => {
-    const ids = turnIDs();
-    return ids[ids.length - 1];
-  });
-
-  createEffect(() => {
-    const lastID = lastTurnID();
-    if (!lastID) return;
-    const isWorking = props.isGenerating ?? false;
-    setExpanded(lastID, isWorking);
-  });
-
   createEffect(() => {
     logger.info("Message list projection updated", {
       sessionId: props.sessionId,
       totalMessageCount: messages.count(),
-      userTurnCount: messages.userMessages().length,
-      assistantCount: messages.assistantMessages().length,
-      renderedTurnCount: turnIDs().length,
+      timelineItemCount: messages.timeline().length,
       isGenerating: props.isGenerating ?? false,
-      lastTurnId: lastTurnID(),
+      hasRenderableAssistantContent: messages.hasRenderableAssistantContent(),
     });
   });
 
@@ -99,17 +80,55 @@ export const MessageList: Component<MessageListProps> = props => {
     >
       {/* Messages */}
       <div class="mx-auto max-w-3xl">
-        <For each={turnIDs()}>
-          {messageID => (
+        <For each={messages.timeline()}>
+          {item => (
             <div class="group mb-5">
-              <SessionTurn
-                sessionID={props.sessionId}
-                messageID={messageID}
-                isLast={messageID === lastTurnID()}
-                isGenerating={props.isGenerating}
-                expanded={expanded[messageID] ?? false}
-                onToggleExpanded={() => setExpanded(messageID, value => !value)}
-              />
+              <Show
+                when={item.kind === "assistant"}
+                fallback={
+                  <MessageBubble
+                    message={
+                      {
+                        info: {
+                          role: "user",
+                          id: item.messageId,
+                          sessionID: item.sessionId,
+                          time: { created: item.ts },
+                        },
+                        parts: [
+                          {
+                            id: `${item.messageId}-text`,
+                            type: "text",
+                            messageID: item.messageId,
+                            sessionID: item.sessionId,
+                            text: item.kind === "user" ? item.text : "",
+                          },
+                        ],
+                        createdAt: item.ts,
+                      } satisfies Message
+                    }
+                  />
+                }
+              >
+                <div class="mb-4 flex w-full justify-start">
+                  <div
+                    class={cn(
+                      "max-w-[90%] rounded-2xl rounded-tl-sm p-4 shadow-sm",
+                      "bg-card/30 border-border/30 text-foreground border"
+                    )}
+                  >
+                    <AssistantMessage
+                      messageID={item.messageId}
+                      sessionID={item.sessionId}
+                      fallbackParts={toSyncParts(
+                        (item as { parts: SharedPart[] }).parts,
+                        item.messageId,
+                        item.sessionId
+                      )}
+                    />
+                  </div>
+                </div>
+              </Show>
             </div>
           )}
         </For>
@@ -121,8 +140,14 @@ export const MessageList: Component<MessageListProps> = props => {
           </div>
         </Show>
 
-        {/* Typing indicator - content priority: hide when thinking content exists */}
-        <Show when={props.isGenerating && !props.thinkingContent}>
+        {/* Typing indicator - content priority: hide once assistant content exists */}
+        <Show
+          when={
+            (props.isGenerating ?? false) &&
+            !messages.hasRenderableAssistantContent() &&
+            !props.thinkingContent
+          }
+        >
           <div
             data-testid="message-list-typing-indicator"
             class={cn("mb-4 flex items-center gap-2", "animate-fade-in-up")}

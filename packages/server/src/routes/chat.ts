@@ -877,11 +877,43 @@ app.post("/api/chat", async c => {
           module: "chat",
           sessionId: session.sessionId,
         });
+        const logChatStreamEvents = process.env.EKACODE_LOG_CHAT_STREAM_EVENTS === "true";
+        const writeStreamEvent = (event: Parameters<typeof writer.write>[0]) => {
+          writer.write(event);
+
+          if (!logChatStreamEvents || typeof event !== "object" || event === null) {
+            return;
+          }
+
+          const typed = event as Record<string, unknown>;
+          const streamEventType = typeof typed.type === "string" ? typed.type : "unknown";
+          const streamEventId = typeof typed.id === "string" ? typed.id : undefined;
+          const finishReason =
+            typeof typed.finishReason === "string" ? typed.finishReason : undefined;
+          const delta = typeof typed.delta === "string" ? typed.delta : undefined;
+          const errorText =
+            typeof typed.errorText === "string"
+              ? typed.errorText
+              : typeof typed.error === "string"
+                ? typed.error
+                : undefined;
+
+          logger.debug("stream event", {
+            module: "chat",
+            sessionId: session.sessionId,
+            streamEventType,
+            streamEventId,
+            finishReason,
+            delta,
+            data: typed.data,
+            errorText,
+          });
+        };
 
         // Send session message if new session
         if (sessionIsNew) {
           logger.info("Sending session message", { module: "chat", sessionId: session.sessionId });
-          writer.write(createSessionMessage(session));
+          writeStreamEvent(createSessionMessage(session));
         }
 
         const messageId = uuidv7();
@@ -945,12 +977,12 @@ app.post("/api/chat", async c => {
             module: "chat",
             sessionId: session.sessionId,
           });
-          writer.write({
+          writeStreamEvent({
             type: "error",
             errorText:
               "No AI provider configured. Please set ZAI_API_KEY or OPENAI_API_KEY environment variable.",
           });
-          writer.write({
+          writeStreamEvent({
             type: "finish",
             finishReason: "error",
           });
@@ -998,7 +1030,7 @@ app.post("/api/chat", async c => {
           };
 
           // Send initial state update
-          writer.write({
+          writeStreamEvent({
             type: "data-state",
             id: "state",
             data: {
@@ -1120,13 +1152,13 @@ app.post("/api/chat", async c => {
                     itemsOrder: [],
                   };
 
-                  writer.write({
+                  writeStreamEvent({
                     type: "data-run",
                     id: modeState.runId,
                     data: modeState.runCardData,
                   } as unknown as Parameters<typeof writer.write>[0]);
 
-                  writer.write({
+                  writeStreamEvent({
                     type: "data-run-group",
                     id: groupId,
                     data: modeState.runGroupData,
@@ -1134,7 +1166,7 @@ app.post("/api/chat", async c => {
                 }
 
                 // Send mode change metadata (after runId init when planning)
-                writer.write({
+                writeStreamEvent({
                   type: "data-mode-metadata",
                   id: messageId,
                   data: {
@@ -1148,7 +1180,7 @@ app.post("/api/chat", async c => {
               // Handle text content from agent
               if (event.type === "text") {
                 hasTextDeltas = true;
-                writer.write({
+                writeStreamEvent({
                   type: "text-delta",
                   id: messageId,
                   delta: event.text,
@@ -1161,7 +1193,7 @@ app.post("/api/chat", async c => {
                 const reasoningId = event.reasoningId as string;
                 modeState.reasoningTexts.set(reasoningId, "");
 
-                writer.write({
+                writeStreamEvent({
                   type: "data-thought",
                   id: reasoningId,
                   data: {
@@ -1179,7 +1211,7 @@ app.post("/api/chat", async c => {
                 const newText = currentText + (event.text as string);
                 modeState.reasoningTexts.set(reasoningId, newText);
 
-                writer.write({
+                writeStreamEvent({
                   type: "data-thought",
                   id: reasoningId,
                   data: {
@@ -1195,7 +1227,7 @@ app.post("/api/chat", async c => {
                 const reasoningId = event.reasoningId as string;
                 modeState.reasoningTexts.delete(reasoningId);
 
-                writer.write({
+                writeStreamEvent({
                   type: "data-thought",
                   id: reasoningId,
                   data: {
@@ -1219,7 +1251,7 @@ app.post("/api/chat", async c => {
                 });
 
                 // Send tool call as data-tool-call event
-                writer.write({
+                writeStreamEvent({
                   type: "data-tool-call",
                   id: event.toolCallId as string,
                   data: {
@@ -1239,7 +1271,7 @@ app.post("/api/chat", async c => {
                   event.agentId as string | undefined
                 );
                 modeState.toolCallTimestamps.set(agentEvent.id, agentEvent.ts);
-                writer.write({
+                writeStreamEvent({
                   type: "data-action",
                   id: agentEvent.id,
                   data: agentEvent,
@@ -1247,7 +1279,7 @@ app.post("/api/chat", async c => {
 
                 // Also emit as data-run-item for planning mode
                 if (modeState.mode === "planning" && modeState.runId) {
-                  writer.write({
+                  writeStreamEvent({
                     type: "data-run-item",
                     id: agentEvent.id,
                     data: agentEvent,
@@ -1257,7 +1289,7 @@ app.post("/api/chat", async c => {
                   if (agentEvent.file?.path && modeState.runCardData) {
                     if (!modeState.runCardData.filesEditedOrder.includes(agentEvent.file.path)) {
                       modeState.runCardData.filesEditedOrder.push(agentEvent.file.path);
-                      writer.write({
+                      writeStreamEvent({
                         type: "data-run",
                         id: modeState.runId,
                         data: modeState.runCardData,
@@ -1268,7 +1300,7 @@ app.post("/api/chat", async c => {
                         cta: agentEvent.diff ? "open-diff" : "open",
                         diff: agentEvent.diff,
                       };
-                      writer.write({
+                      writeStreamEvent({
                         type: "data-run-file",
                         id: agentEvent.file.path,
                         data: runFile,
@@ -1279,7 +1311,7 @@ app.post("/api/chat", async c => {
                   if (modeState.runGroupData) {
                     if (!modeState.runGroupData.itemsOrder.includes(agentEvent.id)) {
                       modeState.runGroupData.itemsOrder.push(agentEvent.id);
-                      writer.write({
+                      writeStreamEvent({
                         type: "data-run-group",
                         id: modeState.runGroupData.id,
                         data: modeState.runGroupData,
@@ -1299,7 +1331,7 @@ app.post("/api/chat", async c => {
                 });
 
                 // Send tool result as data-tool-result event
-                writer.write({
+                writeStreamEvent({
                   type: "data-tool-result",
                   id: event.toolCallId as string,
                   data: {
@@ -1313,7 +1345,7 @@ app.post("/api/chat", async c => {
                   typeof event.result === "string" ? event.result : JSON.stringify(event.result);
                 const originalTs =
                   modeState.toolCallTimestamps.get(event.toolCallId as string) ?? Date.now();
-                writer.write({
+                writeStreamEvent({
                   type: "data-action",
                   id: event.toolCallId as string,
                   data: {
@@ -1344,7 +1376,7 @@ app.post("/api/chat", async c => {
                   if (modeState.runCardData.startedAt) {
                     modeState.runCardData.elapsedMs = Date.now() - modeState.runCardData.startedAt;
                   }
-                  writer.write({
+                  writeStreamEvent({
                     type: "data-run",
                     id: modeState.runId,
                     data: modeState.runCardData,
@@ -1374,7 +1406,7 @@ app.post("/api/chat", async c => {
 
           // Send final content if available
           if (!hasTextDeltas && typeof result.finalContent === "string") {
-            writer.write({
+            writeStreamEvent({
               type: "text-delta",
               id: messageId,
               delta: result.finalContent,
@@ -1382,7 +1414,7 @@ app.post("/api/chat", async c => {
           }
 
           // Send final status message
-          writer.write({
+          writeStreamEvent({
             type: "data-state",
             id: "state",
             data: {
@@ -1393,7 +1425,7 @@ app.post("/api/chat", async c => {
           });
 
           // Send finish message
-          writer.write({
+          writeStreamEvent({
             type: "finish",
             finishReason: result.status === "completed" ? "stop" : "error",
           });
@@ -1405,7 +1437,7 @@ app.post("/api/chat", async c => {
             error: errorMessage,
           });
 
-          writer.write({
+          writeStreamEvent({
             type: "error",
             errorText: errorMessage,
           });
@@ -1426,7 +1458,7 @@ app.post("/api/chat", async c => {
             finishReason: "error",
           });
 
-          writer.write({
+          writeStreamEvent({
             type: "finish",
             finishReason: "error",
           });

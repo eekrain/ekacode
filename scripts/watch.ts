@@ -105,6 +105,15 @@ async function watchMain(renderer: ViteDevServer) {
               stdio: "inherit",
               env: {
                 ...process.env,
+                // Keep server development logs in a deterministic repo-level location.
+                LOG_FILE_PATH:
+                  process.env.LOG_FILE_PATH || path.resolve(__dirname, "../logs/server-dev.log"),
+                LOG_FILE_OUTPUT: process.env.LOG_FILE_OUTPUT || "true",
+                // Optional deep stream/event payload tracing for fixture extraction.
+                EKACODE_LOG_BUS_EVENT_PAYLOADS:
+                  process.env.EKACODE_LOG_BUS_EVENT_PAYLOADS || "false",
+                EKACODE_LOG_CHAT_STREAM_EVENTS:
+                  process.env.EKACODE_LOG_CHAT_STREAM_EVENTS || "false",
                 // Enable Wayland on Linux
                 ELECTRON_OZONE_PLATFORM_HINT: "auto",
               },
