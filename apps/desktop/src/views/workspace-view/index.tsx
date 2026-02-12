@@ -9,7 +9,6 @@ import { usePermissions } from "@/core/permissions/hooks/use-permissions";
 import { ChatProvider, useChatContext } from "@/state/contexts/chat-provider";
 import { useWorkspace, WorkspaceProvider } from "@/state/providers";
 import Resizable from "@corvu/resizable";
-import { ChatPanel } from "./chat-area/chat-area";
 import { LeftSide } from "./left-side/left-side";
 import { ContextPanel } from "./right-side/right-side";
 
@@ -220,18 +219,13 @@ function WorkspaceViewContent() {
           {/* Resize Handle 1 */}
           <ResizeableHandle />
 
-          {/* CENTER PANEL - Chat Interface */}
-          <ChatPanel
-            session={activeSession()}
-            sessionId={effectiveSessionId() ?? undefined}
-            isGenerating={isGenerating()}
-            thinkingContent={""}
-            error={chatError()}
-            onSend={handleSendMessage}
-            onModelChange={handleModelChange}
-            selectedModel="claude-sonnet"
-            streamDebugger={undefined} // Removed old streamDebugger
-          />
+          {/* CENTER PANEL - Chat Interface - PLACEHOLDER FOR NEW COMPONENT */}
+          <div class="bg-muted/10 flex h-full items-center justify-center border-x border-border/30">
+            <div class="text-center">
+              <p class="text-muted-foreground text-sm">Chat area placeholder</p>
+              <p class="text-muted-foreground/60 mt-2 text-xs">Create new components in chat-area/</p>
+            </div>
+          </div>
 
           {/* Resize Handle 2 */}
           <ResizeableHandle />
