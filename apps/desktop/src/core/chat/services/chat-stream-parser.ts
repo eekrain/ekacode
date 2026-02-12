@@ -7,7 +7,7 @@
  * Batch 3: Stream Processing - WS2 Protocol Ingestion
  */
 
-import { createLogger } from "@/shared/logger";
+import { createLogger } from "@/core/shared/logger";
 
 const logger = createLogger("desktop:chat-stream-parser");
 

@@ -37,34 +37,19 @@ export default defineConfig({
       "@ekacode/core/chat": CORE_SRC + "/chat",
       "@ekacode/core/server": CORE_SRC + "/server",
       "@ekacode/core/tools": CORE_SRC + "/tools",
-
-      "@ekacode/desktop": DESKTOP_SRC,
-      "@ekacode/desktop/utils": DESKTOP_SRC + "/utils",
       "@/utils": DESKTOP_SRC + "/utils",
+      "@/shared": DESKTOP_SRC + "/core/shared",
+      "@/shared/": DESKTOP_SRC + "/core/shared/",
+      "@/infrastructure/api": DESKTOP_SRC + "/core/services/api",
+      "@/infrastructure/api/": DESKTOP_SRC + "/core/services/api/",
 
-      // Phase 1: Core layer
-      "@ekacode/desktop/core": DESKTOP_SRC + "/core",
-      "@ekacode/desktop/core/stores": DESKTOP_SRC + "/core/stores",
-      "@ekacode/desktop/core/domain": DESKTOP_SRC + "/core/domain",
+      "@renderer/presentation/providers/": DESKTOP_SRC + "/core/state/providers/",
+      "@renderer/providers/workspace-provider":
+        DESKTOP_SRC + "/core/state/providers/workspace-provider.tsx",
 
-      // Phase 1: Infrastructure layer
-      "@ekacode/desktop/infrastructure": DESKTOP_SRC + "/infrastructure",
-      "@ekacode/desktop/infrastructure/events": DESKTOP_SRC + "/infrastructure/events",
-      "@ekacode/desktop/infrastructure/api": DESKTOP_SRC + "/infrastructure/api",
-
-      // Phase 1: Presentation layer
-      "@ekacode/desktop/presentation": DESKTOP_SRC + "/presentation",
-      "@ekacode/desktop/presentation/state": DESKTOP_SRC + "/presentation/state",
-
-      // Phase 2: Services
-      "@ekacode/desktop/core/services": DESKTOP_SRC + "/core/services",
-      "@/infrastructure/api": DESKTOP_SRC + "/infrastructure/api",
       "@/components": DESKTOP_SRC + "/components",
-
-      // Phase 3: Domain event handlers
-      "@ekacode/desktop/core/domain/message": DESKTOP_SRC + "/core/domain/message",
-      "@ekacode/desktop/core/domain/part": DESKTOP_SRC + "/core/domain/part",
-      "@ekacode/desktop/core/domain/session": DESKTOP_SRC + "/core/domain/session",
+      "@/core": DESKTOP_SRC + "/core",
+      "@/state": DESKTOP_SRC + "/core/state",
     },
   },
   build: {
@@ -90,5 +75,10 @@ export default defineConfig({
     pool: "threads",
     maxConcurrency: 1,
     fileParallelism: false,
+    server: {
+      deps: {
+        inline: ["@solidjs/router"],
+      },
+    },
   },
 });

@@ -8,9 +8,11 @@
  * Updated for Batch 2: Data Integrity - includes event ordering and deduplication
  */
 
-import { createLogger } from "@/shared/logger";
+import { createLogger } from "@/core/shared/logger";
 import type { MessageActions } from "@/state/stores/message-store";
 import type { PartActions } from "@/state/stores/part-store";
+import type { PermissionActions } from "@/state/stores/permission-store";
+import type { QuestionActions } from "@/state/stores/question-store";
 import type {
   SessionInfo as DomainSessionInfo,
   SessionActions,
@@ -174,7 +176,9 @@ function processEvent(
   event: ServerEvent,
   messageActions: MessageActions,
   partActions: PartActions,
-  sessionActions: SessionActions
+  sessionActions: SessionActions,
+  permissionActions?: PermissionActions,
+  questionActions?: QuestionActions
 ): void {
   switch (event.type) {
     case "session.created":
@@ -297,16 +301,109 @@ function processEvent(
       break;
     }
 
-    // Note: permission and question events would need separate stores
     case "permission.asked":
-    case "permission.replied":
-    case "question.asked":
-    case "question.replied":
-    case "question.rejected": {
-      // Forward to window-level event channel so UI consumers can subscribe.
+      if (permissionActions) {
+        const props = isRecord(event.properties) ? event.properties : {};
+        const requestId = typeof props.id === "string" ? props.id : undefined;
+        const sessionID = typeof props.sessionID === "string" ? props.sessionID : undefined;
+        const permission = typeof props.permission === "string" ? props.permission : "tool";
+        const tool = isRecord(props.tool) ? props.tool : {};
+        const metadata = isRecord(props.metadata) ? props.metadata : {};
+        const patterns = Array.isArray(props.patterns)
+          ? props.patterns.filter(pattern => typeof pattern === "string")
+          : [];
+
+        if (requestId && sessionID) {
+          permissionActions.add({
+            id: requestId,
+            sessionID,
+            messageID:
+              typeof tool.messageID === "string" ? tool.messageID : `permission:${requestId}`,
+            toolName: permission,
+            args: metadata,
+            description:
+              patterns.length > 0 ? `Requires permission for: ${patterns.join(", ")}` : undefined,
+            status: "pending",
+            timestamp: typeof event.timestamp === "number" ? event.timestamp : Date.now(),
+            callID: typeof tool.callID === "string" ? tool.callID : undefined,
+          });
+        }
+      }
       forwardAuxiliaryEvent(event);
       break;
-    }
+
+    case "permission.replied":
+      if (permissionActions) {
+        const props = isRecord(event.properties) ? event.properties : {};
+        const requestID = typeof props.requestID === "string" ? props.requestID : undefined;
+        const reply = typeof props.reply === "string" ? props.reply : undefined;
+        if (requestID) {
+          permissionActions.resolve(requestID, reply !== "reject");
+        }
+      }
+      forwardAuxiliaryEvent(event);
+      break;
+
+    case "question.asked":
+      if (questionActions) {
+        const props = isRecord(event.properties) ? event.properties : {};
+        const requestId = typeof props.id === "string" ? props.id : undefined;
+        const sessionID = typeof props.sessionID === "string" ? props.sessionID : undefined;
+        const tool = isRecord(props.tool) ? props.tool : {};
+        const questions = Array.isArray(props.questions) ? props.questions : [];
+        const primaryQuestion = questions[0];
+        const questionText =
+          typeof primaryQuestion === "string"
+            ? primaryQuestion
+            : isRecord(primaryQuestion) && typeof primaryQuestion.question === "string"
+              ? primaryQuestion.question
+              : "Question";
+        const options =
+          isRecord(primaryQuestion) && Array.isArray(primaryQuestion.options)
+            ? primaryQuestion.options.filter(option => typeof option === "string")
+            : undefined;
+
+        if (requestId && sessionID) {
+          questionActions.add({
+            id: requestId,
+            sessionID,
+            messageID:
+              typeof tool.messageID === "string" ? tool.messageID : `question:${requestId}`,
+            question: questionText,
+            options,
+            status: "pending",
+            timestamp: typeof event.timestamp === "number" ? event.timestamp : Date.now(),
+            callID: typeof tool.callID === "string" ? tool.callID : undefined,
+          });
+        }
+      }
+      forwardAuxiliaryEvent(event);
+      break;
+
+    case "question.replied":
+      if (questionActions) {
+        const props = isRecord(event.properties) ? event.properties : {};
+        const requestID = typeof props.requestID === "string" ? props.requestID : undefined;
+        if (requestID) {
+          questionActions.answer(requestID, props.reply);
+        }
+      }
+      forwardAuxiliaryEvent(event);
+      break;
+
+    case "question.rejected":
+      if (questionActions) {
+        const props = isRecord(event.properties) ? event.properties : {};
+        const requestID = typeof props.requestID === "string" ? props.requestID : undefined;
+        if (requestID) {
+          questionActions.answer(requestID, {
+            rejected: true,
+            reason: typeof props.reason === "string" ? props.reason : undefined,
+          });
+        }
+      }
+      forwardAuxiliaryEvent(event);
+      break;
 
     case "session.status": {
       const props = isRecord(event.properties) ? event.properties : {};
@@ -344,7 +441,9 @@ export async function applyEventToStores(
   event: ServerEvent,
   messageActions: MessageActions,
   partActions: PartActions,
-  sessionActions: SessionActions
+  sessionActions: SessionActions,
+  permissionActions?: PermissionActions,
+  questionActions?: QuestionActions
 ): Promise<ServerEvent[]> {
   // Step 1: Comprehensive validation
   const validation = validateEventComprehensive(event);
@@ -372,7 +471,14 @@ export async function applyEventToStores(
   // Step 4: Process all events that are now ready
   for (const evt of eventsToProcess) {
     try {
-      processEvent(evt, messageActions, partActions, sessionActions);
+      processEvent(
+        evt,
+        messageActions,
+        partActions,
+        sessionActions,
+        permissionActions,
+        questionActions
+      );
       logger.debug("Event processed successfully", {
         eventId: evt.eventId,
         eventType: evt.type,

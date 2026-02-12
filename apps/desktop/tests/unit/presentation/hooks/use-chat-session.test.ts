@@ -6,7 +6,7 @@
  * and handles session ID mismatches correctly.
  */
 
-import type { EkacodeApiClient } from "@ekacode/desktop/lib/api-client";
+import type { EkacodeApiClient } from "@/core/services/api/api-client";
 import { createRoot } from "solid-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -21,7 +21,7 @@ const mockUpsertSession = vi.fn();
 const mockGetSessionByDirectory = vi.fn(() => []);
 const mockGetSessionById = vi.fn();
 
-vi.mock("@renderer/presentation/providers/store-provider", () => ({
+vi.mock("@/core/state/providers/store-provider", () => ({
   useMessageStore: () => [
     {},
     {
@@ -54,7 +54,7 @@ vi.mock("@renderer/presentation/providers/store-provider", () => ({
   ],
 }));
 
-vi.mock("@ekacode/desktop/lib/logger", () => ({
+vi.mock("@/core/shared/logger", () => ({
   createLogger: () => ({
     debug: vi.fn(),
     info: vi.fn(),
@@ -104,7 +104,7 @@ describe("useChat - Session Identity", () => {
 
   describe("Server-Authoritative Session Creation", () => {
     it("does NOT generate session ID optimistically when no session exists", async () => {
-      const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+      const { useChat } = await import("@/core/chat/hooks");
       const serverSessionId = "019c4da0-fc0b-713c-984e-b2aca339c97b"; // Valid UUIDv7
 
       mockChatFn.mockResolvedValue(createMockResponse({ sessionId: serverSessionId }));
@@ -135,7 +135,7 @@ describe("useChat - Session Identity", () => {
     });
 
     it("sends request without X-Session-ID when no session exists", async () => {
-      const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+      const { useChat } = await import("@/core/chat/hooks");
 
       mockChatFn.mockResolvedValue(
         createMockResponse({ sessionId: "019c4da0-fc0b-713c-984e-b2aca339c982" })
@@ -168,7 +168,7 @@ describe("useChat - Session Identity", () => {
     });
 
     it("creates optimistic message only after receiving session ID from server", async () => {
-      const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+      const { useChat } = await import("@/core/chat/hooks");
       const serverSessionId = "019c4da0-fc0b-713c-984e-b2aca339c981"; // Valid UUIDv7
 
       let resolveResponse: (value: Response) => void;
@@ -208,7 +208,7 @@ describe("useChat - Session Identity", () => {
     });
 
     it("shows loading state while creating session", async () => {
-      const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+      const { useChat } = await import("@/core/chat/hooks");
 
       let resolveResponse: (value: Response) => void;
       const responsePromise = new Promise<Response>(resolve => {
@@ -239,7 +239,7 @@ describe("useChat - Session Identity", () => {
     });
 
     it("handles server returning different session ID than expected", async () => {
-      const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+      const { useChat } = await import("@/core/chat/hooks");
       const onSessionIdReceived = vi.fn();
       const serverSessionId = "019c4da0-fc0b-713c-984e-b2aca339c97c"; // Valid UUIDv7
 
@@ -264,7 +264,7 @@ describe("useChat - Session Identity", () => {
     });
 
     it("migrates optimistic messages to correct server session ID", async () => {
-      const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+      const { useChat } = await import("@/core/chat/hooks");
       const serverSessionId = "019c4da0-fc0b-713c-984e-b2aca339c97d"; // Valid UUIDv7
 
       mockChatFn.mockResolvedValue(createMockResponse({ sessionId: serverSessionId }));
@@ -290,7 +290,7 @@ describe("useChat - Session Identity", () => {
 
   describe("Session ID Validation", () => {
     it("rejects malformed session ID from server", async () => {
-      const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+      const { useChat } = await import("@/core/chat/hooks");
       const onError = vi.fn();
 
       // Server returns invalid session ID (not UUIDv7 format)
@@ -316,7 +316,7 @@ describe("useChat - Session Identity", () => {
     });
 
     it("continues without error when X-Session-ID is missing for new session", async () => {
-      const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+      const { useChat } = await import("@/core/chat/hooks");
       const onError = vi.fn();
 
       // Response without session header
@@ -343,7 +343,7 @@ describe("useChat - Session Identity", () => {
 
   describe("Error Handling", () => {
     it("shows error when session creation fails", async () => {
-      const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+      const { useChat } = await import("@/core/chat/hooks");
       const onError = vi.fn();
 
       mockChatFn.mockRejectedValue(new Error("Server error"));
@@ -366,7 +366,7 @@ describe("useChat - Session Identity", () => {
     });
 
     it("clears optimistic state on session error", async () => {
-      const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+      const { useChat } = await import("@/core/chat/hooks");
 
       mockChatFn.mockRejectedValue(new Error("Server error"));
 
@@ -387,7 +387,7 @@ describe("useChat - Session Identity", () => {
     });
 
     it("allows retry after session creation failure", async () => {
-      const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+      const { useChat } = await import("@/core/chat/hooks");
 
       mockChatFn
         .mockRejectedValueOnce(new Error("Server error"))
@@ -417,7 +417,7 @@ describe("useChat - Session Identity", () => {
 
   describe("Race Conditions", () => {
     it("handles rapid double-click on send button", async () => {
-      const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+      const { useChat } = await import("@/core/chat/hooks");
       const serverSessionId = "019c4da0-fc0b-713c-984e-b2aca339c97f"; // Valid UUIDv7
 
       let callCount = 0;
@@ -449,7 +449,7 @@ describe("useChat - Session Identity", () => {
     });
 
     it("prevents concurrent session creation requests", async () => {
-      const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+      const { useChat } = await import("@/core/chat/hooks");
 
       mockChatFn.mockResolvedValue(
         createMockResponse({ sessionId: "019c4da0-fc0b-713c-984e-b2aca339c980" })

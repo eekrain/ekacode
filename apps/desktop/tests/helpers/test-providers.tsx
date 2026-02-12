@@ -7,14 +7,14 @@
  * Phase 0: Setup & Test Infrastructure
  */
 
-import { StoreProvider } from "@renderer/presentation/providers/store-provider";
+import { StoreProvider } from "@/core/state/providers/store-provider";
 import type { JSX } from "solid-js";
 import { render } from "solid-js/web";
 import { vi } from "vitest";
-import { MessageProvider } from "../../src/presentation/contexts/message-context";
-import { PartProvider } from "../../src/presentation/contexts/part-context";
-import { SessionProvider } from "../../src/presentation/contexts/session-context";
-import { UIProvider } from "../../src/presentation/contexts/ui-context";
+import { MessageProvider } from "../../src/core/state/contexts/message-context";
+import { PartProvider } from "../../src/core/state/contexts/part-context";
+import { SessionProvider } from "../../src/core/state/contexts/session-context";
+import { UIProvider } from "../../src/core/state/contexts/ui-context";
 
 /**
  * TestProviders - Wraps components with all necessary providers

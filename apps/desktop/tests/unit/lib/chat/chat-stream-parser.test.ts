@@ -21,7 +21,10 @@ import {
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { createStreamParser, parseChatStream } from "../../../../src/lib/chat/chat-stream-parser";
+import {
+  createStreamParser,
+  parseChatStream,
+} from "../../../../src/core/chat/services/chat-stream-parser";
 
 const recordedFixtureCandidates = [
   path.resolve(process.cwd(), "tests/fixtures/recorded/chat-stream.from-log.json"),

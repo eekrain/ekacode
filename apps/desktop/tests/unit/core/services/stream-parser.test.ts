@@ -2,7 +2,7 @@
  * Stream Parser Tests
  */
 
-import { createStreamParser } from "@ekacode/desktop/core/services/stream-parser.service";
+import { createStreamParser } from "@/core/chat/services/stream-parser.service";
 import { describe, expect, it } from "vitest";
 
 describe("StreamParser", () => {

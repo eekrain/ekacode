@@ -5,9 +5,12 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { createMessageStore, type MessageWithId } from "../../../../src/core/stores/message-store";
-import { createPartStore } from "../../../../src/core/stores/part-store";
-import { createSessionStore } from "../../../../src/core/stores/session-store";
+import {
+  createMessageStore,
+  type MessageWithId,
+} from "../../../../src/core/state/stores/message-store";
+import { createPartStore } from "../../../../src/core/state/stores/part-store";
+import { createSessionStore } from "../../../../src/core/state/stores/session-store";
 import { validateStoreIntegrity } from "../../../fixtures/data-integrity";
 
 describe("MessageStore - Foreign Key Validation", () => {

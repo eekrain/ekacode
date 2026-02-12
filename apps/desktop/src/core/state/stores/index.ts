@@ -9,11 +9,15 @@
 
 export * from "./message-store";
 export * from "./part-store";
+export * from "./permission-store";
+export * from "./question-store";
 export * from "./session-store";
 
 // Export factory functions for creating stores
 export { createEmptyMessageState, createMessageStore } from "./message-store";
 export { createEmptyPartState, createPartStore } from "./part-store";
+export { createEmptyPermissionState, createPermissionStore } from "./permission-store";
+export { createEmptyQuestionState, createQuestionStore } from "./question-store";
 export { createEmptySessionState, createSessionStore } from "./session-store";
 
 // Provider-scoped hooks are in state/providers/store-provider.tsx

@@ -1,5 +1,5 @@
-import { SessionProvider, useSession } from "@ekacode/desktop/presentation/contexts";
-import { StoreProvider, useSessionStore } from "@renderer/presentation/providers/store-provider";
+import { SessionProvider, useSession } from "@/core/state/contexts";
+import { StoreProvider, useSessionStore } from "@/core/state/providers/store-provider";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 

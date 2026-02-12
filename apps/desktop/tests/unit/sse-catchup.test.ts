@@ -10,7 +10,7 @@ import {
   catchupSession,
   getCatchupBackoff,
   shouldCatchup,
-} from "@ekacode/desktop/utils/sse-catchup";
+} from "@/core/shared/utils/sse-catchup";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock SDK client

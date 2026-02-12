@@ -10,7 +10,7 @@ const mockState = vi.hoisted(() => ({
     | null,
 }));
 
-vi.mock("../../../../src/infrastructure/events/sse-manager", () => ({
+vi.mock("../../../../src/core/services/sse/sse-manager", () => ({
   createSSEManager: () => ({
     connect: mockState.connect,
     disconnect: mockState.disconnect,
@@ -28,11 +28,11 @@ vi.mock("../../../../src/infrastructure/events/sse-manager", () => ({
   }),
 }));
 
-vi.mock("../../../../src/core/domain/event-router-adapter", () => ({
+vi.mock("../../../../src/core/chat/domain/event-router-adapter", () => ({
   applyEventToStores: mockState.applyEventToStores,
 }));
 
-import { AppProvider } from "../../../../src/presentation/providers/app-provider";
+import { AppProvider } from "../../../../src/core/state/providers/app-provider";
 
 function mountApp() {
   const container = document.createElement("div");
@@ -82,7 +82,9 @@ describe("AppProvider", () => {
       event,
       expect.objectContaining({ upsert: expect.any(Function) }),
       expect.objectContaining({ upsert: expect.any(Function) }),
-      expect.objectContaining({ upsert: expect.any(Function), setStatus: expect.any(Function) })
+      expect.objectContaining({ upsert: expect.any(Function), setStatus: expect.any(Function) }),
+      expect.objectContaining({ add: expect.any(Function), resolve: expect.any(Function) }),
+      expect.objectContaining({ add: expect.any(Function), answer: expect.any(Function) })
     );
 
     app.dispose();

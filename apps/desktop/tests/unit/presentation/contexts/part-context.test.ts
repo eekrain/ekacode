@@ -10,9 +10,9 @@ import {
   getByMessage,
   getTextParts,
   getToolCallParts,
-} from "@ekacode/desktop/core/domain/part/part-queries";
-import { createPartStore } from "@ekacode/desktop/core/stores";
-import { PartProvider, usePart } from "@ekacode/desktop/presentation/contexts";
+} from "@/core/chat/domain/part-queries";
+import { PartProvider, usePart } from "@/core/state/contexts";
+import { createPartStore } from "@/core/state/stores";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // These are imported for documentation purposes but not used in tests

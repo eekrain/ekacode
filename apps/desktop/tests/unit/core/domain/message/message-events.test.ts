@@ -2,10 +2,10 @@
  * Message Event Handlers Tests
  */
 
-import { handleMessageUpdated } from "@ekacode/desktop/core/domain/message/message-events";
-import type { MessageActions } from "@ekacode/desktop/core/stores/message-store";
-import type { PartActions } from "@ekacode/desktop/core/stores/part-store";
-import type { SessionActions } from "@ekacode/desktop/core/stores/session-store";
+import { handleMessageUpdated } from "@/core/chat/domain/message-events";
+import type { MessageActions } from "@/core/state/stores/message-store";
+import type { PartActions } from "@/core/state/stores/part-store";
+import type { SessionActions } from "@/core/state/stores/session-store";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("Message Event Handlers", () => {

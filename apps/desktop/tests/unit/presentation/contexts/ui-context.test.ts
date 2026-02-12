@@ -5,7 +5,7 @@
  * Part of Phase 4: Component Refactor with Domain Contexts
  */
 
-import { UIProvider, useUI } from "@ekacode/desktop/presentation/contexts";
+import { UIProvider, useUI } from "@/core/state/contexts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // These are imported for documentation purposes but not used in tests

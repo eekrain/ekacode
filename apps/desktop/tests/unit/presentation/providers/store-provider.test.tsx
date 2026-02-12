@@ -1,10 +1,10 @@
-import type { MessageWithId } from "@renderer/core/stores/message-store";
 import {
   StoreProvider,
   useMessageStore,
   usePartStore,
   useSessionStore,
-} from "@renderer/presentation/providers/store-provider";
+} from "@/core/state/providers/store-provider";
+import type { MessageWithId } from "@renderer/core/stores/message-store";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

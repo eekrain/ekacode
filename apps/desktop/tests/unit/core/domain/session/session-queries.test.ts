@@ -7,8 +7,8 @@ import {
   getByDirectory,
   getById,
   getStatus,
-} from "@ekacode/desktop/core/domain/session/session-queries";
-import type { SessionState } from "@ekacode/desktop/core/stores/session-store";
+} from "@/core/chat/domain/session-queries";
+import type { SessionState } from "@/core/state/stores/session-store";
 import { describe, expect, it } from "vitest";
 
 describe("Session Queries", () => {

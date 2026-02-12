@@ -4,7 +4,7 @@
  * Part of Phase 6: Cleanup & Optimization
  */
 
-import { createPerformanceMonitor } from "@/utils/performance";
+import { createPerformanceMonitor } from "@/core/shared/utils/performance";
 import { beforeEach, describe, expect, it } from "vitest";
 
 describe("createPerformanceMonitor", () => {

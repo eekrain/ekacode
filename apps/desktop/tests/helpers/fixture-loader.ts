@@ -7,12 +7,12 @@
  * @package @ekacode/desktop/tests
  */
 
-import type { MessageActions, MessageWithId } from "@ekacode/desktop/core/stores/message-store";
-import type { PartActions } from "@ekacode/desktop/core/stores/part-store";
-import type { SessionActions } from "@ekacode/desktop/core/stores/session-store";
+import type { MessageActions, MessageWithId } from "@/core/state/stores/message-store";
+import type { PartActions } from "@/core/state/stores/part-store";
+import type { SessionActions } from "@/core/state/stores/session-store";
 import type { EventOrderingFixture } from "@ekacode/shared";
 import type { AllServerEvents, TypedServerEvent } from "@ekacode/shared/event-types";
-import { applyEventToStores } from "../../src/core/domain/event-router-adapter";
+import { applyEventToStores } from "../../src/core/chat/domain/event-router-adapter";
 
 /**
  * Store actions interface for fixture application

@@ -8,7 +8,7 @@ const state = vi.hoisted(() => ({
   disconnect: vi.fn(),
 }));
 
-vi.mock("../../../../src/infrastructure/events/event-source", () => ({
+vi.mock("../../../../src/core/services/sse/event-source", () => ({
   createEventSource: (config: { onEvent?: (event: ServerEvent) => void }) => {
     state.onEvent = config.onEvent;
     return {
@@ -40,7 +40,7 @@ describe("SSE manager", () => {
   });
 
   it("preserves event integrity metadata from SSE payload", async () => {
-    const { createSSEManager } = await import("../../../../src/infrastructure/events/sse-manager");
+    const { createSSEManager } = await import("../../../../src/core/services/sse/sse-manager");
 
     await createRoot(async dispose => {
       const manager = createSSEManager({ baseUrl: "http://localhost:3000" });

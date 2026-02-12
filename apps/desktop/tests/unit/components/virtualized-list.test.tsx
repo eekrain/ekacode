@@ -20,7 +20,7 @@ vi.mock("@solid-primitives/virtual", () => ({
   },
 }));
 
-import { VirtualizedList } from "@ekacode/desktop/components/virtualized-list";
+import { VirtualizedList } from "@/components/shared/virtualized-list";
 
 function mount(ui: () => JSX.Element) {
   const container = document.createElement("div");

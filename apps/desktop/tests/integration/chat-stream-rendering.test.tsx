@@ -8,17 +8,17 @@
  * @package @ekacode/desktop/tests
  */
 
-import { allEventOrderingFixtures } from "@ekacode/shared";
-import type { Part } from "@ekacode/shared/event-types";
 import {
   useMessageStore,
   usePartStore,
   useSessionStore,
-} from "@renderer/presentation/providers/store-provider";
+} from "@/core/state/providers/store-provider";
+import { allEventOrderingFixtures } from "@ekacode/shared";
+import type { Part } from "@ekacode/shared/event-types";
 import { createMemo, createSignal, For } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, it } from "vitest";
-import { clearEventProcessingState } from "../../src/core/domain/event-router-adapter";
+import { clearEventProcessingState } from "../../src/core/chat/domain/event-router-adapter";
 import {
   expectAssistantContentVisible,
   expectTypingIndicatorHidden,

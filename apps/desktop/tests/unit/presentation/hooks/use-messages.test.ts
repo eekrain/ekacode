@@ -1,4 +1,4 @@
-import type { MessageWithId } from "@ekacode/desktop/core/stores";
+import type { MessageWithId } from "@/core/state/stores";
 import type { Part } from "@ekacode/shared/event-types";
 import { createRoot } from "solid-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,7 +7,7 @@ let messagesBySession: Record<string, MessageWithId[]> = {};
 let messagesById: Record<string, MessageWithId> = {};
 let partsByMessage: Record<string, Part[]> = {};
 
-vi.mock("@renderer/presentation/providers/store-provider", () => ({
+vi.mock("@/core/state/providers/store-provider", () => ({
   useMessageStore: () => [
     {},
     {
@@ -56,7 +56,7 @@ describe("useMessages", () => {
     partsByMessage.u1 = [{ id: "p1", type: "text", messageID: "u1", text: "hi" }];
     partsByMessage.a1 = [{ id: "p2", type: "text", messageID: "a1", text: "hello" }];
 
-    const { useMessages } = await import("@ekacode/desktop/presentation/hooks");
+    const { useMessages } = await import("@/core/chat/hooks");
 
     createRoot(dispose => {
       const hook = useMessages(() => "s1");
@@ -88,7 +88,7 @@ describe("useMessages", () => {
   });
 
   it("returns empty list when session is null", async () => {
-    const { useMessages } = await import("@ekacode/desktop/presentation/hooks");
+    const { useMessages } = await import("@/core/chat/hooks");
 
     createRoot(dispose => {
       const hook = useMessages(() => null);

@@ -1,4 +1,4 @@
-import type { EkacodeApiClient } from "@ekacode/desktop/lib/api-client";
+import type { EkacodeApiClient } from "@/core/services/api/api-client";
 import { createRoot } from "solid-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -28,7 +28,7 @@ const mockMessageUpsert = vi.fn();
 const mockPartUpsert = vi.fn();
 const mockWriteText = vi.fn().mockResolvedValue(undefined);
 
-vi.mock("@renderer/presentation/providers/store-provider", () => ({
+vi.mock("@/core/state/providers/store-provider", () => ({
   useMessageStore: () => [
     {},
     {
@@ -61,7 +61,7 @@ vi.mock("@renderer/presentation/providers/store-provider", () => ({
   ],
 }));
 
-vi.mock("@ekacode/desktop/lib/logger", () => ({
+vi.mock("@/core/shared/logger", () => ({
   createLogger: () => ({
     debug: vi.fn(),
     info: vi.fn(),
@@ -143,7 +143,7 @@ describe("useChat", () => {
   });
 
   it("sends messages with expected payload and completes streaming", async () => {
-    const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+    const { useChat } = await import("@/core/chat/hooks");
     mockChatFn.mockResolvedValue(okResponse());
 
     await createRoot(async dispose => {
@@ -172,7 +172,7 @@ describe("useChat", () => {
   });
 
   it("aborts in-flight requests when stop is called", async () => {
-    const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+    const { useChat } = await import("@/core/chat/hooks");
     mockChatFn.mockImplementation(
       (_messages: unknown, options: { signal?: AbortSignal }) =>
         new Promise((_resolve, reject) => {
@@ -201,7 +201,7 @@ describe("useChat", () => {
   });
 
   it("retries a user message by re-sending extracted text", async () => {
-    const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+    const { useChat } = await import("@/core/chat/hooks");
     mockGetById.mockReturnValue({
       id: "msg-user",
       role: "user",
@@ -240,7 +240,7 @@ describe("useChat", () => {
   });
 
   it("retries an assistant message via its parent user message", async () => {
-    const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+    const { useChat } = await import("@/core/chat/hooks");
     mockGetById.mockReturnValue({
       id: "msg-assistant",
       role: "assistant",
@@ -270,7 +270,7 @@ describe("useChat", () => {
   });
 
   it("uses store actions for copy/delete", async () => {
-    const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+    const { useChat } = await import("@/core/chat/hooks");
     mockGetByMessage.mockImplementation((messageId: string) =>
       messageId === "msg-1" ? [{ id: "p3", type: "text", messageID: "msg-1", text: "copy me" }] : []
     );
@@ -292,7 +292,7 @@ describe("useChat", () => {
   });
 
   it("does not fail when server omits X-Session-ID for new session", async () => {
-    const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+    const { useChat } = await import("@/core/chat/hooks");
     const responseWithoutHeader = {
       ok: true,
       status: 200,
@@ -320,7 +320,7 @@ describe("useChat", () => {
   });
 
   it("adopts discovered session from session store when header is missing", async () => {
-    const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+    const { useChat } = await import("@/core/chat/hooks");
     const discoveredSessionId = "019c4da0-fc0b-713c-984e-b2aca339c9ab";
     mockSessionGetByDirectory.mockReturnValue([
       { sessionID: discoveredSessionId, directory: "/repo" },
@@ -354,7 +354,7 @@ describe("useChat", () => {
   });
 
   it("routes data-thought and tool events to assistant message parts", async () => {
-    const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+    const { useChat } = await import("@/core/chat/hooks");
     mockChatFn.mockResolvedValue(
       streamResponse([
         'data: {"type":"data-thought","id":"reason-1","data":{"text":"Analyzing","status":"thinking"}}',
@@ -399,7 +399,7 @@ describe("useChat", () => {
   });
 
   it("backfills user message when session resolves during stream", async () => {
-    const { useChat } = await import("@ekacode/desktop/presentation/hooks");
+    const { useChat } = await import("@/core/chat/hooks");
     const lateSessionId = "019c4da0-fc0b-713c-984e-b2aca339c9ac";
     let lookupCount = 0;
     mockSessionGetByDirectory.mockImplementation(() => {

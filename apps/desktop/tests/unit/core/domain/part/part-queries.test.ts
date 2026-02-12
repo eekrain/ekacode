@@ -7,8 +7,8 @@ import {
   getByMessage,
   getTextParts,
   getToolCallParts,
-} from "@ekacode/desktop/core/domain/part/part-queries";
-import type { PartState } from "@ekacode/desktop/core/stores/part-store";
+} from "@/core/chat/domain/part-queries";
+import type { PartState } from "@/core/state/stores/part-store";
 import { describe, expect, it } from "vitest";
 
 describe("Part Queries", () => {

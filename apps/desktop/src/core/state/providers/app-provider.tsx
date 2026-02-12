@@ -51,6 +51,8 @@ const AppProviderRuntime: Component<AppProviderRuntimeProps> = props => {
   const [, messageActions] = stores.message;
   const [, partActions] = stores.part;
   const [, sessionActions] = stores.session;
+  const [, permissionActions] = stores.permission;
+  const [, questionActions] = stores.question;
 
   onMount(() => {
     logger.info("Initializing app runtime");
@@ -65,7 +67,14 @@ const AppProviderRuntime: Component<AppProviderRuntimeProps> = props => {
       });
 
       void Promise.resolve(
-        applyEventToStores(event, messageActions, partActions, sessionActions)
+        applyEventToStores(
+          event,
+          messageActions,
+          partActions,
+          sessionActions,
+          permissionActions,
+          questionActions
+        )
       ).catch(error => {
         logger.error("Failed to apply SSE event", error as Error, {
           type: event.type,

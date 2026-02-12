@@ -11,7 +11,7 @@ import {
   useMessageStore,
   usePartStore,
   useSessionStore,
-} from "@renderer/presentation/providers/store-provider";
+} from "@/core/state/providers/store-provider";
 import { createSignal, For } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

@@ -2,10 +2,10 @@
  * Event Router Tests
  */
 
-import { createEventRouter } from "@ekacode/desktop/core/domain/event-router";
-import type { MessageActions } from "@ekacode/desktop/core/stores/message-store";
-import type { PartActions } from "@ekacode/desktop/core/stores/part-store";
-import type { SessionActions } from "@ekacode/desktop/core/stores/session-store";
+import { createEventRouter } from "@/core/chat/domain/event-router";
+import type { MessageActions } from "@/core/state/stores/message-store";
+import type { PartActions } from "@/core/state/stores/part-store";
+import type { SessionActions } from "@/core/state/stores/session-store";
 import type { AllServerEvents } from "@ekacode/shared/event-types";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

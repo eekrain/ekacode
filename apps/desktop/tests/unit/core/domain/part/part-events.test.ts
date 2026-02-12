@@ -2,12 +2,9 @@
  * Part Event Handlers Tests
  */
 
-import {
-  handlePartRemoved,
-  handlePartUpdated,
-} from "@ekacode/desktop/core/domain/part/part-events";
-import type { MessageActions } from "@ekacode/desktop/core/stores/message-store";
-import type { PartActions } from "@ekacode/desktop/core/stores/part-store";
+import { handlePartRemoved, handlePartUpdated } from "@/core/chat/domain/part-events";
+import type { MessageActions } from "@/core/state/stores/message-store";
+import type { PartActions } from "@/core/state/stores/part-store";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("Part Event Handlers", () => {

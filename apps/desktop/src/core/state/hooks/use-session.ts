@@ -11,7 +11,7 @@
  * - Clear session functionality
  * - Comprehensive logging
  */
-import { createLogger } from "@/shared/logger";
+import { createLogger } from "@/core/shared/logger";
 import { createEffect, createSignal, type Accessor } from "solid-js";
 
 const logger = createLogger("desktop:session");

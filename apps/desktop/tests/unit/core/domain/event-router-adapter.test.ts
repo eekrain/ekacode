@@ -1,9 +1,11 @@
-import { applyEventToStores } from "@ekacode/desktop/core/domain/event-router-adapter";
+import { applyEventToStores } from "@/core/chat/domain/event-router-adapter";
 import {
   createMessageStore,
   createPartStore,
+  createPermissionStore,
+  createQuestionStore,
   createSessionStore,
-} from "@ekacode/desktop/core/stores";
+} from "@/core/state/stores";
 import type { ServerEvent } from "@ekacode/shared/event-types";
 import { v7 as uuidv7 } from "uuid";
 import { describe, expect, it, vi } from "vitest";
@@ -16,7 +18,9 @@ function createActions() {
   const [, messageActions] = createMessageStore();
   const [, partActions] = createPartStore();
   const [, sessionActions] = createSessionStore();
-  return { messageActions, partActions, sessionActions };
+  const [, permissionActions] = createPermissionStore();
+  const [, questionActions] = createQuestionStore();
+  return { messageActions, partActions, sessionActions, permissionActions, questionActions };
 }
 
 describe("event-router-adapter", () => {
@@ -70,7 +74,7 @@ describe("event-router-adapter", () => {
   });
 
   it("forwards permission events to the window event channel", async () => {
-    const { messageActions, partActions, sessionActions } = createActions();
+    const { messageActions, partActions, sessionActions, permissionActions } = createActions();
     const specificListener = vi.fn();
     const globalListener = vi.fn();
 
@@ -94,7 +98,8 @@ describe("event-router-adapter", () => {
         } as ServerEvent,
         messageActions,
         partActions,
-        sessionActions
+        sessionActions,
+        permissionActions
       );
     } finally {
       window.removeEventListener("ekacode:permission.asked", specificListener as EventListener);
@@ -103,6 +108,65 @@ describe("event-router-adapter", () => {
 
     expect(specificListener).toHaveBeenCalledTimes(1);
     expect(globalListener).toHaveBeenCalledTimes(1);
+    expect(permissionActions.getById("perm-1")).toEqual(
+      expect.objectContaining({
+        id: "perm-1",
+        sessionID: SESSION_ID_1,
+        status: "pending",
+        toolName: "write",
+      })
+    );
+  });
+
+  it("stores question replies as unknown payloads", async () => {
+    const { messageActions, partActions, sessionActions, questionActions } = createActions();
+
+    await applyEventToStores(
+      {
+        type: "question.asked",
+        properties: {
+          id: "q-1",
+          sessionID: SESSION_ID_1,
+          questions: ["Pick one"],
+          tool: { messageID: "msg-1", callID: "call-1" },
+        },
+        eventId: uuidv7(),
+        sequence: 1,
+        timestamp: Date.now(),
+      } as ServerEvent,
+      messageActions,
+      partActions,
+      sessionActions,
+      undefined,
+      questionActions
+    );
+
+    await applyEventToStores(
+      {
+        type: "question.replied",
+        properties: {
+          sessionID: SESSION_ID_1,
+          requestID: "q-1",
+          reply: { selected: "A" },
+        },
+        eventId: uuidv7(),
+        sequence: 2,
+        timestamp: Date.now(),
+      } as ServerEvent,
+      messageActions,
+      partActions,
+      sessionActions,
+      undefined,
+      questionActions
+    );
+
+    expect(questionActions.getById("q-1")).toEqual(
+      expect.objectContaining({
+        id: "q-1",
+        status: "answered",
+        answer: { selected: "A" },
+      })
+    );
   });
 
   it("creates missing session from event.sessionID before applying message.updated", async () => {

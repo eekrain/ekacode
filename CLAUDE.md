@@ -254,26 +254,37 @@ apps/
 │   └── vite.config.ts    # CJS build config
 └── desktop/              # Renderer (UI)
     ├── src/              # SolidJS components
-    │   ├── core/            # Domain logic (stores, hooks, contexts, services)
-    │   │   ├── chat/     # Chat domain (stores, hooks, contexts, services)
-    │   │   ├── session/  # Session domain (hooks, contexts)
-    │   │   ├── permissions/ # Permission hooks
-    │   │   ├── services/  # External integrations (api, sse)
-    │   │   ├── shared/    # Cross-domain utilities
-    │   │   └── providers/ # Root providers (app, store, workspace)
-    │   ├── components/       # Presentational components
-    │   │   ├── chat/      # Chat-specific components
-    │   │   ├── permissions/ # Permission dialogs
-    │   │   ├── shared/     # Shared UI components
-    │   │   ├── activity-feed/
-    │   │   ├── run-card/
-    │   │   └── parts/
-    │   ├── views/           # Page components
-    │   │   ├── home-view/
-    │   │   ├── workspace-view/
-    │   │   └── settings-view.tsx
-    │   ├── routes.tsx
-    │   └── main.tsx
+    │   ├── assets/       # Global styles
+    │   ├── components/   # Presentational components
+    │   │   ├── permissions/
+    │   │   └── shared/   # Shared UI primitives
+    │   ├── core/         # Domain logic
+    │   │   ├── chat/     # Chat domain
+    │   │   │   ├── domain/   # Events, queries, commands
+    │   │   │   ├── hooks/    # Chat hooks
+    │   │   │   ├── services/ # Stream parsing
+    │   │   │   └── types/    # Chat types
+    │   │   ├── permissions/  # Permission hooks
+    │   │   │   └── hooks/
+    │   │   ├── services/     # External integrations
+    │   │   │   ├── api/
+    │   │   │   └── sse/
+    │   │   ├── shared/       # Cross-domain utilities
+    │   │   │   ├── logger/
+    │   │   │   └── utils/
+    │   │   └── state/        # State management
+    │   │       ├── contexts/
+    │   │       ├── hooks/
+    │   │       ├── providers/
+    │   │       └── stores/
+    │   ├── utils/        # Utility functions
+    │   └── views/        # Page components
+    │       ├── home-view/
+    │       │   └── components/
+    │       ├── workspace-view/
+    │       │   ├── left-side/
+    │       │   └── right-side/
+    │       └── settings-view.tsx
     ├── index.html
     └── vite.config.ts    # Client build config
 ```

@@ -2,7 +2,7 @@
  * EventSource Tests
  */
 
-import { createEventSource } from "@ekacode/desktop/infrastructure/events/event-source";
+import { createEventSource } from "@/core/services/sse/event-source";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Store original EventSource

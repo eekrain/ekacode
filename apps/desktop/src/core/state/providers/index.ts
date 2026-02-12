@@ -7,6 +7,8 @@ export {
   StoreProvider,
   useMessageStore,
   usePartStore,
+  usePermissionStore,
+  useQuestionStore,
   useSessionStore,
   useStores,
 } from "./store-provider";

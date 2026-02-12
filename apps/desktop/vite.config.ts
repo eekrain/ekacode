@@ -28,8 +28,6 @@ const config: UserConfig = {
       { find: "@/routes", replacement: join(PACKAGE_ROOT, "src/routes") },
       { find: "@/components/parts", replacement: join(PACKAGE_ROOT, "src/components/parts") },
       { find: "@/", replacement: join(PACKAGE_ROOT, "src") + "/" },
-      { find: "@ekacode/desktop", replacement: join(PACKAGE_ROOT, "src") },
-      { find: /^@ekacode\/desktop\/(.*)$/, replacement: join(PACKAGE_ROOT, "src/$1") },
     ],
   },
   build: {

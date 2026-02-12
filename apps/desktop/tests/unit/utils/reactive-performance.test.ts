@@ -8,7 +8,7 @@ import {
   useOperationMonitor,
   useReactivePerformanceMonitor,
   useRenderMonitor,
-} from "@/utils/reactive-performance";
+} from "@/core/shared/utils/reactive-performance";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock SolidJS hooks for testing

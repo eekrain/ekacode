@@ -7,10 +7,10 @@ import {
   handleSessionCreated,
   handleSessionStatus,
   handleSessionUpdated,
-} from "@ekacode/desktop/core/domain/session/session-events";
-import type { MessageActions } from "@ekacode/desktop/core/stores/message-store";
-import type { PartActions } from "@ekacode/desktop/core/stores/part-store";
-import type { SessionActions } from "@ekacode/desktop/core/stores/session-store";
+} from "@/core/chat/domain/session-events";
+import type { MessageActions } from "@/core/state/stores/message-store";
+import type { PartActions } from "@/core/state/stores/part-store";
+import type { SessionActions } from "@/core/state/stores/session-store";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("Session Event Handlers", () => {

@@ -1,10 +1,10 @@
-import { MessageProvider, useMessage } from "@ekacode/desktop/presentation/contexts";
+import { MessageProvider, useMessage } from "@/core/state/contexts";
 import {
   StoreProvider,
   useMessageStore,
   usePartStore,
   useSessionStore,
-} from "@renderer/presentation/providers/store-provider";
+} from "@/core/state/providers/store-provider";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 

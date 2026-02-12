@@ -5,7 +5,7 @@
  * Part of Phase 5: Hooks Refactor
  */
 
-import { useStreaming } from "@ekacode/desktop/presentation/hooks";
+import { useStreaming } from "@/core/chat/hooks";
 import { createRoot } from "solid-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

@@ -2,12 +2,12 @@
  * ChatProvider Tests
  */
 
-import type { EkacodeApiClient } from "@ekacode/desktop/lib/api-client";
+import type { EkacodeApiClient } from "@/core/services/api/api-client";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@renderer/presentation/providers/store-provider", () => ({
+vi.mock("@/core/state/providers/store-provider", () => ({
   useMessageStore: () => [
     {},
     {
@@ -38,7 +38,7 @@ vi.mock("@renderer/presentation/providers/store-provider", () => ({
   ],
 }));
 
-vi.mock("@ekacode/desktop/lib/logger", () => ({
+vi.mock("@/core/shared/logger", () => ({
   createLogger: () => ({
     debug: vi.fn(),
     info: vi.fn(),
@@ -89,14 +89,13 @@ describe("ChatProvider", () => {
   }
 
   it("imports ChatProvider and useChatContext", async () => {
-    const { ChatProvider, useChatContext } =
-      await import("@ekacode/desktop/presentation/providers");
+    const { ChatProvider, useChatContext } = await import("@/core/state/contexts/chat-provider");
     expect(ChatProvider).toBeInstanceOf(Function);
     expect(useChatContext).toBeInstanceOf(Function);
   });
 
   it("throws when useChatContext is called outside provider", async () => {
-    const { useChatContext } = await import("@ekacode/desktop/presentation/providers");
+    const { useChatContext } = await import("@/core/state/contexts/chat-provider");
 
     expect(() => {
       createRoot(dispose => {
@@ -107,8 +106,7 @@ describe("ChatProvider", () => {
   });
 
   it("passes client to useChat and sends message", async () => {
-    const { ChatProvider, useChatContext } =
-      await import("@ekacode/desktop/presentation/providers");
+    const { ChatProvider, useChatContext } = await import("@/core/state/contexts/chat-provider");
     mockChatFn.mockResolvedValue(successResponse());
 
     let capturedChat: { sendMessage: (text: string) => Promise<void> } | null = null;
@@ -136,8 +134,7 @@ describe("ChatProvider", () => {
   });
 
   it("wires callbacks into useChat", async () => {
-    const { ChatProvider, useChatContext } =
-      await import("@ekacode/desktop/presentation/providers");
+    const { ChatProvider, useChatContext } = await import("@/core/state/contexts/chat-provider");
     mockChatFn.mockResolvedValue(successResponse());
 
     const onError = vi.fn();

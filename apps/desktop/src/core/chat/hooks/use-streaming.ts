@@ -21,7 +21,7 @@
  * ```
  */
 
-import { createLogger } from "@/shared/logger";
+import { createLogger } from "@/core/shared/logger";
 import { createMemo, createSignal, onCleanup, type Accessor } from "solid-js";
 
 const logger = createLogger("desktop:hooks:use-streaming");

@@ -2,7 +2,7 @@
  * Event Coalescer Tests
  */
 
-import { createEventCoalescer } from "@ekacode/desktop/infrastructure/events/event-coalescer";
+import { createEventCoalescer } from "@/core/services/sse/event-coalescer";
 import { describe, expect, it, vi } from "vitest";
 
 describe("EventCoalescer", () => {

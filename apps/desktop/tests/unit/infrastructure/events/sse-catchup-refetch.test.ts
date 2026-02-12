@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createEventSource,
   type EventSourceError,
-} from "../../../../src/infrastructure/events/event-source";
+} from "../../../../src/core/services/sse/event-source";
 
 class MockEventSource {
   static CONNECTING = 0;

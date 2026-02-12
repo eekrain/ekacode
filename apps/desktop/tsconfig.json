@@ -18,8 +18,6 @@
       "@ekacode/core/chat": ["../../packages/core/src/chat"],
       "@ekacode/core/server": ["../../packages/core/src/server"],
       "@ekacode/core/tools": ["../../packages/core/src/tools"],
-      "@ekacode/desktop": ["src"],
-      "@ekacode/desktop/*": ["src/*"],
       "@ekacode/*": ["../../packages/*/src"],
       "@/*": ["src/*"],
       "@/components": ["src/components"],

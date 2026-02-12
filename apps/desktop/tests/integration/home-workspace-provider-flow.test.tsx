@@ -1,6 +1,6 @@
-import { AppProvider } from "@renderer/presentation/providers/app-provider";
-import { ChatProvider, useChatContext } from "@renderer/presentation/providers/chat-provider";
-import { useWorkspace, WorkspaceProvider } from "@renderer/providers/workspace-provider";
+import { ChatProvider, useChatContext } from "@/core/state/contexts/chat-provider";
+import { AppProvider } from "@/core/state/providers/app-provider";
+import { useWorkspace, WorkspaceProvider } from "@/core/state/providers/workspace-provider";
 import HomeView from "@renderer/views/home-view/home-view";
 import { createMemo, Show } from "solid-js";
 import { render } from "solid-js/web";
@@ -20,7 +20,7 @@ vi.mock("@solidjs/router", () => {
   };
 });
 
-vi.mock("../../src/infrastructure/events/sse-manager", () => {
+vi.mock("../../src/core/services/sse/sse-manager", () => {
   return {
     createSSEManager: () => ({
       connect: vi.fn(),

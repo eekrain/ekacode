@@ -24,9 +24,17 @@
  * ```
  */
 
-import { createMessageStore, createPartStore, createSessionStore } from "@/state/stores";
+import {
+  createMessageStore,
+  createPartStore,
+  createPermissionStore,
+  createQuestionStore,
+  createSessionStore,
+} from "@/state/stores";
 import type { MessageActions, MessageState } from "@/state/stores/message-store";
 import type { PartActions, PartState } from "@/state/stores/part-store";
+import type { PermissionActions, PermissionState } from "@/state/stores/permission-store";
+import type { QuestionActions, QuestionState } from "@/state/stores/question-store";
 import type { SessionActions, SessionState } from "@/state/stores/session-store";
 import { Component, createContext, JSX, onCleanup, useContext } from "solid-js";
 
@@ -37,6 +45,8 @@ interface StoreContextValue {
   message: [get: MessageState, actions: MessageActions];
   part: [get: PartState, actions: PartActions];
   session: [get: SessionState, actions: SessionActions];
+  permission: [get: PermissionState, actions: PermissionActions];
+  question: [get: QuestionState, actions: QuestionActions];
 }
 
 const STORE_CONTEXT_KEY = Symbol.for("ekacode.desktop.store-context");
@@ -69,6 +79,8 @@ export const StoreProvider: Component<{ children: JSX.Element }> = props => {
   const message = createMessageStore();
   const part = createPartStore();
   const session = createSessionStore();
+  const permission = createPermissionStore();
+  const question = createQuestionStore();
   const [, messageActions] = message;
   const [, partActions] = part;
   const [, sessionActions] = session;
@@ -93,7 +105,7 @@ export const StoreProvider: Component<{ children: JSX.Element }> = props => {
     }
   });
 
-  const value: StoreContextValue = { message, part, session };
+  const value: StoreContextValue = { message, part, session, permission, question };
   globalStoreContextRef[ACTIVE_STORES_KEY] = value;
 
   onCleanup(() => {
@@ -151,6 +163,24 @@ export function usePartStore(): [PartState, PartActions] {
  */
 export function useSessionStore(): [SessionState, SessionActions] {
   return useStores().session;
+}
+
+/**
+ * Hook to access permission store
+ * @returns [state, actions] tuple
+ * @throws Error if used outside StoreProvider
+ */
+export function usePermissionStore(): [PermissionState, PermissionActions] {
+  return useStores().permission;
+}
+
+/**
+ * Hook to access question store
+ * @returns [state, actions] tuple
+ * @throws Error if used outside StoreProvider
+ */
+export function useQuestionStore(): [QuestionState, QuestionActions] {
+  return useStores().question;
 }
 
 /**

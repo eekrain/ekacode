@@ -6,7 +6,7 @@ import {
   createEmptyMessageState,
   createMessageStore,
   type MessageWithId,
-} from "@ekacode/desktop/core/stores";
+} from "@/core/state/stores";
 import { describe, expect, it } from "vitest";
 
 describe("MessageStore", () => {
