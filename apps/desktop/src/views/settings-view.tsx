@@ -1,6 +1,6 @@
+import type { RecentProject } from "@/chat/types";
+import { cn } from "@/shared/utils";
 import { For, Show, createSignal, onMount } from "solid-js";
-import { cn } from "/@/lib/utils";
-import type { RecentProject } from "/@/types";
 
 export default function SettingsView() {
   const [theme, setTheme] = createSignal<"light" | "dark">("light");

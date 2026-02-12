@@ -5,9 +5,9 @@
  * during rapid streaming updates.
  */
 
+import { Markdown } from "@/components/shared/markdown";
 import type { TextPart as TextPartType } from "@ekacode/core/chat";
 import { Show, createEffect, createSignal, onCleanup, type JSX } from "solid-js";
-import { Markdown } from "../markdown";
 import type { MessagePartProps, PartComponent } from "../message-part";
 
 /**

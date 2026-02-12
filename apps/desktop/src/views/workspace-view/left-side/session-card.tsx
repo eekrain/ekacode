@@ -1,5 +1,5 @@
+import { cn } from "@/shared/utils";
 import { Component, Show, mergeProps } from "solid-js";
-import { cn } from "/@/lib/utils";
 
 /**
  * Base session interface compatible with both old and new formats

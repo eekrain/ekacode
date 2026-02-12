@@ -1,10 +1,10 @@
+import { useMessages } from "@/chat/hooks/use-messages";
+import type { Message, Part } from "@/chat/types/sync";
+import { Icon } from "@/components/shared/icon";
+import { createLogger } from "@/shared/logger";
+import { cn } from "@/shared/utils";
+import { createAutoScroll } from "@/shared/utils/create-auto-scroll";
 import type { Part as SharedPart } from "@ekacode/shared/event-types";
-import { Icon } from "@renderer/components/icon";
-import { createAutoScroll } from "@renderer/hooks/create-auto-scroll";
-import { createLogger } from "@renderer/lib/logger";
-import { cn } from "@renderer/lib/utils";
-import { useMessages } from "@renderer/presentation/hooks/use-messages";
-import type { Message, Part } from "@renderer/types/sync";
 import { Component, createEffect, For, Show } from "solid-js";
 import AssistantMessage from "../../../components/assistant-message";
 import { MessageBubble, ThinkingBubble } from "./message-bubble";

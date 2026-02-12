@@ -1,7 +1,7 @@
+import { cn } from "@/shared/utils";
 import Resizable from "@corvu/resizable";
 import { Component, mergeProps } from "solid-js";
 import { SessionList } from "./session-list";
-import { cn } from "/@/lib/utils";
 
 /**
  * Base session interface that both types implement

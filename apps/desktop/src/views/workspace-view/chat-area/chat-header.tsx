@@ -1,5 +1,5 @@
+import { cn } from "@/shared/utils";
 import { Component, For, Show, mergeProps } from "solid-js";
-import { cn } from "/@/lib/utils";
 
 interface ModelOption {
   id: string;

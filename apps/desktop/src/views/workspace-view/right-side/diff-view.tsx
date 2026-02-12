@@ -1,6 +1,6 @@
+import type { DiffChange } from "@/chat/types";
+import { cn } from "@/shared/utils";
 import { Component, For, mergeProps, Show } from "solid-js";
-import { cn } from "/@/lib/utils";
-import type { DiffChange } from "/@/types";
 
 interface DiffViewProps {
   /** Diff changes to display */

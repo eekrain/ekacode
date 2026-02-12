@@ -1,10 +1,10 @@
+import type { DiffChange, FileTab as FileTabType, TerminalOutput } from "@/chat/types";
+import { cn } from "@/shared/utils";
 import Resizable from "@corvu/resizable";
 import { Accessor, Component, mergeProps, Show } from "solid-js";
 import { DiffView } from "./diff-view";
 import { FileContext } from "./file-context";
 import { TerminalPanel } from "./terminal-panel";
-import { cn } from "/@/lib/utils";
-import type { DiffChange, FileTab as FileTabType, TerminalOutput } from "/@/types";
 
 interface ContextPanelProps {
   /** Open file tabs */

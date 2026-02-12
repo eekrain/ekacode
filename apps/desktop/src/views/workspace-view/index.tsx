@@ -1,14 +1,14 @@
-import { cn } from "@renderer/lib/utils";
-import type { DiffChange, FileTab, TerminalOutput } from "@renderer/types";
+import type { DiffChange, FileTab, TerminalOutput } from "@/chat/types";
+import { cn } from "@/shared/utils";
 import { createEffect, createMemo, createSignal, onMount, Show } from "solid-js";
 
 // Import workspace components
+import { ChatProvider, useChatContext } from "@/chat/contexts/chat-provider";
+import { PermissionDialog } from "@/components/permissions/permission-dialog";
+import { ResizeableHandle } from "@/components/shared/resizeable-handle";
+import { useWorkspace, WorkspaceProvider } from "@/core/providers";
+import { usePermissions } from "@/permissions/hooks/use-permissions";
 import Resizable from "@corvu/resizable";
-import { PermissionDialog } from "@renderer/components/permission-dialog";
-import { ResizeableHandle } from "@renderer/components/resizeable-handle";
-import { usePermissions } from "@renderer/hooks/use-permissions";
-import { ChatProvider, useChatContext } from "@renderer/presentation/providers/chat-provider";
-import { useWorkspace, WorkspaceProvider } from "@renderer/providers/workspace-provider";
 import { ChatPanel } from "./chat-area/chat-area";
 import { LeftSide } from "./left-side/left-side";
 import { ContextPanel } from "./right-side/right-side";

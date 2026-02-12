@@ -1,5 +1,5 @@
+import { cn } from "@/shared/utils";
 import { Component, For, Show, createSignal, mergeProps } from "solid-js";
-import { cn } from "/@/lib/utils";
 
 interface TerminalTab {
   id: string;

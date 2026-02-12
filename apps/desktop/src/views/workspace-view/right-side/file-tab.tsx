@@ -1,6 +1,6 @@
+import type { FileTab as FileTabType } from "@/chat/types";
+import { cn } from "@/shared/utils";
 import { Component, mergeProps, Show } from "solid-js";
-import { cn } from "/@/lib/utils";
-import type { FileTab as FileTabType } from "/@/types";
 
 interface FileTabProps {
   /** File tab data */

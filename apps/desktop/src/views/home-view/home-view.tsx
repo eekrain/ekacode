@@ -1,8 +1,8 @@
+import type { RecentProject, WorkspaceState } from "@/chat/types";
 import { useNavigate } from "@solidjs/router";
 import { createSignal, onMount } from "solid-js";
 import { CloneDialog } from "./components/clone-dialog";
 import { WelcomeScreen } from "./components/welcome-screen";
-import type { RecentProject, WorkspaceState } from "/@/types";
 
 // Simple ID generator
 function generateId(): string {

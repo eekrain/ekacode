@@ -1,6 +1,6 @@
+import { cn } from "@/shared/utils";
 import { Component, For, Show, createSignal } from "solid-js";
 import { SessionCard } from "./session-card";
-import { cn } from "/@/lib/utils";
 
 /**
  * Base session interface compatible with both old and new formats

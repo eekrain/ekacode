@@ -1,6 +1,6 @@
+import type { AgentMode } from "@/chat/types";
+import { cn } from "@/shared/utils";
 import { Component, createEffect, createSignal, mergeProps, onMount } from "solid-js";
-import { cn } from "/@/lib/utils";
-import type { AgentMode } from "/@/types";
 
 interface ChatInputProps {
   /** Current input value */

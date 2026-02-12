@@ -254,6 +254,26 @@ apps/
 │   └── vite.config.ts    # CJS build config
 └── desktop/              # Renderer (UI)
     ├── src/              # SolidJS components
+    │   ├── core/            # Domain logic (stores, hooks, contexts, services)
+    │   │   ├── chat/     # Chat domain (stores, hooks, contexts, services)
+    │   │   ├── session/  # Session domain (hooks, contexts)
+    │   │   ├── permissions/ # Permission hooks
+    │   │   ├── services/  # External integrations (api, sse)
+    │   │   ├── shared/    # Cross-domain utilities
+    │   │   └── providers/ # Root providers (app, store, workspace)
+    │   ├── components/       # Presentational components
+    │   │   ├── chat/      # Chat-specific components
+    │   │   ├── permissions/ # Permission dialogs
+    │   │   ├── shared/     # Shared UI components
+    │   │   ├── activity-feed/
+    │   │   ├── run-card/
+    │   │   └── parts/
+    │   ├── views/           # Page components
+    │   │   ├── home-view/
+    │   │   ├── workspace-view/
+    │   │   └── settings-view.tsx
+    │   ├── routes.tsx
+    │   └── main.tsx
     ├── index.html
     └── vite.config.ts    # Client build config
 ```
@@ -289,6 +309,23 @@ packages/
 - Files: kebab-case (`bash.tool.ts`, `session-bridge.ts`)
 - Test files: `<name>.test.ts` or `<name>.spec.ts`
 - Tests located in `tests/` directory within each package
+
+### Desktop Import Paths (tsconfig aliases)
+
+The desktop app uses path aliases for cleaner imports:
+
+| Alias             | Maps To                  |
+| ----------------- | ------------------------ |
+| `@/chat/*`        | `src/core/chat/*`        |
+| `@/session/*`     | `src/core/session/*`     |
+| `@/permissions/*` | `src/core/permissions/*` |
+| `@/services/*`    | `src/core/services/*`    |
+| `@/shared/*`      | `src/core/shared/*`      |
+| `@/core/*`        | `src/core/*`             |
+| `@/components`    | `src/components`         |
+| `@/views`         | `src/views`              |
+
+Example: `import { useChat } from "@/chat/hooks"` instead of relative imports
 
 ## Technologies
 

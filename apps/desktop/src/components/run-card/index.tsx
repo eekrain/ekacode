@@ -7,14 +7,14 @@
  * - Progress groups with collapsible items
  */
 
-import { For, Show, createMemo, type Component } from "solid-js";
 import type {
   AgentEvent,
   ChatUIMessage,
   RunCardData,
   RunFileData,
   RunGroupData,
-} from "../../types/ui-message";
+} from "@/chat/types/ui-message";
+import { For, Show, createMemo, type Component } from "solid-js";
 import { ThoughtIndicator } from "../activity-feed/thought-indicator";
 import { FileRow } from "./file-row";
 import { ProgressGroup } from "./progress-group";

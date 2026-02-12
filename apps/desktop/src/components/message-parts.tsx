@@ -9,15 +9,15 @@
  * - Each part type has its own component
  * - Custom data-* parts for RLM state, progress, etc.
  */
-import { Component, For, Match, Show, Switch, createSignal } from "solid-js";
-import { Markdown } from "/@/components/markdown";
-import { cn } from "/@/lib/utils";
 import type {
   ProgressData,
   RLMStateData,
   ToolCallPartData,
   ToolResultPartData,
-} from "/@/types/ui-message";
+} from "@/chat/types/ui-message";
+import { Markdown } from "@/components/shared/markdown";
+import { cn } from "@/shared/utils";
+import { Component, For, Match, Show, Switch, createSignal } from "solid-js";
 
 /**
  * A generic message part type matching AI SDK's structure

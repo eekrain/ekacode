@@ -1,4 +1,3 @@
-import { For, Show, createSignal } from "solid-js";
 import {
   Dialog,
   DialogContent,
@@ -6,8 +5,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../../components/dialog";
-import { cn } from "/@/lib/utils";
+} from "@/components/shared/dialog";
+import { cn } from "@/shared/utils";
+import { For, Show, createSignal } from "solid-js";
 
 interface CloneDialogProps {
   isOpen: boolean;

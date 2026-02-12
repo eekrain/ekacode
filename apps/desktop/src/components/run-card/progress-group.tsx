@@ -4,8 +4,8 @@
  * Collapsible group of progress items in the run card
  */
 
+import type { AgentEvent, RunGroupData } from "@/chat/types/ui-message";
 import { For, Show, createSignal, type Component } from "solid-js";
-import type { AgentEvent, RunGroupData } from "../../types/ui-message";
 import { ActionRow } from "../activity-feed/action-row";
 
 export interface ProgressGroupProps {

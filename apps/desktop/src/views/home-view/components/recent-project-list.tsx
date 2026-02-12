@@ -1,8 +1,8 @@
+import type { RecentProject } from "@/chat/types";
+import { cn } from "@/shared/utils";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { For } from "solid-js";
-import { cn } from "/@/lib/utils";
-import type { RecentProject } from "/@/types";
 
 dayjs.extend(relativeTime);
 

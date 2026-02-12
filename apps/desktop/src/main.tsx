@@ -1,6 +1,6 @@
 /* @refresh reload */
-import { registerDefaultPartComponents } from "@renderer/components/parts/register";
-import App from "@renderer/routes";
+import { registerDefaultPartComponents } from "@/components/parts/register";
+import App from "@/routes";
 import { render } from "solid-js/web";
 import "./assets/main.css";
 

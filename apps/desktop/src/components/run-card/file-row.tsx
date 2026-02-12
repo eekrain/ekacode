@@ -4,9 +4,9 @@
  * Displays a single file in the Files Edited section
  */
 
+import type { RunFileData } from "@/chat/types/ui-message";
 import type { Component } from "solid-js";
 import { Show } from "solid-js";
-import type { RunFileData } from "../../types/ui-message";
 
 export interface FileRowProps {
   file: RunFileData;

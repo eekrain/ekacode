@@ -1,12 +1,12 @@
+import type { UseStreamDebuggerResult } from "@/chat/hooks/use-stream-debugger";
+import type { AgentMode, Session } from "@/chat/types";
+import { cn } from "@/shared/utils";
 import Resizable from "@corvu/resizable";
 import { Component, createMemo, createSignal, mergeProps, Show } from "solid-js";
 import { ChatHeader } from "./chat-header";
 import { ChatInput } from "./chat-input";
 import { MessageList } from "./message-list";
 import { StreamDebuggerPanel } from "./stream-debugger-panel";
-import type { UseStreamDebuggerResult } from "/@/hooks/use-stream-debugger";
-import { cn } from "/@/lib/utils";
-import type { AgentMode, Session } from "/@/types";
 
 interface ChatPanelProps {
   /** Current active session */

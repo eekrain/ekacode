@@ -5,8 +5,8 @@
  * Displays icon, title, subtitle, and optional actions.
  */
 
+import type { AgentEvent, AgentEventKind } from "@/chat/types/ui-message";
 import { Show, type Component } from "solid-js";
-import type { AgentEvent, AgentEventKind } from "../../types/ui-message";
 
 export interface ActionRowProps {
   event: AgentEvent;

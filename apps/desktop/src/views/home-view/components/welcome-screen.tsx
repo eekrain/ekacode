@@ -1,7 +1,7 @@
+import type { RecentProject } from "@/chat/types";
+import { cn } from "@/shared/utils";
 import { RecentProjectsList } from "./recent-project-list";
 import { WelcomeButton } from "./welcome-button";
-import { cn } from "/@/lib/utils";
-import type { RecentProject } from "/@/types";
 
 interface WelcomeScreenProps {
   recentProjects: RecentProject[];
