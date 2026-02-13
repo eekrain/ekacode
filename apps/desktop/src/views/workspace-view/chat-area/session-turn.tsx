@@ -71,6 +71,7 @@ export function SessionTurn(props: SessionTurnProps): JSX.Element {
 
   // Steps section state
   const [stepsExpanded, setStepsExpanded] = createSignal(false);
+  const [stepsManuallyToggled, setStepsManuallyToggled] = createSignal(false);
   const stepsContentId = () => `session-turn-steps-${turn().userMessage.id}`;
 
   // Throttle status label during streaming
@@ -133,6 +134,16 @@ export function SessionTurn(props: SessionTurnProps): JSX.Element {
     onCleanup(() => clearInterval(timer));
   });
 
+  // Match OpenCode behavior: active working turns reveal live steps by default.
+  createEffect(() => {
+    if (stepsManuallyToggled()) return;
+    if (!turn().working) return;
+    if (!hasSteps()) return;
+    if (!stepsExpanded()) {
+      setStepsExpanded(true);
+    }
+  });
+
   const retryMessage = () => {
     const message = turn().retry?.message ?? "";
     if (!message) return "Retrying";
@@ -175,9 +186,11 @@ export function SessionTurn(props: SessionTurnProps): JSX.Element {
             data-slot="steps-trigger"
             aria-controls={stepsContentId()}
             aria-expanded={stepsExpanded()}
+            onClick={() => setStepsManuallyToggled(true)}
             onKeyDown={event => {
               if (event.key !== "Enter" && event.key !== " ") return;
               event.preventDefault();
+              setStepsManuallyToggled(true);
               setStepsExpanded(!stepsExpanded());
             }}
             class={cn(
@@ -302,7 +315,10 @@ export function SessionTurn(props: SessionTurnProps): JSX.Element {
 
       {/* Summary section (final text only) */}
       <Show when={turn().assistantMessages.length > 0}>
-        <div data-slot="session-turn-summary" class="px-3 [overflow-anchor:none]">
+        <div
+          data-slot="session-turn-summary"
+          class="min-w-0 overflow-hidden px-3 [overflow-anchor:none]"
+        >
           <Show when={turn().error && !turn().working}>
             <div class="bg-destructive/10 text-destructive mb-3 rounded-lg p-3 text-sm">
               {turn().error}

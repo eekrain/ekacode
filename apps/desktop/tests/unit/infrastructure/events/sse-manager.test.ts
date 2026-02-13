@@ -73,4 +73,64 @@ describe("SSE manager", () => {
       dispose();
     });
   });
+
+  it("preserves all sequential status events in a batch window", async () => {
+    const { createSSEManager } = await import("../../../../src/core/services/sse/sse-manager");
+
+    await createRoot(async dispose => {
+      const manager = createSSEManager({ baseUrl: "http://localhost:3000" });
+      const seen: Array<{ sequence?: number; status?: string }> = [];
+      const unlisten = manager.onEvent((_directory, event) => {
+        const status = (event.properties as { status?: { type?: string } })?.status?.type;
+        seen.push({ sequence: event.sequence, status });
+      });
+
+      manager.connect();
+
+      const base = {
+        type: "session.status" as const,
+        directory: "/repo",
+        sessionID: "019c4da0-fc0b-713c-984e-b2aca339c9dd",
+      };
+
+      state.onEvent?.({
+        ...base,
+        properties: {
+          sessionID: base.sessionID,
+          status: { type: "busy" as const },
+        },
+        eventId: "019c4da0-fc0b-713c-984e-b2aca339c9e0",
+        sequence: 10,
+        timestamp: 1700000000010,
+      });
+      state.onEvent?.({
+        ...base,
+        properties: {
+          sessionID: base.sessionID,
+          status: { type: "busy" as const },
+        },
+        eventId: "019c4da0-fc0b-713c-984e-b2aca339c9e1",
+        sequence: 11,
+        timestamp: 1700000000011,
+      });
+      state.onEvent?.({
+        ...base,
+        properties: {
+          sessionID: base.sessionID,
+          status: { type: "idle" as const },
+        },
+        eventId: "019c4da0-fc0b-713c-984e-b2aca339c9e2",
+        sequence: 12,
+        timestamp: 1700000000012,
+      });
+
+      vi.runAllTimers();
+
+      expect(seen.map(item => item.sequence)).toEqual([10, 11, 12]);
+      expect(seen.map(item => item.status)).toEqual(["busy", "busy", "idle"]);
+
+      unlisten();
+      dispose();
+    });
+  });
 });

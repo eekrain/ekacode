@@ -4,6 +4,7 @@ import { createEffect, createMemo, createSignal, onMount, Show } from "solid-js"
 
 import { ResizeableHandle } from "@/components/shared/resizeable-handle";
 import { useSessionTurns } from "@/core/chat/hooks";
+import type { AgentMode } from "@/core/chat/types";
 import { usePermissions } from "@/core/permissions/hooks/use-permissions";
 import { ChatProvider, useChatContext } from "@/state/contexts/chat-provider";
 import {
@@ -13,7 +14,7 @@ import {
   WorkspaceProvider,
 } from "@/state/providers";
 import Resizable from "@corvu/resizable";
-import { MessageTimeline, SessionPromptDock } from "./chat-area";
+import { ChatInput, MessageTimeline } from "./chat-area";
 import { LeftSide } from "./left-side/left-side";
 import { ContextPanel } from "./right-side/right-side";
 
@@ -124,6 +125,7 @@ function WorkspaceViewContent() {
   };
 
   const [draftMessage, setDraftMessage] = createSignal("");
+  const [agentMode, setAgentMode] = createSignal<AgentMode>("plan");
 
   // File/diff handlers
   const handleTabClick = (tab: FileTab) => {
@@ -226,7 +228,7 @@ function WorkspaceViewContent() {
   };
 
   return (
-    <div class="bg-background h-screen flex-col overflow-hidden">
+    <div class="bg-background flex h-screen flex-col overflow-hidden">
       {/* Loading state */}
       <Show when={isLoading()}>
         <div class="flex h-full items-center justify-center">
@@ -271,66 +273,38 @@ function WorkspaceViewContent() {
           <ResizeableHandle />
 
           {/* CENTER PANEL - Chat Interface */}
-          <Resizable.Panel initialSize={0.5} minSize={0.2} class="overflow-visible">
-            <div class="bg-muted/10 border-border/30 relative flex h-full flex-col border-x">
-              <MessageTimeline
-                turns={useSessionTurns(effectiveSessionId)}
-                isStreaming={isGenerating}
-                onRetry={messageId => void _handleRetry(messageId)}
-                onDelete={_handleDelete}
-                onCopy={messageId => void _handleCopy(messageId)}
-                onPermissionApprove={handleApprovePermission}
-                onPermissionDeny={handleDenyPermission}
-                onQuestionAnswer={handleAnswerQuestion}
-                onQuestionReject={handleRejectQuestion}
-              />
+          <Resizable.Panel
+            initialSize={0.5}
+            minSize={0.2}
+            class="bg-background flex h-full min-h-0 flex-1 flex-col"
+          >
+            {/* Messages - MessageTimeline handles its own scroll */}
+            <MessageTimeline
+              turns={useSessionTurns(effectiveSessionId)}
+              isStreaming={isGenerating}
+              onRetry={messageId => void _handleRetry(messageId)}
+              onDelete={_handleDelete}
+              onCopy={messageId => void _handleCopy(messageId)}
+              onPermissionApprove={handleApprovePermission}
+              onPermissionDeny={handleDenyPermission}
+              onQuestionAnswer={handleAnswerQuestion}
+              onQuestionReject={handleRejectQuestion}
+            />
 
-              <div class="pointer-events-none absolute inset-x-0 bottom-0 z-30 px-4 pb-4">
-                <div class="pointer-events-auto mx-auto w-full max-w-4xl">
-                  <Show when={!isPromptBlocked()}>
-                    <div class="border-border/50 bg-background/95 rounded-xl border p-3 shadow-lg backdrop-blur">
-                      <textarea
-                        value={draftMessage()}
-                        rows={3}
-                        class="bg-background text-foreground placeholder:text-muted-foreground/70 border-border/40 focus:ring-primary/30 w-full resize-none rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2"
-                        placeholder="Send a message..."
-                        onInput={event => setDraftMessage(event.currentTarget.value)}
-                        onKeyDown={event => {
-                          if (event.key === "Enter" && !event.shiftKey) {
-                            event.preventDefault();
-                            void handleSubmitDraft();
-                          }
-                        }}
-                      />
-                      <div class="mt-2 flex items-center justify-end gap-2">
-                        <button
-                          class="bg-muted text-muted-foreground hover:bg-muted/80 rounded px-3 py-1.5 text-sm"
-                          onClick={() => setDraftMessage("")}
-                          disabled={isGenerating() || draftMessage().length === 0}
-                        >
-                          Clear
-                        </button>
-                        <button
-                          class="bg-primary text-primary-foreground hover:bg-primary/90 rounded px-3 py-1.5 text-sm"
-                          onClick={() => void handleSubmitDraft()}
-                          disabled={isGenerating() || draftMessage().trim().length === 0}
-                        >
-                          Send
-                        </button>
-                      </div>
-                    </div>
-                  </Show>
-                </div>
-              </div>
-
-              <SessionPromptDock
-                pendingPermission={currentPendingPermission()}
-                pendingQuestion={currentPendingQuestion()}
-                onPermissionApprove={handleApprovePermission}
-                onPermissionDeny={handleDenyPermission}
-                onQuestionAnswer={handleAnswerQuestion}
-                onQuestionReject={handleRejectQuestion}
-              />
+            {/* Chat input - sibling to MessageTimeline */}
+            <div class="border-border/30 shrink-0 border-x border-t p-4">
+              <Show when={!isPromptBlocked()}>
+                <ChatInput
+                  value={draftMessage()}
+                  onValueChange={setDraftMessage}
+                  onSend={() => void handleSubmitDraft()}
+                  mode={agentMode()}
+                  onModeChange={setAgentMode}
+                  isSending={isGenerating()}
+                  disabled={isPromptBlocked()}
+                  placeholder="Send a message..."
+                />
+              </Show>
             </div>
           </Resizable.Panel>
 

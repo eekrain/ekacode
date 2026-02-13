@@ -166,7 +166,7 @@ export function buildChatTurns(options: TurnProjectionOptions): ChatTurn[] {
   for (const userMessage of userMessages) {
     const userParts = partsByMessage[userMessage.id] ?? [];
     const isActiveTurn = userMessage.id === lastUserMessageId;
-    const working = isActiveTurn && sessionStatus?.type !== "idle";
+    let working = isActiveTurn && sessionStatus?.type !== "idle";
     const retry =
       isActiveTurn && sessionStatus?.type === "retry"
         ? {
@@ -252,6 +252,18 @@ export function buildChatTurns(options: TurnProjectionOptions): ChatTurn[] {
     const pendingQuestion = questionRequests.some(
       request => assistantMessageIds.has(request.messageID) && request.status === "pending"
     );
+    // Defensive fallback: if assistant response already completed and there is no
+    // pending human input, the turn should not remain "working" even if a status
+    // update was delayed/missed.
+    if (
+      working &&
+      assistantCompleted !== undefined &&
+      !pendingPermission &&
+      !pendingQuestion &&
+      retry === undefined
+    ) {
+      working = false;
+    }
     const lastMeaningfulPart = [...allAssistantParts, ...permissionParts, ...questionParts].at(-1);
     const statusLabel = working ? deriveStatusFromPart(lastMeaningfulPart) : undefined;
 

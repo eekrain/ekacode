@@ -71,6 +71,7 @@ describe("Integration: Chat Area Parity (Recorded Fixture)", () => {
     expect(container.querySelector('[role="log"]')).toBeTruthy();
     expect(container.querySelectorAll('[role="listitem"]').length).toBeGreaterThan(0);
     expect(container.textContent).toContain("tell me about this project");
+    expect(container.textContent).not.toContain("Working");
 
     dispose();
   });

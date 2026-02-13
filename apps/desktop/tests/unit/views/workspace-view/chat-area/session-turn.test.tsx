@@ -66,10 +66,10 @@ describe("SessionTurn", () => {
     const stepsTrigger = container.querySelector(
       '[data-slot="steps-trigger"]'
     ) as HTMLButtonElement;
-    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("false");
+    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("true");
 
     stepsTrigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("true");
+    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("supports keyboard interaction for steps trigger", () => {
@@ -81,9 +81,27 @@ describe("SessionTurn", () => {
       '[data-slot="steps-trigger"]'
     ) as HTMLButtonElement;
     stepsTrigger.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("true");
+    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("false");
 
     stepsTrigger.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("keeps steps collapsed after user manually closes during working state", () => {
+    const turn = projectSingleTurn(createStreamingTurnFixture());
+
+    dispose = render(() => <SessionTurn turn={() => turn} isStreaming={() => true} />, container);
+
+    const stepsTrigger = container.querySelector(
+      '[data-slot="steps-trigger"]'
+    ) as HTMLButtonElement;
+    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("true");
+
+    stepsTrigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("false");
+
+    // Re-render while still working should not auto-reopen after manual toggle.
+    container.dispatchEvent(new Event("noop"));
     expect(stepsTrigger.getAttribute("aria-expanded")).toBe("false");
   });
 

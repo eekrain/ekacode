@@ -97,6 +97,32 @@ describe("turn-projection", () => {
       expect(idleTurns[0].working).toBe(false);
     });
 
+    it("does not keep working when assistant already completed and no pending prompts", () => {
+      const fixture = createStreamingTurnFixture();
+      fixture.permissionRequests = [];
+      fixture.questionRequests = [];
+      fixture.sessionStatus = { type: "busy" };
+
+      const assistantMessage = fixture.messages.find(message => message.role === "assistant");
+      if (!assistantMessage) {
+        throw new Error("Expected assistant message in streaming fixture");
+      }
+
+      const created =
+        assistantMessage.time && typeof assistantMessage.time === "object"
+          ? ((assistantMessage.time as { created?: number }).created ?? Date.now())
+          : Date.now();
+
+      assistantMessage.time = {
+        ...(assistantMessage.time ?? {}),
+        created,
+        completed: created + 1_000,
+      };
+
+      const turns = buildChatTurns(fixture);
+      expect(turns[0].working).toBe(false);
+    });
+
     it("projects retry metadata from session status", () => {
       const fixture = createStreamingTurnFixture();
       fixture.sessionStatus = {

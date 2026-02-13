@@ -28,9 +28,9 @@ describe("EventOrderingBuffer", () => {
     const buffer = new EventOrderingBuffer({ timeoutMs: 100 });
     const [part, message, session, status] = createOutOfOrderEventSequence(sessionId, "m1", "p1");
 
-    await expect(buffer.addEvent(part)).resolves.toEqual([]);
+    await expect(buffer.addEvent(part)).resolves.toEqual([part]);
     await expect(buffer.addEvent(message)).resolves.toEqual([]);
-    await expect(buffer.addEvent(session)).resolves.toEqual([session, message, part]);
+    await expect(buffer.addEvent(session)).resolves.toEqual([]);
     await expect(buffer.addEvent(status)).resolves.toEqual([status]);
     expect(buffer.getQueueSize(sessionId)).toBe(0);
   });
@@ -44,9 +44,9 @@ describe("EventOrderingBuffer", () => {
     const b1 = createSessionCreatedEvent(sessionB, 1);
     const a1 = createSessionCreatedEvent(sessionA, 1);
 
-    await expect(buffer.addEvent(a2)).resolves.toEqual([]);
+    await expect(buffer.addEvent(a2)).resolves.toEqual([a2]);
     await expect(buffer.addEvent(b1)).resolves.toEqual([b1]);
-    await expect(buffer.addEvent(a1)).resolves.toEqual([a1, a2]);
+    await expect(buffer.addEvent(a1)).resolves.toEqual([]);
     expect(buffer.getLastProcessed(sessionA)).toBe(2);
     expect(buffer.getLastProcessed(sessionB)).toBe(1);
   });
@@ -77,6 +77,17 @@ describe("EventOrderingBuffer", () => {
     };
 
     await expect(buffer.addEvent(event)).resolves.toEqual([event]);
+  });
+
+  it("processes first seen event even when sequence does not start at 1", async () => {
+    const sessionId = "session-offset";
+    const buffer = new EventOrderingBuffer({ timeoutMs: 100 });
+    const first = createSessionCreatedEvent(sessionId, 42);
+    const next = createMessageUpdatedEvent("msg-43", sessionId, 43);
+
+    await expect(buffer.addEvent(first)).resolves.toEqual([first]);
+    await expect(buffer.addEvent(next)).resolves.toEqual([next]);
+    expect(buffer.getLastProcessed(sessionId)).toBe(43);
   });
 
   it("can clear per-session and global state", async () => {

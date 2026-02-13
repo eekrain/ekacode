@@ -2,9 +2,12 @@
  * MessageTimeline Component
  *
  * Turn-based conversation timeline with OpenCode-like layout.
+ * Includes auto-scroll functionality similar to MessageList.
  */
 
 import type { ChatTurn } from "@/core/chat/hooks/turn-projection";
+import { createAutoScroll } from "@/core/shared/utils/create-auto-scroll";
+import { cn } from "@/utils";
 import { For, Show, type Accessor, type JSX } from "solid-js";
 import { SessionTurn } from "./session-turn";
 
@@ -22,47 +25,47 @@ export interface MessageTimelineProps {
 }
 
 export function MessageTimeline(props: MessageTimelineProps): JSX.Element {
+  const autoScroll = createAutoScroll({
+    working: () => props.isStreaming(),
+    nearBottomDistance: 100,
+    settlingPeriod: 300,
+  });
+
   return (
     <div
-      data-component="message-timeline"
-      class={props.class}
-      classList={{
-        "flex flex-col h-full overflow-y-auto [scrollbar-gutter:stable]": true,
-      }}
-      role="log"
-      aria-label="Conversation"
+      ref={autoScroll.scrollRef}
+      onScroll={e => autoScroll.handleScroll(e.currentTarget)}
+      class={cn("scrollbar-thin min-h-0 flex-1 overflow-y-auto", "px-4 py-4", props.class)}
     >
       <Show
         when={props.turns().length > 0}
         fallback={
-          <div class="text-muted-foreground flex flex-1 items-center justify-center text-sm">
+          <div class="text-muted-foreground p-4 text-center text-sm">
             No messages yet. Start a conversation!
           </div>
         }
       >
-        <ul
-          data-slot="timeline-list"
-          class="flex flex-col gap-5 p-4 pb-[calc(var(--prompt-height,10rem)+5rem)]"
-          role="list"
-        >
-          <For each={props.turns()}>
-            {turn => (
-              <li data-testid={`turn-${turn.userMessage.id}`} role="listitem">
-                <SessionTurn
-                  turn={() => turn}
-                  isStreaming={props.isStreaming}
-                  onRetry={props.onRetry}
-                  onDelete={props.onDelete}
-                  onCopy={props.onCopy}
-                  onPermissionApprove={props.onPermissionApprove}
-                  onPermissionDeny={props.onPermissionDeny}
-                  onQuestionAnswer={props.onQuestionAnswer}
-                  onQuestionReject={props.onQuestionReject}
-                />
-              </li>
-            )}
-          </For>
-        </ul>
+        <div class="mx-auto max-w-3xl">
+          <ul data-slot="timeline-list" class="flex flex-col gap-5">
+            <For each={props.turns()}>
+              {turn => (
+                <li>
+                  <SessionTurn
+                    turn={() => turn}
+                    isStreaming={props.isStreaming}
+                    onRetry={props.onRetry}
+                    onDelete={props.onDelete}
+                    onCopy={props.onCopy}
+                    onPermissionApprove={props.onPermissionApprove}
+                    onPermissionDeny={props.onPermissionDeny}
+                    onQuestionAnswer={props.onQuestionAnswer}
+                    onQuestionReject={props.onQuestionReject}
+                  />
+                </li>
+              )}
+            </For>
+          </ul>
+        </div>
       </Show>
     </div>
   );

@@ -5,6 +5,7 @@
 import "./chat-area.css";
 
 export { BasicTool, type BasicToolProps, type TriggerTitle } from "./basic-tool";
+export { ChatInput, type ChatInputProps } from "./chat-input";
 export { Part, type MessagePartProps } from "./message-part";
 export { MessageTimeline, type MessageTimelineProps } from "./message-timeline";
 export {

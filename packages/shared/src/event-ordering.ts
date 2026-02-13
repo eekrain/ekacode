@@ -61,10 +61,12 @@ export class EventOrderingBuffer {
       return [event];
     }
 
-    // Initialize session state if needed
+    // Initialize session state if needed.
+    // Use the first observed sequence as baseline so we don't deadlock when
+    // connecting mid-stream (first sequence may be >> 1).
     if (!this.queues.has(sessionId)) {
       this.queues.set(sessionId, new Map());
-      this.lastProcessed.set(sessionId, 0);
+      this.lastProcessed.set(sessionId, Math.max(0, sequence - 1));
     }
 
     const queue = this.queues.get(sessionId)!;

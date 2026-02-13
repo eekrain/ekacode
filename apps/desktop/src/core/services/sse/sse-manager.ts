@@ -62,28 +62,13 @@ const MAX_QUEUE_SIZE = 200;
 // ============================================================================
 
 /**
- * Coalescing key function - deduplicate events by directory and content
- * Matches GlobalSDKProvider behavior
+ * Order-preserving coalescer for domain events.
+ *
+ * Important: we must not drop/replace in-window events because event-router
+ * applies strict sequence ordering. Losing intermediate sequence numbers can
+ * stall later events (e.g. session.status idle) behind ordering gaps.
  */
-function coalesceKey(directory: string, payload: ServerEvent): string | undefined {
-  if (payload.type === "session.status") {
-    return `session.status:${directory}:${(payload.properties as { sessionID?: string })?.sessionID || ""}`;
-  }
-  if (payload.type === "message.part.updated") {
-    const part = payload.properties.part as { messageID?: string; id?: string } | undefined;
-    return `message.part.updated:${directory}:${part?.messageID || ""}:${part?.id || ""}`;
-  }
-  return undefined;
-}
-
-// ============================================================================
-// Coalescer with Deduplication
-// ============================================================================
-
-/**
- * Enhanced coalescer that supports deduplication by key
- */
-function createDeduplicatingCoalescer(
+function createOrderedCoalescer(
   onEvents: (events: Array<{ directory: string; payload: ServerEvent }>) => void,
   config: CoalescerConfig = {}
 ) {
@@ -98,10 +83,8 @@ function createDeduplicatingCoalescer(
     }
   );
 
-  // Track deduplication by key
-  const coalesced = new Map<string, number>();
-  let queue: Array<{ directory: string; payload: ServerEvent } | undefined> = [];
-  let buffer: Array<{ directory: string; payload: ServerEvent } | undefined> = [];
+  let queue: Array<{ directory: string; payload: ServerEvent }> = [];
+  let buffer: Array<{ directory: string; payload: ServerEvent }> = [];
   let flushTimer: ReturnType<typeof setTimeout> | undefined;
   let last = 0;
 
@@ -115,12 +98,10 @@ function createDeduplicatingCoalescer(
     queue = buffer;
     buffer = events;
     queue.length = 0;
-    coalesced.clear();
 
     last = Date.now();
     batch(() => {
       for (const event of events) {
-        if (!event) continue;
         onEvents([event]);
       }
     });
@@ -134,18 +115,9 @@ function createDeduplicatingCoalescer(
     flushTimer = setTimeout(flush, Math.max(0, COALESCE_WINDOW_MS - elapsed));
   };
 
-  const addWithDeduplication = (directory: string, payload: ServerEvent) => {
+  const add = (directory: string, payload: ServerEvent) => {
     if (queue.length >= MAX_QUEUED_EVENTS) {
       flush();
-    }
-
-    const key = coalesceKey(directory, payload);
-    if (key) {
-      const i = coalesced.get(key);
-      if (i !== undefined) {
-        queue[i] = undefined;
-      }
-      coalesced.set(key, queue.length);
     }
 
     queue.push({ directory, payload });
@@ -153,7 +125,7 @@ function createDeduplicatingCoalescer(
   };
 
   return {
-    add: addWithDeduplication,
+    add,
     flush,
     drain: flush,
     getQueueSize: () => queue.length,
@@ -196,8 +168,8 @@ export function createSSEManager(config: SSEManagerConfig): SSEManager {
   const eventBus = createTypedEventBus();
   let eventSource: ReturnType<typeof createEventSource> | undefined;
 
-  // Create deduplicating coalescer
-  const coalescer = createDeduplicatingCoalescer(events => {
+  // Create order-preserving coalescer
+  const coalescer = createOrderedCoalescer(events => {
     for (const event of events) {
       eventBus.emit(event.directory, {
         ...event.payload,
