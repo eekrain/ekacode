@@ -49,7 +49,11 @@ export default defineConfig({
 
       "@/components": DESKTOP_SRC + "/components",
       "@/core": DESKTOP_SRC + "/core",
+      "@/core/*": DESKTOP_SRC + "/core/*",
       "@/state": DESKTOP_SRC + "/core/state",
+      "@/state/*": DESKTOP_SRC + "/core/state/*",
+      "@/views": DESKTOP_SRC + "/views",
+      "@/views/*": DESKTOP_SRC + "/views/*",
     },
   },
   build: {

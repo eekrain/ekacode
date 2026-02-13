@@ -13,3 +13,9 @@ export type { UseChatOptions, UseChatResult } from "./use-chat";
 
 export { toTimeline } from "./timeline-projection";
 export { useStreamDebugger } from "./use-stream-debugger";
+
+export { useSessionTurns } from "./use-session-turns";
+export type { ChatTurn } from "./use-session-turns";
+
+export { buildChatTurns, computeDuration, deriveStatusFromPart } from "./turn-projection";
+export type { TurnProjectionOptions } from "./turn-projection";

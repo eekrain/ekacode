@@ -5,10 +5,12 @@ import { createEffect, createMemo, createSignal, onMount, Show } from "solid-js"
 // Import workspace components
 import { PermissionDialog } from "@/components/permissions/permission-dialog";
 import { ResizeableHandle } from "@/components/shared/resizeable-handle";
+import { useSessionTurns } from "@/core/chat/hooks";
 import { usePermissions } from "@/core/permissions/hooks/use-permissions";
 import { ChatProvider, useChatContext } from "@/state/contexts/chat-provider";
 import { useWorkspace, WorkspaceProvider } from "@/state/providers";
 import Resizable from "@corvu/resizable";
+import { MessageTimeline } from "./chat-area";
 import { LeftSide } from "./left-side/left-side";
 import { ContextPanel } from "./right-side/right-side";
 
@@ -83,7 +85,7 @@ function WorkspaceViewContent() {
   };
 
   // Chat handlers - use chat from ChatProvider
-  const handleSendMessage = async (content: string) => {
+  const _handleSendMessage = async (content: string) => {
     await chat.sendMessage(content);
   };
 
@@ -103,8 +105,7 @@ function WorkspaceViewContent() {
     await chat.copy(messageId);
   };
 
-  const handleModelChange = (modelId: string) => {
-    // TODO: Store model preference
+  const _handleModelChange = (modelId: string) => {
     console.log("Model changed to:", modelId);
   };
 
@@ -158,9 +159,9 @@ function WorkspaceViewContent() {
 
   const isGenerating = () =>
     chat.streaming.status() === "connecting" || chat.streaming.status() === "streaming";
-  const chatError = () => chat.streaming.error();
+  const _chatError = () => chat.streaming.error();
   const effectiveSessionId = createMemo(() => chat.sessionId() ?? ctx.activeSessionId());
-  const activeSession = () => {
+  const _activeSession = () => {
     const id = effectiveSessionId();
     return ctx.sessions().find(s => s.sessionId === id);
   };
@@ -219,12 +220,15 @@ function WorkspaceViewContent() {
           {/* Resize Handle 1 */}
           <ResizeableHandle />
 
-          {/* CENTER PANEL - Chat Interface - PLACEHOLDER FOR NEW COMPONENT */}
-          <div class="bg-muted/10 flex h-full items-center justify-center border-x border-border/30">
-            <div class="text-center">
-              <p class="text-muted-foreground text-sm">Chat area placeholder</p>
-              <p class="text-muted-foreground/60 mt-2 text-xs">Create new components in chat-area/</p>
-            </div>
+          {/* CENTER PANEL - Chat Interface */}
+          <div class="bg-muted/10 border-border/30 flex h-full flex-col border-x">
+            <MessageTimeline
+              turns={useSessionTurns(effectiveSessionId)}
+              isStreaming={isGenerating}
+              onRetry={messageId => void _handleRetry(messageId)}
+              onDelete={_handleDelete}
+              onCopy={messageId => void _handleCopy(messageId)}
+            />
           </div>
 
           {/* Resize Handle 2 */}

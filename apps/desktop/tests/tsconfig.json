@@ -2,7 +2,19 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "types": ["vitest/globals", "vite/client"],
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": "..",
+    "paths": {
+      "@tests/*": ["tests/*"],
+      "@/*": ["src/*"],
+      "@/components": ["src/components"],
+      "@/components/*": ["src/components/*"],
+      "@/views": ["src/views"],
+      "@/core": ["src/core"],
+      "@/core/*": ["src/core/*"],
+      "@/state": ["src/core/state"],
+      "@/state/*": ["src/core/state/*"]
+    }
   },
   "include": ["**/*.ts", "**/*.tsx", "vitest.setup.ts", "../vitest.config.ts"]
 }
