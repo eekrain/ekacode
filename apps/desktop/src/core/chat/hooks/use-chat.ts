@@ -37,12 +37,14 @@ import {
   type OptimisticMetadata,
 } from "@/core/chat/domain/correlation";
 import { findOrphanedOptimisticEntities } from "@/core/chat/domain/reconciliation";
+import { recordChatPerfCounter } from "@/core/chat/services/chat-perf-telemetry";
 import { parseChatStream } from "@/core/chat/services/chat-stream-parser";
+import { createStreamUpdateCoalescer } from "@/core/chat/services/stream-update-coalescer";
 import type { ChatUIMessage } from "@/core/chat/types/ui-message";
 import type { EkacodeApiClient } from "@/core/services/api/api-client";
 import { createLogger } from "@/core/shared/logger";
 import { useMessageStore, usePartStore, useSessionStore } from "@/state/providers";
-import { createEffect, createSignal, onCleanup, type Accessor } from "solid-js";
+import { batch, createEffect, createSignal, onCleanup, type Accessor } from "solid-js";
 import { v7 as uuidv7 } from "uuid";
 import { useMessages } from "./use-messages";
 import { useStreaming } from "./use-streaming";
@@ -60,6 +62,20 @@ function extractTextFromPart(part: Record<string, unknown>): string {
   }
 
   return "";
+}
+
+function hasCanonicalEventMetadata(part: unknown): boolean {
+  if (!part || typeof part !== "object") return false;
+  const metadata = (part as { metadata?: unknown }).metadata;
+  if (!metadata || typeof metadata !== "object") return false;
+  return typeof (metadata as { __eventSequence?: unknown }).__eventSequence === "number";
+}
+
+function isOptimisticPartPayload(part: unknown): boolean {
+  if (!part || typeof part !== "object") return false;
+  const metadata = (part as { metadata?: unknown }).metadata;
+  if (!metadata || typeof metadata !== "object") return false;
+  return (metadata as { optimistic?: unknown }).optimistic === true;
 }
 
 /**
@@ -319,6 +335,80 @@ export function useChat(options: UseChatOptions): UseChatResult {
     let droppedDataEvents = 0;
     let messageUpserts = 0;
     let partUpserts = 0;
+    const deferredPartUpdatesByMessage = new Map<string, Map<string, Record<string, unknown>>>();
+    let deferredPartUpdateSerial = 0;
+    const applyPartUpdate = (update: Record<string, unknown>) => {
+      const updateId = typeof update.id === "string" ? update.id : undefined;
+      if (updateId) {
+        const existing = partActions.getById(updateId);
+        if (hasCanonicalEventMetadata(existing) && isOptimisticPartPayload(update)) {
+          recordChatPerfCounter("skippedOptimisticUpdates");
+          return;
+        }
+      }
+      partActions.upsert(update as never);
+      partUpserts += 1;
+      recordChatPerfCounter("partUpserts");
+    };
+    const deferPartUpdate = (messageId: string, update: Record<string, unknown>) => {
+      let queue = deferredPartUpdatesByMessage.get(messageId);
+      if (!queue) {
+        queue = new Map<string, Record<string, unknown>>();
+        deferredPartUpdatesByMessage.set(messageId, queue);
+      }
+      const updateId =
+        typeof update.id === "string"
+          ? update.id
+          : `${messageId}-deferred-${(deferredPartUpdateSerial += 1)}`;
+      queue.set(updateId, update);
+    };
+    const flushDeferredPartUpdatesForMessage = (messageId: string): void => {
+      const queue = deferredPartUpdatesByMessage.get(messageId);
+      if (!queue || queue.size === 0) return;
+      if (!messageActions.getById(messageId)) return;
+      deferredPartUpdatesByMessage.delete(messageId);
+      for (const update of queue.values()) {
+        applyPartUpdate(update);
+      }
+    };
+    const flushAllDeferredPartUpdates = (): void => {
+      for (const messageId of deferredPartUpdatesByMessage.keys()) {
+        flushDeferredPartUpdatesForMessage(messageId);
+      }
+    };
+    const partUpdateCoalescer = createStreamUpdateCoalescer<Record<string, unknown>>(
+      updates => {
+        recordChatPerfCounter("coalescedFlushes");
+        recordChatPerfCounter("coalescedUpdates", updates.length);
+        batch(() => {
+          for (const update of updates) {
+            const messageId = typeof update.messageID === "string" ? update.messageID : undefined;
+            if (messageId && !messageActions.getById(messageId)) {
+              deferPartUpdate(messageId, update);
+              continue;
+            }
+            applyPartUpdate(update);
+          }
+        });
+      },
+      {
+        frameMs: 16,
+        getKey: update => {
+          const id = update.id;
+          return typeof id === "string" ? id : undefined;
+        },
+      }
+    );
+    const enqueuePartUpdate = (
+      update: Record<string, unknown>,
+      priority: "buffered" | "immediate" = "buffered"
+    ) => {
+      if (priority === "immediate") {
+        partUpdateCoalescer.enqueueImmediate(update);
+        return;
+      }
+      partUpdateCoalescer.enqueue(update);
+    };
 
     // Start streaming with active message id
     streaming.start(userMessageId);
@@ -468,10 +558,14 @@ export function useChat(options: UseChatOptions): UseChatResult {
       }
 
       const persistUserMessageIfNeeded = (activeSessionId: string): void => {
-        if (userMessagePersisted) return;
+        if (userMessagePersisted) {
+          flushDeferredPartUpdatesForMessage(userMessageId);
+          return;
+        }
         const existing = messageActions.getById(userMessageId);
         if (existing) {
           userMessagePersisted = true;
+          flushDeferredPartUpdatesForMessage(userMessageId);
           return;
         }
 
@@ -507,6 +601,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
         });
         partUpserts += 1;
         userMessagePersisted = true;
+        flushDeferredPartUpdatesForMessage(userMessageId);
         logger.info("Persisted deferred user message after session resolution", {
           userMessageId,
           sessionId: activeSessionId,
@@ -517,7 +612,10 @@ export function useChat(options: UseChatOptions): UseChatResult {
         assistantId: string,
         activeSessionId: string
       ): void => {
-        if (assistantMessagePersisted) return;
+        if (assistantMessagePersisted) {
+          flushDeferredPartUpdatesForMessage(assistantId);
+          return;
+        }
         const existing = messageActions.getById(assistantId);
         const assistantCreated = Date.now();
         if (!existing) {
@@ -539,6 +637,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
           messageUpserts += 1;
         }
         assistantMessagePersisted = true;
+        flushDeferredPartUpdatesForMessage(assistantId);
       };
 
       // Consume stream if available
@@ -554,6 +653,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
             reader,
             {
               onTextDelta: (messageId, delta) => {
+                recordChatPerfCounter("streamTextDeltas");
                 const activeSessionId = ensureResolvedSessionId(messageId);
                 if (!activeSessionId) {
                   droppedTextEvents += 1;
@@ -581,7 +681,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
 
                 // Update text part.
                 const partId = `${assistantMessageId}-text`;
-                partActions.upsert({
+                enqueuePartUpdate({
                   id: partId,
                   type: "text",
                   messageID: assistantMessageId,
@@ -599,7 +699,6 @@ export function useChat(options: UseChatOptions): UseChatResult {
                     })
                   ),
                 });
-                partUpserts += 1;
               },
               onToolCallStart: toolCall => {
                 const activeSessionId = ensureResolvedSessionId(assistantMessageId ?? undefined);
@@ -612,27 +711,30 @@ export function useChat(options: UseChatOptions): UseChatResult {
                 persistAssistantMessageIfNeeded(assistantMessageId, activeSessionId);
 
                 const partId = `${toolCall.toolCallId}-tool`;
-                partActions.upsert({
-                  id: partId,
-                  type: "tool",
-                  messageID: assistantMessageId,
-                  sessionID: activeSessionId,
-                  tool: toolCall.toolName,
-                  callID: toolCall.toolCallId,
-                  state: {
-                    status: "running",
-                    input: toolCall.args && typeof toolCall.args === "object" ? toolCall.args : {},
+                enqueuePartUpdate(
+                  {
+                    id: partId,
+                    type: "tool",
+                    messageID: assistantMessageId,
+                    sessionID: activeSessionId,
+                    tool: toolCall.toolName,
+                    callID: toolCall.toolCallId,
+                    state: {
+                      status: "running",
+                      input:
+                        toolCall.args && typeof toolCall.args === "object" ? toolCall.args : {},
+                    },
+                    metadata: createOptimisticMetadata(
+                      "useChat",
+                      generatePartCorrelationKey({
+                        messageID: assistantMessageId,
+                        partType: "tool",
+                        callID: toolCall.toolCallId,
+                      })
+                    ),
                   },
-                  metadata: createOptimisticMetadata(
-                    "useChat",
-                    generatePartCorrelationKey({
-                      messageID: assistantMessageId,
-                      partType: "tool",
-                      callID: toolCall.toolCallId,
-                    })
-                  ),
-                });
-                partUpserts += 1;
+                  "immediate"
+                );
               },
               onToolResult: result => {
                 const activeSessionId = ensureResolvedSessionId(assistantMessageId ?? undefined);
@@ -645,33 +747,35 @@ export function useChat(options: UseChatOptions): UseChatResult {
                 persistAssistantMessageIfNeeded(assistantMessageId, activeSessionId);
 
                 const partId = `${result.toolCallId}-tool`;
-                partActions.upsert({
-                  id: partId,
-                  type: "tool",
-                  messageID: assistantMessageId,
-                  sessionID: activeSessionId,
-                  tool: "tool",
-                  callID: result.toolCallId,
-                  state: {
-                    status: "completed",
-                    output:
-                      typeof result.result === "string"
-                        ? result.result
-                        : JSON.stringify(result.result),
+                enqueuePartUpdate(
+                  {
+                    id: partId,
+                    type: "tool",
+                    messageID: assistantMessageId,
+                    sessionID: activeSessionId,
+                    tool: "tool",
+                    callID: result.toolCallId,
+                    state: {
+                      status: "completed",
+                      output:
+                        typeof result.result === "string"
+                          ? result.result
+                          : JSON.stringify(result.result),
+                    },
+                    metadata: createOptimisticMetadata(
+                      "useChat",
+                      generatePartCorrelationKey({
+                        messageID: assistantMessageId,
+                        partType: "tool",
+                        callID: result.toolCallId,
+                      })
+                    ),
                   },
-                  metadata: createOptimisticMetadata(
-                    "useChat",
-                    generatePartCorrelationKey({
-                      messageID: assistantMessageId,
-                      partType: "tool",
-                      callID: result.toolCallId,
-                    })
-                  ),
-                });
-                partUpserts += 1;
+                  "immediate"
+                );
               },
               onDataPart: (type, id, data) => {
-                logger.debug("Data part received", { type, id, data });
+                recordChatPerfCounter("streamDataParts");
                 const activeSessionId = ensureResolvedSessionId(assistantMessageId ?? undefined);
                 if (!activeSessionId) {
                   droppedDataEvents += 1;
@@ -702,7 +806,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
                         : "";
                   // Create reasoning part
                   const partId = `${id}-thought`;
-                  partActions.upsert({
+                  enqueuePartUpdate({
                     id: partId,
                     type: "reasoning",
                     messageID: assistantMessageId,
@@ -722,7 +826,6 @@ export function useChat(options: UseChatOptions): UseChatResult {
                       })
                     ),
                   });
-                  partUpserts += 1;
                 } else if (type === "data-tool-call") {
                   const payload = data as {
                     toolCallId?: unknown;
@@ -733,27 +836,30 @@ export function useChat(options: UseChatOptions): UseChatResult {
                     typeof payload?.toolCallId === "string" ? payload.toolCallId : id;
                   const toolName =
                     typeof payload?.toolName === "string" ? payload.toolName : "tool";
-                  partActions.upsert({
-                    id: `${toolCallId}-tool`,
-                    type: "tool",
-                    messageID: assistantMessageId,
-                    sessionID: activeSessionId,
-                    tool: toolName,
-                    callID: toolCallId,
-                    state: {
-                      status: "running",
-                      input: payload?.args && typeof payload.args === "object" ? payload.args : {},
+                  enqueuePartUpdate(
+                    {
+                      id: `${toolCallId}-tool`,
+                      type: "tool",
+                      messageID: assistantMessageId,
+                      sessionID: activeSessionId,
+                      tool: toolName,
+                      callID: toolCallId,
+                      state: {
+                        status: "running",
+                        input:
+                          payload?.args && typeof payload.args === "object" ? payload.args : {},
+                      },
+                      metadata: createOptimisticMetadata(
+                        "useChat",
+                        generatePartCorrelationKey({
+                          messageID: assistantMessageId,
+                          partType: "tool",
+                          callID: toolCallId,
+                        })
+                      ),
                     },
-                    metadata: createOptimisticMetadata(
-                      "useChat",
-                      generatePartCorrelationKey({
-                        messageID: assistantMessageId,
-                        partType: "tool",
-                        callID: toolCallId,
-                      })
-                    ),
-                  });
-                  partUpserts += 1;
+                    "immediate"
+                  );
                 } else if (type === "data-tool-result") {
                   const payload = data as {
                     toolCallId?: unknown;
@@ -761,33 +867,36 @@ export function useChat(options: UseChatOptions): UseChatResult {
                   };
                   const toolCallId =
                     typeof payload?.toolCallId === "string" ? payload.toolCallId : id;
-                  partActions.upsert({
-                    id: `${toolCallId}-tool`,
-                    type: "tool",
-                    messageID: assistantMessageId,
-                    sessionID: activeSessionId,
-                    tool: "tool",
-                    callID: toolCallId,
-                    state: {
-                      status: "completed",
-                      output:
-                        typeof payload?.result === "string"
-                          ? payload.result
-                          : JSON.stringify(payload?.result),
+                  enqueuePartUpdate(
+                    {
+                      id: `${toolCallId}-tool`,
+                      type: "tool",
+                      messageID: assistantMessageId,
+                      sessionID: activeSessionId,
+                      tool: "tool",
+                      callID: toolCallId,
+                      state: {
+                        status: "completed",
+                        output:
+                          typeof payload?.result === "string"
+                            ? payload.result
+                            : JSON.stringify(payload?.result),
+                      },
+                      metadata: createOptimisticMetadata(
+                        "useChat",
+                        generatePartCorrelationKey({
+                          messageID: assistantMessageId,
+                          partType: "tool",
+                          callID: toolCallId,
+                        })
+                      ),
                     },
-                    metadata: createOptimisticMetadata(
-                      "useChat",
-                      generatePartCorrelationKey({
-                        messageID: assistantMessageId,
-                        partType: "tool",
-                        callID: toolCallId,
-                      })
-                    ),
-                  });
-                  partUpserts += 1;
+                    "immediate"
+                  );
                 }
               },
               onComplete: finishReason => {
+                partUpdateCoalescer.flush();
                 const completedSessionId = ensureResolvedSessionId(assistantMessageId ?? undefined);
                 if (completedSessionId) {
                   persistUserMessageIfNeeded(completedSessionId);
@@ -795,6 +904,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
                     persistAssistantMessageIfNeeded(assistantMessageId, completedSessionId);
                   }
                 }
+                flushAllDeferredPartUpdates();
                 logger.info("Stream completed", {
                   finishReason,
                   userMessageId,
@@ -810,6 +920,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
                 onFinish?.(userMessageId);
               },
               onError: error => {
+                partUpdateCoalescer.flush();
                 logger.error("Stream error", error);
                 const errorSessionId = ensureResolvedSessionId(assistantMessageId ?? undefined);
                 cleanupOptimisticArtifacts(errorSessionId, 0);
@@ -824,6 +935,7 @@ export function useChat(options: UseChatOptions): UseChatResult {
             }
           );
         } catch (error) {
+          partUpdateCoalescer.flush();
           logger.error("Failed to parse stream", error as Error);
           cleanupOptimisticArtifacts(ensureResolvedSessionId(assistantMessageId ?? undefined), 0);
           streaming.setStatus("error");
@@ -851,6 +963,9 @@ export function useChat(options: UseChatOptions): UseChatResult {
       streaming.setError(error as Error);
       onError?.(error as Error);
     } finally {
+      partUpdateCoalescer.flush();
+      flushAllDeferredPartUpdates();
+      partUpdateCoalescer.cancel();
       if (activeRequest?.messageId === userMessageId) {
         activeRequest = null;
       }

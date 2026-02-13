@@ -126,9 +126,11 @@ function streamResponse(
 describe("useChat", () => {
   let mockChatFn: ReturnType<typeof vi.fn>;
   let mockClient: EkacodeApiClient;
+  let messagesById: Map<string, { id: string; role?: string; sessionID?: string }>;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    messagesById = new Map();
     Object.defineProperty(globalThis.navigator, "clipboard", {
       value: { writeText: mockWriteText },
       configurable: true,
@@ -136,11 +138,16 @@ describe("useChat", () => {
     mockChatFn = vi.fn();
     mockClient = { chat: mockChatFn } as unknown as EkacodeApiClient;
     mockGetBySession.mockReturnValue([]);
-    mockGetById.mockReturnValue(undefined);
+    mockGetById.mockImplementation((id: string) => messagesById.get(id));
     mockGetByMessage.mockReturnValue([]);
     mockSessionGetByDirectory.mockReturnValue([]);
     mockSessionGetById.mockReturnValue(undefined);
     mockMessageUpsert.mockReset();
+    mockMessageUpsert.mockImplementation(message => {
+      if (message?.id && typeof message.id === "string") {
+        messagesById.set(message.id, message as { id: string; role?: string; sessionID?: string });
+      }
+    });
     mockPartUpsert.mockReset();
     mockPartRemove.mockReset();
     mockPartGetById.mockReset();
@@ -402,6 +409,78 @@ describe("useChat", () => {
     });
   });
 
+  it("coalesces repeated reasoning deltas for the same part id", async () => {
+    const { useChat } = await import("@/core/chat/hooks");
+    mockChatFn.mockResolvedValue(
+      streamResponse([
+        'data: {"type":"data-thought","id":"reason-1","data":{"text":"A","status":"thinking"}}',
+        'data: {"type":"data-thought","id":"reason-1","data":{"text":"AB","status":"thinking"}}',
+        'data: {"type":"data-thought","id":"reason-1","data":{"text":"ABC","status":"thinking"}}',
+        'data: {"type":"finish","finishReason":"stop"}',
+      ])
+    );
+
+    await createRoot(async dispose => {
+      const chat = useChat({
+        sessionId: () => "019c4da0-fc0b-713c-984e-b2aca339c9aa",
+        workspace: () => "/repo",
+        client: mockClient,
+      });
+
+      await chat.sendMessage("hello");
+
+      const reasoningCalls = mockPartUpsert.mock.calls.filter(
+        call => call[0]?.type === "reasoning" && call[0]?.id === "reason-1-thought"
+      );
+      expect(reasoningCalls).toHaveLength(1);
+      expect(reasoningCalls[0]?.[0]).toMatchObject({
+        text: "ABC",
+      });
+      dispose();
+    });
+  });
+
+  it("skips optimistic reasoning updates when canonical SSE part already exists", async () => {
+    const { useChat } = await import("@/core/chat/hooks");
+    mockPartGetById.mockImplementation((id: string) => {
+      if (id !== "reason-1-thought") return undefined;
+      return {
+        id: "reason-1-thought",
+        type: "reasoning",
+        messageID: "assistant-1",
+        sessionID: "019c4da0-fc0b-713c-984e-b2aca339c9aa",
+        text: "canonical thought",
+        metadata: {
+          __eventSequence: 100,
+          __eventTimestamp: Date.now(),
+        },
+      };
+    });
+    mockChatFn.mockResolvedValue(
+      streamResponse([
+        'data: {"type":"data-thought","id":"reason-1","data":{"text":"A","status":"thinking"}}',
+        'data: {"type":"data-thought","id":"reason-1","data":{"text":"AB","status":"thinking"}}',
+        'data: {"type":"finish","finishReason":"stop"}',
+      ])
+    );
+
+    await createRoot(async dispose => {
+      const chat = useChat({
+        sessionId: () => "019c4da0-fc0b-713c-984e-b2aca339c9aa",
+        workspace: () => "/repo",
+        client: mockClient,
+      });
+
+      await chat.sendMessage("hello");
+
+      const reasoningCalls = mockPartUpsert.mock.calls.filter(
+        call => call[0]?.type === "reasoning" && call[0]?.id === "reason-1-thought"
+      );
+      expect(reasoningCalls).toHaveLength(0);
+      dispose();
+    });
+  });
+
   it("backfills user message when session resolves during stream", async () => {
     const { useChat } = await import("@/core/chat/hooks");
     const lateSessionId = "019c4da0-fc0b-713c-984e-b2aca339c9ac";
@@ -492,6 +571,82 @@ describe("useChat", () => {
 
       expect(mockPartRemove).toHaveBeenCalledWith(optimisticPartId, optimisticMessageId);
       expect(mockRemove).toHaveBeenCalledWith(optimisticMessageId);
+      dispose();
+    });
+  });
+
+  it("defers assistant part upserts when parent message lookup is not yet available", async () => {
+    const { useChat } = await import("@/core/chat/hooks");
+    const visibleMessageIds = new Set<string>();
+
+    mockMessageUpsert.mockImplementation(message => {
+      if (message?.role === "user" && typeof message.id === "string") {
+        visibleMessageIds.add(message.id);
+      }
+    });
+    mockGetById.mockImplementation((id: string) =>
+      visibleMessageIds.has(id) ? { id, role: "user", sessionID: "session-1" } : undefined
+    );
+    mockPartUpsert.mockImplementation(part => {
+      if (!mockGetById(part?.messageID)) {
+        throw new Error(`Cannot add part ${part?.id}: message ${part?.messageID} not found`);
+      }
+    });
+    mockChatFn.mockResolvedValue(
+      streamResponse([
+        'data: {"type":"data-thought","id":"reason-1","data":{"text":"Thinking","status":"thinking"}}',
+        'data: {"type":"text-delta","id":"assistant-missing","delta":"Final answer"}',
+        'data: {"type":"finish","finishReason":"stop"}',
+      ])
+    );
+
+    await createRoot(async dispose => {
+      const chat = useChat({
+        sessionId: () => "session-1",
+        workspace: () => "/repo",
+        client: mockClient,
+      });
+
+      await expect(chat.sendMessage("hello")).resolves.toBeUndefined();
+      expect(chat.streaming.status()).toBe("done");
+
+      const assistantPartCalls = mockPartUpsert.mock.calls.filter(
+        call => call[0]?.messageID === "assistant-missing"
+      );
+      expect(assistantPartCalls).toHaveLength(0);
+      dispose();
+    });
+  });
+
+  it("coalesces high-volume text deltas into a single text part upsert", async () => {
+    const { useChat } = await import("@/core/chat/hooks");
+    const deltaCount = 250;
+    const deltas = Array.from({ length: deltaCount }, (_, i) => `chunk-${i}-`);
+    const expectedText = deltas.join("");
+    mockChatFn.mockResolvedValue(
+      streamResponse([
+        ...deltas.map(
+          delta => `data: {"type":"text-delta","id":"assistant-fast","delta":"${delta}"}`
+        ),
+        'data: {"type":"finish","finishReason":"stop"}',
+      ])
+    );
+
+    await createRoot(async dispose => {
+      const chat = useChat({
+        sessionId: () => "session-1",
+        workspace: () => "/repo",
+        client: mockClient,
+      });
+
+      await chat.sendMessage("hello");
+
+      const textCalls = mockPartUpsert.mock.calls.filter(
+        call => call[0]?.type === "text" && call[0]?.id === "assistant-fast-text"
+      );
+      expect(textCalls).toHaveLength(1);
+      expect(textCalls[0]?.[0]?.text).toBe(expectedText);
+      expect(chat.streaming.status()).toBe("done");
       dispose();
     });
   });

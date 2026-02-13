@@ -338,8 +338,11 @@ describe("useSessionTurns", () => {
     sessionStatus["s1"] = { type: "busy" };
 
     createRoot(dispose => {
-      const [sid, setSid] = createSignal<string | null>("s1");
-      const turns = useSessionTurns(sid);
+      const [tick, setTick] = createSignal(0);
+      const turns = useSessionTurns(() => {
+        tick();
+        return "s1";
+      });
 
       expect(turns()).toHaveLength(1);
       expect(turns()[0].assistantMessages).toHaveLength(0);
@@ -348,12 +351,70 @@ describe("useSessionTurns", () => {
       partsByMessage["a1"] = [{ id: "p2", type: "text", messageID: "a1", text: "Now updated" }];
       sessionStatus["s1"] = { type: "idle" };
 
-      setSid(null);
-      setSid("s1");
+      setTick(prev => prev + 1);
 
       expect(turns()).toHaveLength(1);
       expect(turns()[0].assistantMessages).toHaveLength(1);
       expect(turns()[0].finalTextPart?.type).toBe("text");
+
+      dispose();
+    });
+  });
+
+  it("reuses unchanged turn references when only one turn changes", async () => {
+    const { useSessionTurns } = await import("@/core/chat/hooks/use-session-turns");
+
+    const user1: MessageWithId = {
+      id: "u1",
+      role: "user",
+      sessionID: "s1",
+      time: { created: 1000 },
+    } as MessageWithId;
+    const assistant1: MessageWithId = {
+      id: "a1",
+      role: "assistant",
+      parentID: "u1",
+      sessionID: "s1",
+      time: { created: 1100 },
+    } as MessageWithId;
+    const user2: MessageWithId = {
+      id: "u2",
+      role: "user",
+      sessionID: "s1",
+      time: { created: 2000 },
+    } as MessageWithId;
+    const assistant2: MessageWithId = {
+      id: "a2",
+      role: "assistant",
+      parentID: "u2",
+      sessionID: "s1",
+      time: { created: 2100 },
+    } as MessageWithId;
+
+    messagesBySession["s1"] = [user1, assistant1, user2, assistant2];
+    partsByMessage["u1"] = [{ id: "u1-text", type: "text", messageID: "u1", text: "first q" }];
+    partsByMessage["a1"] = [{ id: "a1-text", type: "text", messageID: "a1", text: "first a" }];
+    partsByMessage["u2"] = [{ id: "u2-text", type: "text", messageID: "u2", text: "second q" }];
+    partsByMessage["a2"] = [{ id: "a2-text", type: "text", messageID: "a2", text: "second a" }];
+    sessionStatus["s1"] = { type: "idle" };
+
+    createRoot(dispose => {
+      const [tick, setTick] = createSignal(0);
+      const turns = useSessionTurns(() => {
+        tick();
+        return "s1";
+      });
+
+      const initial = turns();
+      expect(initial).toHaveLength(2);
+
+      partsByMessage["a2"] = [{ id: "a2-text", type: "text", messageID: "a2", text: "updated" }];
+      setTick(prev => prev + 1);
+
+      const next = turns();
+      expect(next).toHaveLength(2);
+      expect(next[0]).toBe(initial[0]);
+      expect(next[1]).not.toBe(initial[1]);
 
       dispose();
     });

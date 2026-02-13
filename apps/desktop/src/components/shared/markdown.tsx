@@ -79,11 +79,19 @@ function checksum(str: string): string {
 
 // Initialize markdown with shiki extension
 let highlighterInstance: Highlighter | null = null;
+let highlighterPromise: Promise<Highlighter> | null = null;
+let markedConfigured = false;
+let markedConfigurePromise: Promise<void> | null = null;
+
+function shouldUseShiki(text: string): boolean {
+  return text.includes("```");
+}
 
 async function getHighlighter() {
   if (highlighterInstance) return highlighterInstance;
+  if (highlighterPromise) return highlighterPromise;
 
-  highlighterInstance = await createHighlighter({
+  highlighterPromise = createHighlighter({
     themes: ["github-light", "github-dark"],
     langs: [
       "javascript",
@@ -105,6 +113,8 @@ async function getHighlighter() {
     ],
   });
 
+  highlighterInstance = await highlighterPromise;
+  highlighterPromise = null;
   return highlighterInstance;
 }
 
@@ -131,8 +141,20 @@ async function configureMarked() {
   );
 }
 
-// Initialize on module load
-let markedConfigured = false;
+async function ensureMarkedConfigured() {
+  if (markedConfigured) return;
+  if (markedConfigurePromise) return markedConfigurePromise;
+
+  markedConfigurePromise = configureMarked().then(() => {
+    markedConfigured = true;
+  });
+  try {
+    await markedConfigurePromise;
+  } finally {
+    markedConfigurePromise = null;
+  }
+}
+
 const markdownCache = new LRUCache(200, 5 * 60 * 1000);
 
 interface MarkdownProps {
@@ -158,9 +180,8 @@ export function Markdown(props: MarkdownProps) {
     () => props.text,
     async text => {
       if (!text) return "";
-      if (!markedConfigured) {
-        await configureMarked();
-        markedConfigured = true;
+      if (shouldUseShiki(text)) {
+        await ensureMarkedConfigured();
       }
 
       const hash = checksum(text);

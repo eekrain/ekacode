@@ -20,6 +20,7 @@
  */
 
 import { applyEventToStores } from "@/core/chat/domain/event-router-adapter";
+import { recordChatPerfCounter } from "@/core/chat/services/chat-perf-telemetry";
 import { createSDKClient } from "@/core/services/api/sdk-client";
 import { createSSEManager } from "@/core/services/sse/sse-manager";
 import { createLogger } from "@/core/shared/logger";
@@ -58,14 +59,7 @@ const AppProviderRuntime: Component<AppProviderRuntimeProps> = props => {
     logger.info("Initializing app runtime");
 
     const unlisten = props.sseManager.onEvent((directory, event) => {
-      logger.debug("SSE event received", {
-        directory,
-        type: event.type,
-        eventId: event.eventId,
-        sequence: event.sequence,
-        sessionID: event.sessionID,
-      });
-
+      recordChatPerfCounter("sseEvents");
       void Promise.resolve(
         applyEventToStores(
           event,

@@ -1,22 +1,21 @@
 /**
  * ReasoningPart Component
  *
- * Renders reasoning/thinking content in a collapsible section.
+ * Renders reasoning/thinking content inline.
  * Uses subtle/italic styling to differentiate from regular text.
  */
 
-import { Collapsible } from "@/components/shared/collapsible";
 import { Markdown } from "@/components/shared/markdown";
 import { useThrottledValue } from "@/core/chat/hooks/use-throttled-value";
 import { cn } from "@/utils";
-import { createSignal, Show, type Accessor, type Component } from "solid-js";
+import { Show, type Accessor, type Component } from "solid-js";
 
 export interface ReasoningPartProps {
   /** The reasoning part data */
   part: Record<string, unknown>;
   /** Whether the content is currently streaming */
   isStreaming?: boolean;
-  /** Start expanded */
+  /** Maintained for compatibility with part renderer contract */
   defaultOpen?: boolean;
   /** Throttle duration in ms (default: 100ms during streaming) */
   throttleMs?: number;
@@ -28,7 +27,7 @@ export interface ReasoningPartProps {
 const REASONING_THROTTLE_MS = 100;
 
 /**
- * ReasoningPart - Renders thinking/reasoning content in collapsible section
+ * ReasoningPart - Renders thinking/reasoning content inline
  *
  * @example
  * ```tsx
@@ -49,8 +48,6 @@ export const ReasoningPart: Component<ReasoningPartProps> = props => {
     props.isStreaming ? (props.throttleMs ?? REASONING_THROTTLE_MS) : 0
   );
 
-  const [isOpen, setIsOpen] = createSignal(props.defaultOpen ?? false);
-
   const isEmpty = () => {
     const text = throttledText();
     return !text || text.trim() === "";
@@ -58,37 +55,29 @@ export const ReasoningPart: Component<ReasoningPartProps> = props => {
 
   return (
     <Show when={!isEmpty()}>
-      <Collapsible
+      <div
         data-component="reasoning-part"
-        open={isOpen()}
-        onOpenChange={setIsOpen}
         class={cn(
           "text-muted-foreground border-border/30 bg-muted/20 rounded-lg border",
           props.class
         )}
       >
-        <Collapsible.Trigger
-          data-slot="reasoning-trigger"
-          class={cn(
-            "flex w-full items-center gap-2 px-3 py-2 text-left",
-            "text-sm italic",
-            "hover:bg-muted/50 transition-colors",
-            "focus:ring-primary/30 focus:outline-none focus:ring-2"
-          )}
-        >
-          <span class="font-medium">Thinking</span>
-          <Collapsible.Arrow />
-        </Collapsible.Trigger>
-
-        <Collapsible.Content
+        <div
           data-slot="reasoning-content"
-          class="data-[expanded]:animate-collapsible-down data-[closed]:animate-collapsible-up overflow-hidden"
+          class="border-border/30 border-t-0 px-3 py-2 text-sm italic"
         >
-          <div class="border-border/30 border-t px-3 py-2 text-sm italic">
+          <Show
+            when={!props.isStreaming}
+            fallback={
+              <div data-slot="reasoning-part-streaming" class="whitespace-pre-wrap">
+                {throttledText()}
+              </div>
+            }
+          >
             <Markdown text={throttledText()} class="prose-p:m-0" />
-          </div>
-        </Collapsible.Content>
-      </Collapsible>
+          </Show>
+        </div>
+      </div>
     </Show>
   );
 };

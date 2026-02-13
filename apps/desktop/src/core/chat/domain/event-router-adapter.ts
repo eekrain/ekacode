@@ -41,6 +41,46 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function hasOptimisticFlag(metadata: unknown): boolean {
+  return isRecord(metadata) && metadata.optimistic === true;
+}
+
+function omitTransientMetadata(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  const result: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (key === "__eventSequence" || key === "__eventTimestamp") continue;
+    result[key] = omitTransientMetadata(entry);
+  }
+  return result;
+}
+
+function normalizePartForComparison(part: Part): Record<string, unknown> {
+  const candidate = { ...(part as Record<string, unknown>) };
+  if ("metadata" in candidate) {
+    candidate.metadata = omitTransientMetadata(candidate.metadata);
+  }
+  return candidate;
+}
+
+function stableSerialize(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableSerialize).join(",")}]`;
+  }
+  if (isRecord(value)) {
+    const keys = Object.keys(value).sort();
+    return `{${keys.map(key => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function partsEquivalentIgnoringTransientMetadata(left: Part, right: Part): boolean {
+  return (
+    stableSerialize(normalizePartForComparison(left)) ===
+    stableSerialize(normalizePartForComparison(right))
+  );
+}
+
 function normalizeMessageRole(role: unknown): "user" | "assistant" | "system" {
   if (role === "user" || role === "assistant" || role === "system") return role;
   return "assistant";
@@ -152,6 +192,20 @@ function parseMessageInfo(input: unknown):
         : typeof input.providerID === "string"
           ? input.providerID
           : undefined,
+  };
+}
+
+function attachPartEventMetadata(part: Part, event: ServerEvent): Part {
+  const metadataCandidate = (part as { metadata?: unknown }).metadata;
+  const existingMetadata = isRecord(metadataCandidate) ? metadataCandidate : {};
+
+  return {
+    ...part,
+    metadata: {
+      ...existingMetadata,
+      __eventSequence: event.sequence,
+      __eventTimestamp: event.timestamp,
+    },
   };
 }
 
@@ -330,7 +384,8 @@ function processEvent(
 
     case "message.part.updated": {
       const props = isRecord(event.properties) ? event.properties : {};
-      const part = isRecord(props.part) ? (props.part as Part) : undefined;
+      const rawPart = isRecord(props.part) ? (props.part as Part) : undefined;
+      const part = rawPart ? attachPartEventMetadata(rawPart, event) : undefined;
       if (
         !part ||
         typeof part.id !== "string" ||
@@ -352,6 +407,17 @@ function processEvent(
         break;
       }
 
+      const currentPart = partActions.getById(part.id);
+      const currentMetadata = (currentPart as { metadata?: unknown } | undefined)?.metadata;
+      const isCurrentOptimistic = hasOptimisticFlag(currentMetadata);
+      if (
+        currentPart &&
+        !isCurrentOptimistic &&
+        partsEquivalentIgnoringTransientMetadata(currentPart, part)
+      ) {
+        break;
+      }
+
       // Get optimistic parts for this message for reconciliation
       const existingParts = partActions.getByMessage(part.messageID);
       const optimisticParts = existingParts.filter(p =>
@@ -363,6 +429,12 @@ function processEvent(
 
       // Remove matched optimistic parts
       for (const id of result.toRemove) {
+        if (id === part.id) {
+          logger.debug("Skipping remove for exact-ID part reconciliation", {
+            partId: id,
+          });
+          continue;
+        }
         logger.debug("Removing matched optimistic part", {
           optimisticId: id,
           canonicalId: part.id,
@@ -633,10 +705,6 @@ export async function applyEventToStores(
 
   // Step 2: Deduplication check
   if (deduplicator.isDuplicate(event.eventId)) {
-    logger.debug("Duplicate event detected, skipping", {
-      eventId: event.eventId,
-      eventType: event.type,
-    });
     return [];
   }
 
@@ -654,12 +722,6 @@ export async function applyEventToStores(
         permissionActions,
         questionActions
       );
-      logger.debug("Event processed successfully", {
-        eventId: evt.eventId,
-        eventType: evt.type,
-        sequence: evt.sequence,
-        sessionID: evt.sessionID,
-      });
     } catch (error) {
       logger.error("Failed to process event", error as Error, {
         eventId: evt.eventId,

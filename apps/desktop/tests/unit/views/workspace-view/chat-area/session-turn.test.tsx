@@ -5,6 +5,7 @@ import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createErrorTurnFixture,
+  createInterleavedAssistantPartsFixture,
   createSingleTurnFixture,
   createSingleTurnWithPromptsFixture,
   createStreamingTurnFixture,
@@ -49,60 +50,56 @@ describe("SessionTurn", () => {
     });
   });
 
-  it("shows steps trigger for prompt parts from fixtures", () => {
+  it("does not render a steps trigger/collapsible label", () => {
     const turn = projectSingleTurn(createSingleTurnWithPromptsFixture());
 
     dispose = render(() => <SessionTurn turn={() => turn} isStreaming={() => true} />, container);
 
-    const stepsTrigger = container.querySelector('[data-slot="steps-trigger"]');
-    expect(stepsTrigger).not.toBeNull();
+    expect(container.textContent).not.toContain("Show steps");
+    expect(container.textContent).not.toContain("Hide steps");
+    expect(container.querySelector('[data-slot="steps-trigger"]')).toBeNull();
   });
 
-  it("toggles steps expanded state and aria-expanded", () => {
-    const turn = projectSingleTurn(createStreamingTurnFixture());
+  it("renders reasoning inline without a reasoning collapsible trigger", async () => {
+    const turn = projectSingleTurn(createInterleavedAssistantPartsFixture());
 
     dispose = render(() => <SessionTurn turn={() => turn} isStreaming={() => true} />, container);
 
-    const stepsTrigger = container.querySelector(
-      '[data-slot="steps-trigger"]'
-    ) as HTMLButtonElement;
-    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("true");
-
-    stepsTrigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("false");
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain("The read result suggests checking related files.");
+      expect(container.querySelector('[data-slot="reasoning-trigger"]')).toBeNull();
+    });
   });
 
-  it("supports keyboard interaction for steps trigger", () => {
-    const turn = projectSingleTurn(createStreamingTurnFixture());
+  it("renders assistant parts chronologically in a single inline stream", async () => {
+    const turn = projectSingleTurn(createInterleavedAssistantPartsFixture());
 
     dispose = render(() => <SessionTurn turn={() => turn} isStreaming={() => true} />, container);
 
-    const stepsTrigger = container.querySelector(
-      '[data-slot="steps-trigger"]'
-    ) as HTMLButtonElement;
-    stepsTrigger.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("false");
+    await vi.waitFor(() => {
+      const stream = container.querySelector('[data-slot="session-turn-stream"]');
+      expect(stream).not.toBeNull();
+    });
 
-    stepsTrigger.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
-    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("true");
-  });
+    const stream = container.querySelector('[data-slot="session-turn-stream"]') as HTMLElement;
+    const renderedSequence = Array.from(
+      stream.querySelectorAll(
+        '[data-component="text-part"], [data-component="tool-part-wrapper"], [data-component="reasoning-part"], [data-component="permission-part"], [data-component="question-part"]'
+      )
+    )
+      .map(element => element.getAttribute("data-component"))
+      .filter((value): value is string => Boolean(value));
 
-  it("keeps steps collapsed after user manually closes during working state", () => {
-    const turn = projectSingleTurn(createStreamingTurnFixture());
-
-    dispose = render(() => <SessionTurn turn={() => turn} isStreaming={() => true} />, container);
-
-    const stepsTrigger = container.querySelector(
-      '[data-slot="steps-trigger"]'
-    ) as HTMLButtonElement;
-    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("true");
-
-    stepsTrigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("false");
-
-    // Re-render while still working should not auto-reopen after manual toggle.
-    container.dispatchEvent(new Event("noop"));
-    expect(stepsTrigger.getAttribute("aria-expanded")).toBe("false");
+    expect(renderedSequence).toEqual([
+      "text-part",
+      "tool-part-wrapper",
+      "reasoning-part",
+      "tool-part-wrapper",
+      "permission-part",
+      "reasoning-part",
+      "question-part",
+      "text-part",
+    ]);
   });
 
   it("throttles status label transitions for active streaming turns", () => {
@@ -133,7 +130,7 @@ describe("SessionTurn", () => {
     );
 
     const visibleSummaryLive = container.querySelector(
-      '[data-slot="session-turn-visible-summary-live"]'
+      '[data-slot="session-turn-visible-stream-live"]'
     );
     expect(visibleSummaryLive?.getAttribute("aria-live")).toBe("off");
   });

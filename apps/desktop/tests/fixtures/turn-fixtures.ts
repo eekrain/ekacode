@@ -279,3 +279,212 @@ export function createSingleTurnWithPromptsFixture(sessionId?: string): TurnProj
     question,
   };
 }
+
+export function createInterleavedAssistantPartsFixture(
+  sessionId?: string
+): TurnProjectionOptions & {
+  expectedOrderIds: string[];
+  expectedUserMessageId: string;
+  expectedAssistantMessageId: string;
+} {
+  const sid = sessionId || uuidv7();
+  const baseTime = Date.now();
+
+  const userMessageId = uuidv7();
+  const assistantMessageId = uuidv7();
+
+  const userMessage: MessageWithId = {
+    id: userMessageId,
+    role: "user",
+    sessionID: sid,
+    time: { created: baseTime },
+  };
+
+  const assistantMessage: MessageWithId = {
+    id: assistantMessageId,
+    role: "assistant",
+    parentID: userMessageId,
+    sessionID: sid,
+    time: { created: baseTime + 50, completed: baseTime + 1_000 },
+  };
+
+  const userParts: Part[] = [
+    {
+      id: `${userMessageId}-text`,
+      type: "text",
+      messageID: userMessageId,
+      sessionID: sid,
+      text: "Please inspect the repository",
+      time: { start: baseTime, end: baseTime + 1 },
+    },
+  ];
+
+  const assistantParts: Part[] = [
+    {
+      id: "a-text-1",
+      type: "text",
+      messageID: assistantMessageId,
+      sessionID: sid,
+      text: "I will inspect the project first.",
+      time: { start: baseTime + 100, end: baseTime + 110 },
+    },
+    {
+      id: "a-tool-1",
+      type: "tool",
+      messageID: assistantMessageId,
+      sessionID: sid,
+      tool: "read",
+      state: { status: "completed" },
+      time: { start: baseTime + 200, end: baseTime + 220 },
+    } as Part,
+    {
+      id: "a-reasoning-1",
+      type: "reasoning",
+      messageID: assistantMessageId,
+      sessionID: sid,
+      text: "The read result suggests checking related files.",
+      time: { start: baseTime + 300, end: baseTime + 320 },
+    },
+    {
+      id: "a-tool-2",
+      type: "tool",
+      messageID: assistantMessageId,
+      sessionID: sid,
+      tool: "grep",
+      state: { status: "completed" },
+      time: { start: baseTime + 400, end: baseTime + 420 },
+    } as Part,
+    {
+      id: "a-reasoning-2",
+      type: "reasoning",
+      messageID: assistantMessageId,
+      sessionID: sid,
+      text: "Now I can summarize the findings.",
+      time: { start: baseTime + 700, end: baseTime + 720 },
+    },
+    {
+      id: "a-text-2",
+      type: "text",
+      messageID: assistantMessageId,
+      sessionID: sid,
+      text: "Summary: here is what I found.",
+      time: { start: baseTime + 900, end: baseTime + 930 },
+    },
+  ];
+
+  const permission = createPendingPermissionRequest({
+    id: "perm-interleaved",
+    sessionID: sid,
+    messageID: assistantMessageId,
+    toolName: "bash",
+    args: { command: "pnpm test" },
+    timestamp: baseTime + 500,
+  });
+
+  const question = createPendingQuestionRequest({
+    id: "question-interleaved",
+    sessionID: sid,
+    messageID: assistantMessageId,
+    question: "Run full suite?",
+    options: ["yes", "no"],
+    timestamp: baseTime + 800,
+  });
+
+  return {
+    sessionId: sid,
+    messages: [userMessage, assistantMessage],
+    partsByMessage: {
+      [userMessageId]: userParts,
+      [assistantMessageId]: assistantParts,
+    },
+    permissionRequests: [permission],
+    questionRequests: [question],
+    sessionStatus: { type: "busy" },
+    lastUserMessageId: userMessageId,
+    expectedOrderIds: [
+      "a-text-1",
+      "a-tool-1",
+      "a-reasoning-1",
+      "a-tool-2",
+      "permission:perm-interleaved",
+      "a-reasoning-2",
+      "question:question-interleaved",
+      "a-text-2",
+    ],
+    expectedUserMessageId: userMessageId,
+    expectedAssistantMessageId: assistantMessageId,
+  };
+}
+
+export function createSequenceOrderedPartsFixture(
+  sessionId?: string
+): TurnProjectionOptions & { expectedOrderIds: string[] } {
+  const sid = sessionId || uuidv7();
+  const baseTime = Date.now();
+  const userId = uuidv7();
+  const assistantId = uuidv7();
+
+  const messages: MessageWithId[] = [
+    {
+      id: userId,
+      role: "user",
+      sessionID: sid,
+      time: { created: baseTime },
+    },
+    {
+      id: assistantId,
+      role: "assistant",
+      parentID: userId,
+      sessionID: sid,
+      time: { created: baseTime + 10, completed: baseTime + 1000 },
+    },
+  ];
+
+  const partsByMessage: Record<string, Part[]> = {
+    [userId]: [
+      {
+        id: `${userId}-text`,
+        type: "text",
+        messageID: userId,
+        sessionID: sid,
+        text: "Tell me about the repo",
+      },
+    ],
+    [assistantId]: [
+      {
+        id: "part-summary",
+        type: "text",
+        messageID: assistantId,
+        sessionID: sid,
+        text: "Final summary",
+        metadata: { __eventSequence: 120 },
+      } as Part,
+      {
+        id: "part-tool-1",
+        type: "tool",
+        messageID: assistantId,
+        sessionID: sid,
+        tool: "ls",
+        state: { status: "completed", time: { start: baseTime + 100, end: baseTime + 200 } },
+        metadata: { __eventSequence: 105 },
+      } as Part,
+      {
+        id: "part-reasoning",
+        type: "reasoning",
+        messageID: assistantId,
+        sessionID: sid,
+        text: "Let me inspect files first",
+        metadata: { __eventSequence: 110 },
+      } as Part,
+    ],
+  };
+
+  return {
+    sessionId: sid,
+    messages,
+    partsByMessage,
+    sessionStatus: { type: "idle" },
+    lastUserMessageId: userId,
+    expectedOrderIds: ["part-tool-1", "part-reasoning", "part-summary"],
+  };
+}

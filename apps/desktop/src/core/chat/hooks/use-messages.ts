@@ -21,14 +21,11 @@
  * ```
  */
 
-import { createLogger } from "@/core/shared/logger";
 import { useMessageStore, usePartStore } from "@/state/providers";
 import type { MessageWithId } from "@/state/stores/message-store";
 import type { Part } from "@ekacode/shared/event-types";
-import { createMemo, onCleanup, type Accessor } from "solid-js";
+import { createMemo, type Accessor } from "solid-js";
 import { toTimeline, type ChatTimelineItem } from "./timeline-projection";
-
-const logger = createLogger("desktop:hooks:use-messages");
 
 /**
  * Chat message with parts for UI consumption
@@ -126,13 +123,9 @@ export function useMessages(sessionId: Accessor<string | null>): UseMessagesResu
    */
   const list = createMemo<ChatMessage[]>(() => {
     const sid = sessionId();
-    if (!sid) {
-      logger.debug("No session ID, returning empty message list");
-      return [];
-    }
+    if (!sid) return [];
 
     const messages = messageActions.getBySession(sid);
-    logger.debug("Projecting messages", { sessionId: sid, count: messages.length });
 
     const projected = messages.map(msg => {
       const parts = partActions.getByMessage(msg.id);
@@ -197,13 +190,6 @@ export function useMessages(sessionId: Accessor<string | null>): UseMessagesResu
         return part.type !== "step-start" && part.type !== "step-finish";
       })
     );
-  });
-
-  /**
-   * Cleanup on unmount
-   */
-  onCleanup(() => {
-    logger.debug("useMessages cleanup");
   });
 
   return {

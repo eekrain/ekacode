@@ -35,6 +35,8 @@ export function MessageTimeline(props: MessageTimelineProps): JSX.Element {
     <div
       ref={autoScroll.scrollRef}
       onScroll={e => autoScroll.handleScroll(e.currentTarget)}
+      role="log"
+      aria-live="polite"
       class={cn("scrollbar-thin min-h-0 flex-1 overflow-y-auto", "px-4 py-4", props.class)}
     >
       <Show
@@ -46,10 +48,10 @@ export function MessageTimeline(props: MessageTimelineProps): JSX.Element {
         }
       >
         <div class="mx-auto max-w-3xl">
-          <ul data-slot="timeline-list" class="flex flex-col gap-5">
+          <ul role="list" data-slot="timeline-list" class="flex flex-col gap-5">
             <For each={props.turns()}>
               {turn => (
-                <li>
+                <li role="listitem" data-testid={`turn-${turn.userMessage.id}`}>
                   <SessionTurn
                     turn={() => turn}
                     isStreaming={props.isStreaming}

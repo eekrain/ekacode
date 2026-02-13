@@ -14,7 +14,7 @@ import {
   WorkspaceProvider,
 } from "@/state/providers";
 import Resizable from "@corvu/resizable";
-import { ChatInput, MessageTimeline } from "./chat-area";
+import { ChatInput, ChatPerfPanel, MessageTimeline } from "./chat-area";
 import { LeftSide } from "./left-side/left-side";
 import { ContextPanel } from "./right-side/right-side";
 
@@ -179,6 +179,7 @@ function WorkspaceViewContent() {
     chat.streaming.status() === "connecting" || chat.streaming.status() === "streaming";
   const _chatError = () => chat.streaming.error();
   const effectiveSessionId = createMemo(() => chat.sessionId() ?? ctx.activeSessionId());
+  const turns = useSessionTurns(effectiveSessionId);
   const _activeSession = () => {
     const id = effectiveSessionId();
     return ctx.sessions().find(s => s.sessionId === id);
@@ -276,11 +277,14 @@ function WorkspaceViewContent() {
           <Resizable.Panel
             initialSize={0.5}
             minSize={0.2}
-            class="bg-background flex h-full min-h-0 flex-1 flex-col"
+            class="bg-background relative flex h-full min-h-0 flex-1 flex-col"
           >
+            <Show when={import.meta.env.DEV}>
+              <ChatPerfPanel />
+            </Show>
             {/* Messages - MessageTimeline handles its own scroll */}
             <MessageTimeline
-              turns={useSessionTurns(effectiveSessionId)}
+              turns={turns}
               isStreaming={isGenerating}
               onRetry={messageId => void _handleRetry(messageId)}
               onDelete={_handleDelete}

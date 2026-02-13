@@ -71,6 +71,8 @@ describe("Integration: Chat Area Parity (Recorded Fixture)", () => {
     expect(container.querySelector('[role="log"]')).toBeTruthy();
     expect(container.querySelectorAll('[role="listitem"]').length).toBeGreaterThan(0);
     expect(container.textContent).toContain("tell me about this project");
+    expect(container.textContent).not.toContain("Show steps");
+    expect(container.textContent).not.toContain("Hide steps");
     expect(container.textContent).not.toContain("Working");
 
     dispose();
@@ -125,6 +127,75 @@ describe("Integration: Chat Area Parity (Recorded Fixture)", () => {
     const secondCount = container.querySelectorAll('[role="listitem"]').length;
 
     expect(secondCount).toBe(firstCount);
+
+    dispose();
+  });
+
+  it("remains scroll-interactive under high-volume fixture replay", async () => {
+    const [sessionId] = createSignal<string | null>(fixture.sessionId);
+    const [ready, setReady] = createSignal(false);
+
+    let storeContext: {
+      message: [unknown, ReturnType<typeof useMessageStore>[1]];
+      part: [unknown, ReturnType<typeof usePartStore>[1]];
+      session: [unknown, ReturnType<typeof useSessionStore>[1]];
+    };
+
+    function TestApp() {
+      storeContext = {
+        message: useMessageStore(),
+        part: usePartStore(),
+        session: useSessionStore(),
+      };
+
+      return (
+        <Show when={ready()}>
+          <MessageTimeline turns={useSessionTurns(sessionId)} isStreaming={() => true} />
+        </Show>
+      );
+    }
+
+    const dispose = render(
+      () => (
+        <TestProviders>
+          <TestApp />
+        </TestProviders>
+      ),
+      container
+    );
+
+    const actions = extractStoreActions(storeContext!);
+
+    for (let i = 0; i < 4; i++) {
+      await applyFixture(fixture, actions);
+    }
+    setReady(true);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const log = container.querySelector('[role="log"]') as HTMLDivElement | null;
+    expect(log).toBeTruthy();
+    if (!log) {
+      dispose();
+      return;
+    }
+
+    Object.defineProperty(log, "scrollHeight", { configurable: true, value: 4000 });
+    Object.defineProperty(log, "clientHeight", { configurable: true, value: 500 });
+
+    log.scrollTop = 1800;
+    log.dispatchEvent(new Event("scroll"));
+
+    await applyFixture(fixture, actions);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    log.scrollTop = 1200;
+    log.dispatchEvent(new Event("scroll"));
+
+    expect(log.className).toContain("overflow-y-auto");
+    expect(typeof log.scrollTop).toBe("number");
+    expect(log.scrollTop).toBeGreaterThan(0);
 
     dispose();
   });

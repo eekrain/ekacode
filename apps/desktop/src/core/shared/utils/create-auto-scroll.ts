@@ -23,7 +23,7 @@
  * ```
  */
 
-import { createSignal, onCleanup, onMount } from "solid-js";
+import { createEffect, createSignal, onCleanup } from "solid-js";
 
 interface CreateAutoScrollOptions {
   /** Whether the AI is currently working/generating */
@@ -55,6 +55,8 @@ export function createAutoScroll(options: CreateAutoScrollOptions): CreateAutoSc
   const settlingPeriod = options.settlingPeriod ?? 300;
 
   let settlingTimeout: ReturnType<typeof setTimeout> | undefined;
+  let rafId: number | undefined;
+  let initialScrollScheduled = false;
   let lastScrollTop = 0;
 
   const isNearBottom = (el: HTMLElement): boolean => {
@@ -66,9 +68,29 @@ export function createAutoScroll(options: CreateAutoScrollOptions): CreateAutoSc
     const el = scrollRef();
     if (!el || !isAutoScrolling()) return;
 
-    el.scrollTo({
-      top: el.scrollHeight,
-      behavior: smooth ? "smooth" : "auto",
+    if (typeof el.scrollTo === "function") {
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: smooth ? "smooth" : "auto",
+      });
+      return;
+    }
+
+    el.scrollTop = el.scrollHeight;
+  };
+
+  const scheduleRaf = (callback: () => void) => {
+    if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") {
+      callback();
+      return;
+    }
+
+    if (rafId !== undefined) {
+      window.cancelAnimationFrame(rafId);
+    }
+    rafId = window.requestAnimationFrame(() => {
+      rafId = undefined;
+      callback();
     });
   };
 
@@ -87,47 +109,50 @@ export function createAutoScroll(options: CreateAutoScrollOptions): CreateAutoSc
 
     // Set new timeout to detect if user has stopped scrolling
     settlingTimeout = setTimeout(() => {
-      // After settling period, check if we're near bottom
-      const nearBottom = isNearBottom(el);
+      scheduleRaf(() => {
+        // After settling period, check if we're near bottom
+        const nearBottom = isNearBottom(el);
 
-      // Only update if not working (generating)
-      // When working, we want to maintain auto-scroll unless user explicitly scrolled up
-      if (!options.working()) {
-        setIsAutoScrolling(nearBottom);
-      } else {
-        // When working, only disable if user scrolled significantly up
-        const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-        setIsAutoScrolling(distanceFromBottom < 300);
-      }
+        // Only update if not working (generating)
+        // When working, we want to maintain auto-scroll unless user explicitly scrolled up
+        if (!options.working()) {
+          setIsAutoScrolling(nearBottom);
+        } else {
+          // When working, only disable if user scrolled significantly up
+          const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+          setIsAutoScrolling(distanceFromBottom < 300);
+        }
+      });
     }, settlingPeriod);
   };
 
-  // Auto-scroll to bottom when working state changes to true
-  const setupAutoScrollTrigger = () => {
-    let lastWorkingState = options.working();
+  // Auto-scroll to bottom when working state changes to true (reactive, no polling)
+  createEffect<boolean>(previousWorking => {
+    const currentWorking = options.working();
+    if (currentWorking && !previousWorking) {
+      setIsAutoScrolling(true);
+      scheduleRaf(() => scrollToBottom(true));
+    }
+    return currentWorking;
+  }, options.working());
 
-    const interval = setInterval(() => {
-      const currentState = options.working();
-
-      // Just started working - scroll to bottom
-      if (currentState && !lastWorkingState) {
-        setIsAutoScrolling(true);
-        setTimeout(() => scrollToBottom(true), 50);
-      }
-
-      lastWorkingState = currentState;
-    }, 100);
-
-    onCleanup(() => clearInterval(interval));
-  };
-
-  onMount(setupAutoScrollTrigger);
+  onCleanup(() => {
+    if (settlingTimeout) {
+      clearTimeout(settlingTimeout);
+      settlingTimeout = undefined;
+    }
+    if (rafId !== undefined && typeof window !== "undefined") {
+      window.cancelAnimationFrame(rafId);
+      rafId = undefined;
+    }
+  });
 
   return {
     scrollRef: (el: HTMLElement) => {
       setScrollRef(el);
-      // Initial scroll to bottom
-      setTimeout(() => scrollToBottom(false), 0);
+      if (initialScrollScheduled) return;
+      initialScrollScheduled = true;
+      scheduleRaf(() => scrollToBottom(false));
     },
     isAutoScrolling,
     handleScroll,

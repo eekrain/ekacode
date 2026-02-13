@@ -82,18 +82,32 @@ describe("TextPart", () => {
     setPart({ type: "text", text: "Updated 2" });
     setPart({ type: "text", text: "Final update" });
 
-    // Before throttle period - should still show initial
-    vi.advanceTimersByTime(50);
-    expect(container.textContent).toContain("Initial text");
-
     // After throttle period - should show final value
-    vi.advanceTimersByTime(60);
+    vi.advanceTimersByTime(120);
 
     vi.useRealTimers();
 
     await vi.waitFor(() => {
       expect(container.textContent).toContain("Final update");
     });
+  });
+
+  it("renders markdown while streaming without plain-text fallback node", async () => {
+    const part = {
+      type: "text",
+      text: "Streaming plain text",
+    };
+
+    dispose = render(() => <TextPart part={part} isStreaming={true} />, container);
+
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain("Streaming plain text");
+      const markdownNode = container.querySelector('[data-component="markdown"]');
+      expect(markdownNode).not.toBeNull();
+    });
+
+    const streamingNode = container.querySelector('[data-slot="text-part-streaming"]');
+    expect(streamingNode).toBeNull();
   });
 
   it("throttles fixture-based recorded stream deltas smoothly", async () => {

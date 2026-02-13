@@ -15,7 +15,9 @@ import { describe, expect, it } from "vitest";
 import {
   createEmptySessionFixture,
   createErrorTurnFixture,
+  createInterleavedAssistantPartsFixture,
   createMultiTurnFixture,
+  createSequenceOrderedPartsFixture,
   createSingleTurnFixture,
   createSingleTurnWithPromptsFixture,
   createStreamingTurnFixture,
@@ -57,6 +59,85 @@ describe("turn-projection", () => {
       // Second turn has reasoning and tool
       const turnWithSteps = turns.find(t => t.reasoningParts.length > 0 || t.toolParts.length > 0);
       expect(turnWithSteps).toBeDefined();
+    });
+
+    it("builds orderedParts in strict chronological order for interleaved assistant events", () => {
+      const fixture = createInterleavedAssistantPartsFixture();
+      const turns = buildChatTurns(fixture);
+
+      expect(turns).toHaveLength(1);
+      expect(turns[0].orderedParts.map(part => part.id)).toEqual(fixture.expectedOrderIds);
+    });
+
+    it("reuses orderedParts array reference for identical turn inputs", () => {
+      const fixture = createInterleavedAssistantPartsFixture();
+      const first = buildChatTurns(fixture);
+      const second = buildChatTurns(fixture);
+
+      expect(first).toHaveLength(1);
+      expect(second).toHaveLength(1);
+      expect(second[0].orderedParts).toBe(first[0].orderedParts);
+    });
+
+    it("invalidates orderedParts cache when part content changes", () => {
+      const fixture = createInterleavedAssistantPartsFixture();
+      const first = buildChatTurns(fixture);
+      const assistantId = fixture.expectedAssistantMessageId;
+      const mutablePart = fixture.partsByMessage[assistantId]?.find(
+        part => part.type === "text" && typeof part.text === "string"
+      ) as Part | undefined;
+      if (!mutablePart || typeof mutablePart.text !== "string") {
+        throw new Error("Expected text part in interleaved fixture");
+      }
+      mutablePart.text = `${mutablePart.text} updated`;
+
+      const second = buildChatTurns(fixture);
+      expect(second[0].orderedParts).not.toBe(first[0].orderedParts);
+    });
+
+    it("prefers event sequence ordering when metadata sequence exists", () => {
+      const fixture = createSequenceOrderedPartsFixture();
+      const turns = buildChatTurns(fixture);
+
+      expect(turns).toHaveLength(1);
+      expect(turns[0].orderedParts.map(part => part.id)).toEqual(fixture.expectedOrderIds);
+    });
+
+    it("derives status label from the latest meaningful ordered part", () => {
+      const fixture = createInterleavedAssistantPartsFixture();
+      const turns = buildChatTurns(fixture);
+
+      expect(turns).toHaveLength(1);
+      expect(turns[0].statusLabel).toBe("Waiting for input");
+    });
+
+    it("deduplicates synthetic permission/question parts when canonical part already exists", () => {
+      const fixture = createInterleavedAssistantPartsFixture();
+      const assistantId = fixture.expectedAssistantMessageId;
+      const assistantParts = fixture.partsByMessage[assistantId] ?? [];
+
+      assistantParts.push(
+        {
+          id: "permission:perm-interleaved",
+          type: "permission",
+          messageID: assistantId,
+          request: fixture.permissionRequests?.[0],
+          time: { start: fixture.permissionRequests?.[0]?.timestamp ?? Date.now() },
+        } as Part,
+        {
+          id: "question:question-interleaved",
+          type: "question",
+          messageID: assistantId,
+          request: fixture.questionRequests?.[0],
+          time: { start: fixture.questionRequests?.[0]?.timestamp ?? Date.now() },
+        } as Part
+      );
+
+      const turns = buildChatTurns(fixture);
+      const ids = turns[0].orderedParts.map(part => part.id);
+
+      expect(ids.filter(id => id === "permission:perm-interleaved")).toHaveLength(1);
+      expect(ids.filter(id => id === "question:question-interleaved")).toHaveLength(1);
     });
 
     it("projects permission/question requests into turn steps", () => {

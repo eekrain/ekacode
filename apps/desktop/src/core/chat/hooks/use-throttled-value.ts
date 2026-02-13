@@ -26,12 +26,15 @@ import { createEffect, createSignal, onCleanup, type Accessor } from "solid-js";
  */
 export function useThrottledValue<T>(value: Accessor<T>, throttleMs: number): Accessor<T> {
   const [throttled, setThrottled] = createSignal<T>(value());
-  let lastUpdateAt = 0;
+  let lastUpdateAt = Date.now();
   let timeout: ReturnType<typeof setTimeout> | undefined;
   let pendingValue: T | undefined;
 
   createEffect(() => {
     const next = value();
+    if (next === throttled()) {
+      return;
+    }
     if (throttleMs <= 0) {
       if (timeout) {
         clearTimeout(timeout);
@@ -46,7 +49,7 @@ export function useThrottledValue<T>(value: Accessor<T>, throttleMs: number): Ac
     const now = Date.now();
     const elapsed = now - lastUpdateAt;
 
-    if (lastUpdateAt === 0 || elapsed >= throttleMs) {
+    if (elapsed >= throttleMs) {
       if (timeout) {
         clearTimeout(timeout);
         timeout = undefined;

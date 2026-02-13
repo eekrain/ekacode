@@ -17,13 +17,13 @@ describe("ReasoningPart", () => {
     document.body.removeChild(container);
   });
 
-  it("renders reasoning text when expanded", async () => {
+  it("renders reasoning text inline", async () => {
     const part = {
       type: "reasoning",
       text: "Let me think about this step by step...",
     };
 
-    dispose = render(() => <ReasoningPart part={part} defaultOpen={true} />, container);
+    dispose = render(() => <ReasoningPart part={part} />, container);
 
     // Wait for async rendering
     await vi.waitFor(() => {
@@ -64,10 +64,7 @@ describe("ReasoningPart", () => {
       text: "Initial thought",
     });
 
-    dispose = render(
-      () => <ReasoningPart part={part()} isStreaming={true} defaultOpen={true} />,
-      container
-    );
+    dispose = render(() => <ReasoningPart part={part()} isStreaming={true} />, container);
 
     // Wait for initial render
     await vi.waitFor(() => {
@@ -80,23 +77,33 @@ describe("ReasoningPart", () => {
     setPart({ type: "reasoning", text: "Updated thought 2" });
     setPart({ type: "reasoning", text: "Final thought" });
 
-    // Before throttle period
-    vi.advanceTimersByTime(50);
-    let content = container.querySelector('[data-slot="reasoning-content"]');
-    expect(content?.textContent).toContain("Initial thought");
-
     // After throttle period
-    vi.advanceTimersByTime(60);
+    vi.advanceTimersByTime(120);
 
     vi.useRealTimers();
 
     await vi.waitFor(() => {
-      content = container.querySelector('[data-slot="reasoning-content"]');
+      const content = container.querySelector('[data-slot="reasoning-content"]');
       expect(content?.textContent).toContain("Final thought");
     });
   });
 
-  it("applies subtle/italic styling on trigger", async () => {
+  it("uses lightweight streaming renderer while streaming", async () => {
+    const part = {
+      type: "reasoning",
+      text: "Streaming thought",
+    };
+
+    dispose = render(() => <ReasoningPart part={part} isStreaming={true} />, container);
+
+    await vi.waitFor(() => {
+      const streamingNode = container.querySelector('[data-slot="reasoning-part-streaming"]');
+      expect(streamingNode).not.toBeNull();
+      expect(streamingNode?.textContent).toContain("Streaming thought");
+    });
+  });
+
+  it("applies subtle/italic styling on content", async () => {
     const part = {
       type: "reasoning",
       text: "Thinking out loud",
@@ -110,9 +117,8 @@ describe("ReasoningPart", () => {
       expect(reasoningPart).not.toBeNull();
     });
 
-    // Check for italic class on trigger
-    const trigger = container.querySelector('[data-slot="reasoning-trigger"]');
-    expect(trigger?.className).toMatch(/italic/);
+    const content = container.querySelector('[data-slot="reasoning-content"]');
+    expect(content?.className).toMatch(/italic/);
   });
 
   it("applies data-component attribute", async () => {
@@ -143,7 +149,7 @@ describe("ReasoningPart", () => {
     });
   });
 
-  it("shows Thinking trigger label", () => {
+  it("does not render a collapsible trigger label", () => {
     const part = {
       type: "reasoning",
       text: "Some reasoning",
@@ -151,37 +157,7 @@ describe("ReasoningPart", () => {
 
     dispose = render(() => <ReasoningPart part={part} />, container);
 
-    // Trigger should contain "Thinking"
-    const trigger = container.querySelector('[data-slot="reasoning-trigger"]');
-    expect(trigger?.textContent).toContain("Thinking");
-  });
-
-  it("is collapsible", async () => {
-    const part = {
-      type: "reasoning",
-      text: "Some reasoning content to hide",
-    };
-
-    dispose = render(() => <ReasoningPart part={part} />, container);
-
-    // Wait for render
-    await vi.waitFor(() => {
-      const trigger = container.querySelector('[data-slot="reasoning-trigger"]');
-      expect(trigger).not.toBeNull();
-    });
-
-    // Content should initially be collapsed
-    let content = container.querySelector('[data-slot="reasoning-content"]');
-    expect(content?.textContent).toBeFalsy();
-
-    // Click to expand
-    const trigger = container.querySelector('[data-slot="reasoning-trigger"]');
-    trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-
-    // Content should now be visible
-    await vi.waitFor(() => {
-      content = container.querySelector('[data-slot="reasoning-content"]');
-      expect(content?.textContent).toContain("Some reasoning content");
-    });
+    expect(container.querySelector('[data-slot="reasoning-trigger"]')).toBeNull();
+    expect(container.textContent).not.toContain("Thinking");
   });
 });

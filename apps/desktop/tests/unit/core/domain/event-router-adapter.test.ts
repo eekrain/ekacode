@@ -331,4 +331,163 @@ describe("event-router-adapter", () => {
       expect.arrayContaining([expect.objectContaining({ id: partId })])
     );
   });
+
+  it("annotates message parts with event sequence metadata for deterministic ordering", async () => {
+    const { messageActions, partActions, sessionActions } = createActions();
+    const messageId = "019c4da0-fc0b-713c-984e-b2aca339c983";
+    const partId = `${messageId}-tool`;
+
+    sessionActions.upsert({ sessionID: SESSION_ID_1, directory: "/repo" });
+    messageActions.upsert({
+      id: messageId,
+      role: "assistant",
+      sessionID: SESSION_ID_1,
+    });
+
+    await applyEventToStores(
+      {
+        type: "message.part.updated",
+        properties: {
+          part: {
+            id: partId,
+            type: "tool",
+            messageID: messageId,
+            sessionID: SESSION_ID_1,
+            tool: "ls",
+            state: { status: "running" },
+          },
+        },
+        eventId: uuidv7(),
+        sequence: 42,
+        timestamp: 1739460000000,
+      } as ServerEvent,
+      messageActions,
+      partActions,
+      sessionActions
+    );
+
+    const stored = partActions.getById(partId) as
+      | { metadata?: Record<string, unknown> }
+      | undefined;
+    expect(stored?.metadata?.__eventSequence).toBe(42);
+    expect(stored?.metadata?.__eventTimestamp).toBe(1739460000000);
+  });
+
+  it("does not remove exact-id optimistic part during canonical reconciliation", async () => {
+    const { messageActions, partActions, sessionActions } = createActions();
+    const messageId = "019c4da0-fc0b-713c-984e-b2aca339c984";
+    const partId = `${messageId}-reasoning`;
+    const removeSpy = vi.spyOn(partActions, "remove");
+
+    sessionActions.upsert({ sessionID: SESSION_ID_1, directory: "/repo" });
+    messageActions.upsert({
+      id: messageId,
+      role: "assistant",
+      sessionID: SESSION_ID_1,
+    });
+    partActions.upsert({
+      id: partId,
+      type: "reasoning",
+      messageID: messageId,
+      sessionID: SESSION_ID_1,
+      text: "optimistic",
+      metadata: {
+        optimistic: true,
+        optimisticSource: "useChat",
+        correlationKey: `part:${messageId}:reasoning:${partId}`,
+        timestamp: Date.now(),
+      },
+    } as never);
+
+    await applyEventToStores(
+      {
+        type: "message.part.updated",
+        properties: {
+          part: {
+            id: partId,
+            type: "reasoning",
+            messageID: messageId,
+            sessionID: SESSION_ID_1,
+            text: "canonical",
+          },
+        },
+        eventId: uuidv7(),
+        sequence: 50,
+        timestamp: Date.now(),
+      } as ServerEvent,
+      messageActions,
+      partActions,
+      sessionActions
+    );
+
+    expect(removeSpy).not.toHaveBeenCalledWith(partId, messageId);
+    const stored = partActions.getById(partId) as {
+      text?: string;
+      metadata?: Record<string, unknown>;
+    };
+    expect(stored?.text).toBe("canonical");
+    expect(stored?.metadata?.optimistic).toBeUndefined();
+  });
+
+  it("skips no-op canonical part updates when payload is unchanged", async () => {
+    const { messageActions, partActions, sessionActions } = createActions();
+    const messageId = "019c4da0-fc0b-713c-984e-b2aca339c985";
+    const partId = `${messageId}-tool`;
+    const upsertSpy = vi.spyOn(partActions, "upsert");
+
+    sessionActions.upsert({ sessionID: SESSION_ID_1, directory: "/repo" });
+    messageActions.upsert({
+      id: messageId,
+      role: "assistant",
+      sessionID: SESSION_ID_1,
+    });
+
+    await applyEventToStores(
+      {
+        type: "message.part.updated",
+        properties: {
+          part: {
+            id: partId,
+            type: "tool",
+            messageID: messageId,
+            sessionID: SESSION_ID_1,
+            tool: "ls",
+            state: { status: "running" },
+          },
+        },
+        eventId: uuidv7(),
+        sequence: 60,
+        timestamp: Date.now(),
+      } as ServerEvent,
+      messageActions,
+      partActions,
+      sessionActions
+    );
+
+    const callsAfterFirst = upsertSpy.mock.calls.length;
+
+    await applyEventToStores(
+      {
+        type: "message.part.updated",
+        properties: {
+          part: {
+            id: partId,
+            type: "tool",
+            messageID: messageId,
+            sessionID: SESSION_ID_1,
+            tool: "ls",
+            state: { status: "running" },
+          },
+        },
+        eventId: uuidv7(),
+        sequence: 61,
+        timestamp: Date.now() + 10,
+      } as ServerEvent,
+      messageActions,
+      partActions,
+      sessionActions
+    );
+
+    expect(upsertSpy.mock.calls.length).toBe(callsAfterFirst);
+  });
 });
