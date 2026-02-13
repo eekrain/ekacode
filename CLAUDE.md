@@ -229,6 +229,25 @@ Request → Session Bridge (X-Session-ID header)
   → getSession/createSession → DB Persist → Instance.provide() → Handler
 ```
 
+**Retry Rendering + Policy (Chat Parity):**
+
+```
+Transient upstream error
+  → core emits "retry" event (attempt, message, next)
+  → server publishPartEvent upserts ONE stable retry part per assistant message
+  → desktop renders a single inline retry card (updates attempt/countdown, no stacking)
+```
+
+- Retry part must be **updated in-place** (same part ID), not appended per attempt.
+- Countdown text states:
+  - `retrying in Xm Ys` (future `next`)
+  - `retrying now` (stale/past `next`)
+  - `retrying shortly` (missing/invalid `next`)
+- Retry backoff policy in core processor:
+  - exponential `3s, 6s, 12s, ...`
+  - max `10` retries for retryable transient failures.
+- Do not add duplicate turn-footer actions for copy/retry/delete; markdown copy is already provided in markdown UI.
+
 **Instance Context Propagation:**
 
 ```

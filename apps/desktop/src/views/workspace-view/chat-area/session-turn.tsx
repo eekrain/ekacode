@@ -27,9 +27,6 @@ export interface SessionTurnProps {
   turn: Accessor<ChatTurn>;
   isStreaming: Accessor<boolean>;
   isScrollActive?: Accessor<boolean>;
-  onRetry?: (messageId: string) => void;
-  onDelete?: (messageId: string) => void;
-  onCopy?: (messageId: string) => void;
   onPermissionApprove?: (id: string, patterns?: string[]) => void | Promise<void>;
   onPermissionDeny?: (id: string) => void | Promise<void>;
   onQuestionAnswer?: (id: string, answer: unknown) => void | Promise<void>;
@@ -59,10 +56,6 @@ function getAssistantText(turn: ChatTurn): string {
     return turn.finalTextPart.text;
   }
   return "";
-}
-
-function getLastAssistantMessageId(turn: ChatTurn): string | undefined {
-  return turn.assistantMessages[turn.assistantMessages.length - 1]?.id;
 }
 
 function getUserCreatedAt(turn: ChatTurn): number | undefined {
@@ -203,37 +196,6 @@ export function SessionTurn(props: SessionTurnProps): JSX.Element {
                 isStreaming={props.isStreaming()}
                 isScrollActive={props.isScrollActive?.()}
               />
-            </div>
-          </Show>
-
-          <Show when={!turn().working}>
-            <div class="mt-3 flex items-center gap-2">
-              <button
-                type="button"
-                class="rounded border px-2 py-1 text-xs transition-colors"
-                onClick={() =>
-                  props.onRetry?.(getLastAssistantMessageId(turn()) ?? turn().userMessage.id)
-                }
-              >
-                Retry
-              </button>
-              <button
-                type="button"
-                class="rounded border px-2 py-1 text-xs transition-colors"
-                onClick={() => {
-                  const assistantId = getLastAssistantMessageId(turn()) ?? turn().userMessage.id;
-                  props.onCopy?.(assistantId);
-                }}
-              >
-                Copy
-              </button>
-              <button
-                type="button"
-                class="rounded border px-2 py-1 text-xs transition-colors"
-                onClick={() => props.onDelete?.(turn().userMessage.id)}
-              >
-                Delete
-              </button>
             </div>
           </Show>
         </div>

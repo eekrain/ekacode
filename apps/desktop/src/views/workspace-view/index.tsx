@@ -108,18 +108,6 @@ function WorkspaceViewContent() {
     chat.stop();
   };
 
-  const _handleRetry = async (messageId: string) => {
-    await chat.retry(messageId);
-  };
-
-  const _handleDelete = (messageId: string) => {
-    chat.delete(messageId);
-  };
-
-  const _handleCopy = async (messageId: string) => {
-    await chat.copy(messageId);
-  };
-
   const _handleModelChange = (modelId: string) => {
     console.log("Model changed to:", modelId);
   };
@@ -286,9 +274,6 @@ function WorkspaceViewContent() {
             <MessageTimeline
               turns={turns}
               isStreaming={isGenerating}
-              onRetry={messageId => void _handleRetry(messageId)}
-              onDelete={_handleDelete}
-              onCopy={messageId => void _handleCopy(messageId)}
               onPermissionApprove={handleApprovePermission}
               onPermissionDeny={handleDenyPermission}
               onQuestionAnswer={handleAnswerQuestion}

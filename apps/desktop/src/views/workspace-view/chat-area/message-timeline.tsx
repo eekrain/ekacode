@@ -14,9 +14,6 @@ import { SessionTurn } from "./session-turn";
 export interface MessageTimelineProps {
   turns: Accessor<ChatTurn[]>;
   isStreaming: Accessor<boolean>;
-  onRetry?: (messageId: string) => void;
-  onDelete?: (messageId: string) => void;
-  onCopy?: (messageId: string) => void;
   onPermissionApprove?: (id: string, patterns?: string[]) => void | Promise<void>;
   onPermissionDeny?: (id: string) => void | Promise<void>;
   onQuestionAnswer?: (id: string, answer: unknown) => void | Promise<void>;
@@ -76,9 +73,6 @@ export function MessageTimeline(props: MessageTimelineProps): JSX.Element {
                     turn={() => turn}
                     isStreaming={props.isStreaming}
                     isScrollActive={isScrollActive}
-                    onRetry={props.onRetry}
-                    onDelete={props.onDelete}
-                    onCopy={props.onCopy}
                     onPermissionApprove={props.onPermissionApprove}
                     onPermissionDeny={props.onPermissionDeny}
                     onQuestionAnswer={props.onQuestionAnswer}

@@ -313,6 +313,45 @@ describe("Chat route integration", () => {
       expect(retryError.metadata?.kind).toBe("network_socket_closed");
     });
 
+    it("updates a single retry part across multiple retry attempts", async () => {
+      const sessionId = "019c0000-0000-7000-8000-000000000011";
+      const messageId = "019c0000-0000-7000-8000-000000000012";
+      const { createPartPublishState, publishPartEvent } = await import("../../src/routes/chat");
+      const { getSessionMessages } = await import("../../src/state/session-message-store");
+
+      const partState = createPartPublishState();
+      const assistantInfo = {
+        role: "assistant",
+        id: messageId,
+        sessionID: sessionId,
+        parentID: "019c0000-0000-7000-8000-000000000013",
+        time: { created: Date.now() },
+      };
+
+      await publishPartEvent(sessionId, messageId, partState, assistantInfo as never, {
+        type: "retry",
+        attempt: 1,
+        message: "socket closed",
+        next: Date.now() + 3000,
+        errorKind: "network_socket_closed",
+      });
+      await publishPartEvent(sessionId, messageId, partState, assistantInfo as never, {
+        type: "retry",
+        attempt: 2,
+        message: "socket closed",
+        next: Date.now() + 6000,
+        errorKind: "network_socket_closed",
+      });
+
+      const sessionMessages = getSessionMessages(sessionId);
+      const assistant = sessionMessages.find(message => message.info.id === messageId);
+      const retryParts = assistant?.parts.filter(part => part.type === "retry") ?? [];
+
+      expect(retryParts).toHaveLength(1);
+      expect(retryParts[0]?.attempt).toBe(2);
+      expect(retryParts[0]?.next).toBeTypeOf("number");
+    });
+
     it("should handle empty message gracefully", async () => {
       const chatRouter = (await import("../../src/routes/chat")).default;
 

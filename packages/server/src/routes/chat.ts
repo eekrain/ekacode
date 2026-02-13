@@ -305,8 +305,14 @@ interface ToolPartState {
   startedAt: number;
 }
 
+interface RetryPartState {
+  id: string;
+  createdAt: number;
+}
+
 interface PartPublishState {
   text?: TextPartState;
+  retry?: RetryPartState;
   reasoning: Map<string, ReasoningPartState>;
   tools: Map<string, ToolPartState>;
 }
@@ -696,11 +702,16 @@ export async function publishPartEvent(
           : "Retrying after transient error";
       const errorKind = typeof event.errorKind === "string" ? event.errorKind : undefined;
       const next = typeof event.next === "number" && Number.isFinite(event.next) ? event.next : 0;
-      const createdAt = Date.now();
+      if (!state.retry) {
+        state.retry = {
+          id: uuidv7(),
+          createdAt: Date.now(),
+        };
+      }
 
       await publish(MessagePartUpdated, {
         part: {
-          id: uuidv7(),
+          id: state.retry.id,
           sessionID: sessionId,
           messageID: messageId,
           type: "retry",
@@ -711,7 +722,7 @@ export async function publishPartEvent(
             isRetryable: true,
             ...(errorKind ? { metadata: { kind: errorKind } } : {}),
           },
-          time: { created: createdAt },
+          time: { created: state.retry.createdAt },
         },
       });
       break;
