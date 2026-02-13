@@ -160,6 +160,7 @@ export const QuestionPart: Component<PartProps> = props => {
   const [tab, setTab] = createSignal(0);
   const [textInput, setTextInput] = createSignal("");
   const [answers, setAnswers] = createSignal<Record<number, string[]>>({});
+  const [customMode, setCustomMode] = createSignal(false);
 
   // If no valid request, render nothing
   if (!request()) {
@@ -182,6 +183,7 @@ export const QuestionPart: Component<PartProps> = props => {
   const pickSingle = (value: string) => {
     const currentTab = tab();
     setAnswer(currentTab, [value]);
+    setCustomMode(false);
 
     if (singlePrompt()) {
       const id = request()?.id;
@@ -218,6 +220,7 @@ export const QuestionPart: Component<PartProps> = props => {
         setAnswer(currentTab, [...current, value]);
       }
       setTextInput("");
+      setCustomMode(false);
       return;
     }
 
@@ -225,6 +228,7 @@ export const QuestionPart: Component<PartProps> = props => {
   };
 
   const handleOptionClick = (option: QuestionOption) => {
+    setCustomMode(false);
     if (isMultiple()) {
       toggleMultiple(option.label);
       return;
@@ -250,6 +254,7 @@ export const QuestionPart: Component<PartProps> = props => {
     if (singlePrompt()) return;
     setTab(prev => prev + 1);
     setTextInput("");
+    setCustomMode(false);
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -287,7 +292,11 @@ export const QuestionPart: Component<PartProps> = props => {
                       "rounded border px-2 py-1 text-xs",
                       index() === tab() ? "bg-primary text-primary-foreground" : "bg-background"
                     )}
-                    onClick={() => setTab(index())}
+                    onClick={() => {
+                      setTab(index());
+                      setCustomMode(false);
+                      setTextInput("");
+                    }}
                   >
                     {prompt.header ?? `Q${index() + 1}`}
                   </button>
@@ -300,7 +309,10 @@ export const QuestionPart: Component<PartProps> = props => {
                   "rounded border px-2 py-1 text-xs",
                   isConfirmStep() ? "bg-primary text-primary-foreground" : "bg-background"
                 )}
-                onClick={() => setTab(prompts().length)}
+                onClick={() => {
+                  setTab(prompts().length);
+                  setCustomMode(false);
+                }}
               >
                 Confirm
               </button>
@@ -361,10 +373,23 @@ export const QuestionPart: Component<PartProps> = props => {
                       );
                     }}
                   </For>
+
+                  <Show when={!isMultiple()}>
+                    <button
+                      data-action="custom-answer"
+                      class={cn(
+                        "rounded border px-3 py-1.5 text-left text-sm",
+                        customMode() ? "bg-primary/10 border-primary/40" : "bg-background"
+                      )}
+                      onClick={() => setCustomMode(true)}
+                    >
+                      Type your own answer
+                    </button>
+                  </Show>
                 </div>
               </Show>
 
-              <Show when={!hasOptions() || isMultiple()}>
+              <Show when={!hasOptions() || isMultiple() || customMode()}>
                 <div data-slot="question-input-group" class="flex flex-col gap-2">
                   <input
                     data-slot="question-input"
@@ -375,7 +400,7 @@ export const QuestionPart: Component<PartProps> = props => {
                     class="border-input bg-background focus:ring-primary/30 rounded border px-3 py-1 text-sm focus:outline-none focus:ring-2"
                     placeholder="Type your answer..."
                   />
-                  <Show when={!hasOptions() || isMultiple()}>
+                  <Show when={!hasOptions() || isMultiple() || customMode()}>
                     <button
                       data-action="submit"
                       class="bg-primary text-primary-foreground hover:bg-primary/90 w-fit rounded px-3 py-1 text-sm"
@@ -383,6 +408,18 @@ export const QuestionPart: Component<PartProps> = props => {
                     >
                       {isMultiple() ? "Add" : "Submit"}
                     </button>
+                    <Show when={customMode()}>
+                      <button
+                        data-action="cancel-custom"
+                        class="bg-muted text-muted-foreground hover:bg-muted/80 w-fit rounded px-3 py-1 text-sm"
+                        onClick={() => {
+                          setCustomMode(false);
+                          setTextInput("");
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </Show>
                   </Show>
                 </div>
               </Show>

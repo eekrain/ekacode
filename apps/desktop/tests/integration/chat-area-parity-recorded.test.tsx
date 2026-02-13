@@ -7,7 +7,7 @@ import {
 } from "@/core/state/providers/store-provider";
 import { MessageTimeline } from "@/views/workspace-view/chat-area";
 import type { EventOrderingFixture } from "@ekacode/shared";
-import { createSignal } from "solid-js";
+import { Show, createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import recordedFixtures from "../fixtures/recorded/event-ordering.from-log.json";
@@ -32,6 +32,7 @@ describe("Integration: Chat Area Parity (Recorded Fixture)", () => {
 
   it("renders turn timeline from recorded fixture events", async () => {
     const [sessionId] = createSignal<string | null>(fixture.sessionId);
+    const [ready, setReady] = createSignal(false);
 
     let storeContext: {
       message: [unknown, ReturnType<typeof useMessageStore>[1]];
@@ -46,7 +47,11 @@ describe("Integration: Chat Area Parity (Recorded Fixture)", () => {
         session: useSessionStore(),
       };
 
-      return <MessageTimeline turns={useSessionTurns(sessionId)} isStreaming={() => false} />;
+      return (
+        <Show when={ready()}>
+          <MessageTimeline turns={useSessionTurns(sessionId)} isStreaming={() => false} />
+        </Show>
+      );
     }
 
     const dispose = render(
@@ -59,6 +64,7 @@ describe("Integration: Chat Area Parity (Recorded Fixture)", () => {
     );
 
     await applyFixture(fixture, extractStoreActions(storeContext!));
+    setReady(true);
     await new Promise(resolve => setTimeout(resolve, 0));
     await new Promise(resolve => setTimeout(resolve, 0));
 
@@ -71,6 +77,7 @@ describe("Integration: Chat Area Parity (Recorded Fixture)", () => {
 
   it("keeps stable timeline output when recorded fixture is replayed", async () => {
     const [sessionId] = createSignal<string | null>(fixture.sessionId);
+    const [ready, setReady] = createSignal(false);
 
     let storeContext: {
       message: [unknown, ReturnType<typeof useMessageStore>[1]];
@@ -85,7 +92,11 @@ describe("Integration: Chat Area Parity (Recorded Fixture)", () => {
         session: useSessionStore(),
       };
 
-      return <MessageTimeline turns={useSessionTurns(sessionId)} isStreaming={() => false} />;
+      return (
+        <Show when={ready()}>
+          <MessageTimeline turns={useSessionTurns(sessionId)} isStreaming={() => false} />
+        </Show>
+      );
     }
 
     const dispose = render(
@@ -100,6 +111,7 @@ describe("Integration: Chat Area Parity (Recorded Fixture)", () => {
     const actions = extractStoreActions(storeContext!);
 
     await applyFixture(fixture, actions);
+    setReady(true);
     await new Promise(resolve => setTimeout(resolve, 0));
     await new Promise(resolve => setTimeout(resolve, 0));
 

@@ -17,12 +17,16 @@ export const SessionPromptDock: Component<SessionPromptDockProps> = props => {
   return (
     <div
       data-component="session-prompt-dock"
-      class="from-background via-background/95 pointer-events-none absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t to-transparent px-4 pb-4 pt-12"
+      class="from-background via-background/95 pointer-events-none absolute inset-x-0 bottom-0 z-50 bg-gradient-to-t to-transparent px-4 pb-4 pt-12"
     >
       <div class="pointer-events-auto mx-auto flex w-full max-w-4xl flex-col gap-3">
         <Show when={props.pendingQuestion} keyed>
           {request => (
-            <div class="shadow-background/40 rounded-lg shadow-xl">
+            <div
+              data-component="tool-part-wrapper"
+              data-question="true"
+              class="shadow-background/40 rounded-lg shadow-xl"
+            >
               <QuestionPart
                 part={{
                   type: "question",
@@ -37,7 +41,11 @@ export const SessionPromptDock: Component<SessionPromptDockProps> = props => {
 
         <Show when={props.pendingPermission} keyed>
           {request => (
-            <div class="shadow-background/40 rounded-lg shadow-xl">
+            <div
+              data-component="tool-part-wrapper"
+              data-permission="true"
+              class="shadow-background/40 rounded-lg shadow-xl"
+            >
               <PermissionPart
                 part={{
                   type: "permission",

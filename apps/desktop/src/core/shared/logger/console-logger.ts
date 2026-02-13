@@ -50,6 +50,9 @@ export function getDefaultLogLevel(): "debug" | "info" | "warn" | "error" | "sil
       return level as never;
     }
   }
+  if (import.meta.env.MODE === "test") {
+    return "warn";
+  }
   return import.meta.env.DEV ? "debug" : "warn";
 }
 
