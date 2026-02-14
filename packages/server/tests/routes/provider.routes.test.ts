@@ -39,6 +39,35 @@ describe("provider routes", () => {
     expect(data.models.length).toBeGreaterThan(0);
   });
 
+  it("stores and returns provider preferences", async () => {
+    const providerRouter = (await import("../../src/routes/provider")).default;
+
+    const initial = await providerRouter.request("http://localhost/api/providers/preferences");
+    expect(initial.status).toBe(200);
+    const initialBody = await initial.json();
+    expect(initialBody.selectedProviderId).toBeNull();
+    expect(initialBody.selectedModelId).toBeNull();
+
+    const update = await providerRouter.request("http://localhost/api/providers/preferences", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        selectedProviderId: "zai",
+        selectedModelId: "zai/glm-4.7",
+      }),
+    });
+    expect(update.status).toBe(200);
+    const updateBody = await update.json();
+    expect(updateBody.selectedProviderId).toBe("zai");
+    expect(updateBody.selectedModelId).toBe("zai/glm-4.7");
+
+    const after = await providerRouter.request("http://localhost/api/providers/preferences");
+    expect(after.status).toBe(200);
+    const afterBody = await after.json();
+    expect(afterBody.selectedProviderId).toBe("zai");
+    expect(afterBody.selectedModelId).toBe("zai/glm-4.7");
+  });
+
   it("sets and clears provider token", async () => {
     const providerRouter = (await import("../../src/routes/provider")).default;
 

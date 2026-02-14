@@ -198,8 +198,14 @@ export class EkacodeApiClient {
           message: messageText,
           messageId: options.messageId,
           retryOfAssistantMessageId: options.retryOfAssistantMessageId,
-          providerId: localStorage.getItem("ekacode:selected-provider") || undefined,
-          modelId: localStorage.getItem("ekacode:selected-model") || undefined,
+          providerId:
+            localStorage.getItem("ekacode:selected-provider") ||
+            localStorage.getItem("ekacode:selected-provider:server") ||
+            undefined,
+          modelId:
+            localStorage.getItem("ekacode:selected-model") ||
+            localStorage.getItem("ekacode:selected-model:server") ||
+            undefined,
           stream: true,
         }),
         signal: options.signal,

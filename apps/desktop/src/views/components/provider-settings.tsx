@@ -3,22 +3,14 @@ import type {
   ProviderAuthState,
   ProviderClient,
   ProviderDescriptor,
-  ProviderModel,
 } from "@/core/services/api/provider-client";
-import { For, Show, createSignal, onMount } from "solid-js";
-import { ModelSelector } from "./model-selector";
+import { For, Show, createEffect, createMemo, createResource, createSignal } from "solid-js";
 
 interface ProviderSettingsProps {
   client: ProviderClient;
 }
 
 export function ProviderSettings(props: ProviderSettingsProps) {
-  const [providers, setProviders] = createSignal<ProviderDescriptor[]>([]);
-  const [authMethods, setAuthMethods] = createSignal<
-    Record<string, ProviderAuthMethodDescriptor[]>
-  >({});
-  const [auth, setAuth] = createSignal<Record<string, ProviderAuthState>>({});
-  const [models, setModels] = createSignal<ProviderModel[]>([]);
   const [tokenByProvider, setTokenByProvider] = createSignal<Record<string, string>>({});
   const [oauthCodeByProvider, setOauthCodeByProvider] = createSignal<Record<string, string>>({});
   const [oauthPendingByProvider, setOauthPendingByProvider] = createSignal<
@@ -27,55 +19,50 @@ export function ProviderSettings(props: ProviderSettingsProps) {
   const [oauthBusyByProvider, setOauthBusyByProvider] = createSignal<Record<string, boolean>>({});
   const [oauthErrorByProvider, setOauthErrorByProvider] = createSignal<Record<string, string>>({});
   const [oauthRunByProvider, setOauthRunByProvider] = createSignal<Record<string, string>>({});
-  const [selectedModel, setSelectedModel] = createSignal<string>("");
-  const [isLoading, setIsLoading] = createSignal(true);
+  const [isModalOpen, setIsModalOpen] = createSignal(false);
+  const [selectedProviderId, setSelectedProviderId] = createSignal<string | null>(null);
 
-  const refreshData = async () => {
-    setIsLoading(true);
-    try {
-      const [providerData, methodData, authData, modelData] = await Promise.all([
-        props.client.listProviders(),
-        props.client.listAuthMethods(),
-        props.client.listAuthStates(),
-        props.client.listModels(),
-      ]);
-      setProviders(providerData);
-      setAuthMethods(methodData);
-      setAuth(authData);
-      setModels(modelData);
-      if (!selectedModel() && modelData.length > 0) {
-        const storedModel = localStorage.getItem("ekacode:selected-model");
-        if (storedModel && modelData.some(model => model.id === storedModel)) {
-          setSelectedModel(storedModel);
-        } else {
-          setSelectedModel(modelData[0]!.id);
-        }
-      }
-    } finally {
-      setIsLoading(false);
-    }
+  const loadProviderState = async () => {
+    const [providers, authMethods, auth] = await Promise.all([
+      props.client.listProviders(),
+      props.client.listAuthMethods(),
+      props.client.listAuthStates(),
+    ]);
+    return { providers, authMethods, auth };
   };
 
-  onMount(() => {
-    void refreshData();
+  const [providerState, { refetch: refetchProviderState }] = createResource(loadProviderState);
+
+  createEffect(() => {
+    const providers = providerState()?.providers;
+    if (selectedProviderId() || !providers || providers.length === 0) return;
+    setSelectedProviderId(providers[0]?.id ?? null);
+  });
+
+  const providers = createMemo<ProviderDescriptor[]>(() => providerState()?.providers ?? []);
+  const authMethods = createMemo<Record<string, ProviderAuthMethodDescriptor[]>>(
+    () => providerState()?.authMethods ?? {}
+  );
+  const auth = createMemo<Record<string, ProviderAuthState>>(() => providerState()?.auth ?? {});
+
+  const connectedProviders = createMemo(() =>
+    providers().filter(provider => auth()[provider.id]?.status === "connected")
+  );
+
+  const selectedProvider = createMemo(() => {
+    const id = selectedProviderId();
+    if (!id) return null;
+    return providers().find(provider => provider.id === id) ?? null;
+  });
+
+  const methodsForSelected = createMemo(() => {
+    const id = selectedProviderId();
+    if (!id) return [];
+    return authMethods()[id] || [];
   });
 
   const setTokenDraft = (providerId: string, token: string) => {
     setTokenByProvider(prev => ({ ...prev, [providerId]: token }));
-  };
-
-  const connectToken = async (providerId: string) => {
-    const token = tokenByProvider()[providerId]?.trim();
-    if (!token) return;
-
-    await props.client.setToken(providerId, token);
-    setTokenDraft(providerId, "");
-    await refreshData();
-  };
-
-  const disconnect = async (providerId: string) => {
-    await props.client.clearToken(providerId);
-    await refreshData();
   };
 
   const setOauthCodeDraft = (providerId: string, code: string) => {
@@ -88,6 +75,15 @@ export function ProviderSettings(props: ProviderSettingsProps) {
       return;
     }
     window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const connectToken = async (providerId: string) => {
+    const token = tokenByProvider()[providerId]?.trim();
+    if (!token) return;
+
+    await props.client.setToken(providerId, token);
+    setTokenDraft(providerId, "");
+    await refetchProviderState();
   };
 
   const connectOAuth = async (providerId: string, methodIndex: number) => {
@@ -113,7 +109,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
           );
           if (callback.status === "connected") {
             setOauthBusyByProvider(prev => ({ ...prev, [providerId]: false }));
-            await refreshData();
+            await refetchProviderState();
             return;
           }
           await new Promise(resolve => setTimeout(resolve, 750));
@@ -156,7 +152,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
         return next;
       });
       setOauthCodeByProvider(prev => ({ ...prev, [providerId]: "" }));
-      await refreshData();
+      await refetchProviderState();
     }
   };
 
@@ -165,127 +161,219 @@ export function ProviderSettings(props: ProviderSettingsProps) {
     setOauthBusyByProvider(prev => ({ ...prev, [providerId]: false }));
   };
 
-  const handleModelChange = (modelId: string) => {
-    setSelectedModel(modelId);
-    localStorage.setItem("ekacode:selected-model", modelId);
-    const model = models().find(entry => entry.id === modelId);
-    if (model?.providerId) {
-      localStorage.setItem("ekacode:selected-provider", model.providerId);
-    }
+  const disconnect = async (providerId: string) => {
+    await props.client.clearToken(providerId);
+    await refetchProviderState();
   };
 
   return (
     <section class="mb-8">
-      <h2 class="text-foreground mb-4 text-lg font-medium">Providers</h2>
-      <div class="bg-card border-border rounded-lg border p-4">
-        <Show when={!isLoading()} fallback={<p class="text-sm">Loading providers...</p>}>
-          <div class="space-y-4">
-            <For each={providers()}>
-              {provider => {
-                const state = () => auth()[provider.id];
-                const connected = () => state()?.status === "connected";
-                const methods = () => authMethods()[provider.id] || [];
-                const tokenMethod = () => methods().find(method => method.type === "token");
-                const oauthMethodIndex = () =>
-                  methods().findIndex(method => method.type === "oauth");
-                const oauthMethod = () =>
-                  oauthMethodIndex() >= 0 ? methods()[oauthMethodIndex()] : undefined;
-                const oauthPending = () => oauthPendingByProvider()[provider.id];
-                const oauthBusy = () => oauthBusyByProvider()[provider.id] === true;
-                const oauthError = () => oauthErrorByProvider()[provider.id];
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-foreground text-lg font-medium">Providers</h2>
+        <button
+          class="bg-primary text-primary-foreground rounded px-3 py-1.5 text-xs"
+          onClick={() => setIsModalOpen(true)}
+        >
+          Connect a provider
+        </button>
+      </div>
 
-                return (
+      <div class="bg-card border-border rounded-lg border p-4">
+        <Show when={!providerState.loading} fallback={<p class="text-sm">Loading providers...</p>}>
+          <Show
+            when={connectedProviders().length > 0}
+            fallback={
+              <div class="text-center">
+                <p class="text-muted-foreground text-sm">No provider connected yet.</p>
+                <button
+                  class="bg-primary text-primary-foreground mt-3 rounded px-3 py-1.5 text-xs"
+                  onClick={() => setIsModalOpen(true)}
+                >
+                  Select provider
+                </button>
+              </div>
+            }
+          >
+            <div class="space-y-3">
+              <For each={connectedProviders()}>
+                {provider => (
                   <div
                     class="border-border rounded border p-3"
                     data-testid={`provider-${provider.id}`}
                   >
-                    <div class="mb-2 flex items-center justify-between">
+                    <div class="flex items-center justify-between">
                       <div>
                         <p class="text-sm font-medium">{provider.name}</p>
                         <p class="text-muted-foreground text-xs">{provider.id}</p>
                       </div>
-                      <span class="text-xs" data-testid={`provider-status-${provider.id}`}>
-                        {connected() ? "Connected" : "Disconnected"}
+                      <span class="text-xs font-medium text-green-600 dark:text-green-400">
+                        Connected
                       </span>
                     </div>
-
-                    <div class="flex flex-wrap items-center gap-2">
-                      <Show when={tokenMethod()}>
-                        <input
-                          type="password"
-                          class="bg-background border-border rounded border px-2 py-1 text-xs"
-                          placeholder="API token"
-                          value={tokenByProvider()[provider.id] || ""}
-                          onInput={event => setTokenDraft(provider.id, event.currentTarget.value)}
-                        />
-                        <button
-                          class="bg-primary text-primary-foreground rounded px-2 py-1 text-xs"
-                          onClick={() => connectToken(provider.id)}
-                        >
-                          Connect
-                        </button>
-                      </Show>
-                      <Show when={oauthMethod()}>
-                        <button
-                          class="border-border rounded border px-2 py-1 text-xs"
-                          disabled={oauthBusy()}
-                          onClick={() => connectOAuth(provider.id, oauthMethodIndex())}
-                        >
-                          {oauthMethod()?.label}
-                        </button>
-                      </Show>
-                      <Show when={oauthBusy()}>
-                        <button
-                          class="border-border rounded border px-2 py-1 text-xs"
-                          onClick={() => cancelOAuth(provider.id)}
-                        >
-                          Cancel OAuth
-                        </button>
-                      </Show>
+                    <div class="mt-2 flex items-center gap-2">
                       <button
                         class="border-border rounded border px-2 py-1 text-xs"
-                        onClick={() => disconnect(provider.id)}
+                        onClick={() => {
+                          setSelectedProviderId(provider.id);
+                          setIsModalOpen(true);
+                        }}
+                      >
+                        Manage
+                      </button>
+                      <button
+                        class="border-border rounded border px-2 py-1 text-xs"
+                        onClick={() => void disconnect(provider.id)}
                       >
                         Disconnect
                       </button>
                     </div>
-                    <Show when={oauthPending()}>
-                      <div class="mt-2 flex flex-wrap items-center gap-2">
-                        <input
-                          type="text"
-                          class="bg-background border-border rounded border px-2 py-1 text-xs"
-                          placeholder="Paste OAuth code"
-                          value={oauthCodeByProvider()[provider.id] || ""}
-                          onInput={event =>
-                            setOauthCodeDraft(provider.id, event.currentTarget.value)
-                          }
-                        />
-                        <button
-                          class="bg-primary text-primary-foreground rounded px-2 py-1 text-xs"
-                          onClick={() => submitOAuthCode(provider.id)}
-                        >
-                          Submit Code
-                        </button>
-                      </div>
-                    </Show>
-                    <Show when={oauthError()}>
-                      <p class="mt-2 text-xs text-red-600 dark:text-red-400">{oauthError()}</p>
-                    </Show>
                   </div>
-                );
-              }}
-            </For>
-
-            <Show when={models().length > 0}>
-              <ModelSelector
-                models={models()}
-                selectedModelId={selectedModel()}
-                onChange={handleModelChange}
-              />
-            </Show>
-          </div>
+                )}
+              </For>
+            </div>
+          </Show>
         </Show>
       </div>
+
+      <Show when={isModalOpen()}>
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div
+            class="bg-card border-border w-full max-w-3xl rounded-lg border p-4"
+            data-testid="provider-modal"
+          >
+            <div class="mb-4 flex items-center justify-between">
+              <h3 class="text-foreground text-base font-medium">Connect a provider</h3>
+              <button
+                class="border-border rounded border px-2 py-1 text-xs"
+                onClick={() => setIsModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-[1.2fr_2fr]">
+              <div class="border-border rounded border p-2">
+                <div class="space-y-1">
+                  <For each={providers()}>
+                    {provider => {
+                      const isSelected = () => selectedProviderId() === provider.id;
+                      const status = () => auth()[provider.id]?.status;
+                      return (
+                        <button
+                          class={`w-full rounded px-2 py-2 text-left text-sm ${isSelected() ? "bg-muted" : ""}`}
+                          onClick={() => setSelectedProviderId(provider.id)}
+                        >
+                          <div class="flex items-center justify-between">
+                            <span>{provider.name}</span>
+                            <span class="text-muted-foreground text-[11px]">
+                              {status() === "connected" ? "Connected" : "Not connected"}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    }}
+                  </For>
+                </div>
+              </div>
+
+              <div class="border-border rounded border p-3">
+                <Show
+                  when={selectedProvider()}
+                  fallback={<p class="text-sm">Select a provider.</p>}
+                >
+                  {provider => {
+                    const providerId = provider().id;
+                    const pending = () => oauthPendingByProvider()[providerId];
+                    const busy = () => oauthBusyByProvider()[providerId] === true;
+                    const oauthError = () => oauthErrorByProvider()[providerId];
+
+                    return (
+                      <div class="space-y-3">
+                        <div>
+                          <p class="text-sm font-medium">{provider().name}</p>
+                          <p class="text-muted-foreground text-xs">{provider().id}</p>
+                        </div>
+
+                        <For each={methodsForSelected()}>
+                          {(method, index) => (
+                            <div class="border-border rounded border p-2">
+                              <p class="mb-2 text-xs font-medium">{method.label}</p>
+
+                              <Show when={method.type === "token"}>
+                                <div class="flex flex-wrap items-center gap-2">
+                                  <input
+                                    type="password"
+                                    class="bg-background border-border rounded border px-2 py-1 text-xs"
+                                    placeholder="API token"
+                                    value={tokenByProvider()[providerId] || ""}
+                                    onInput={event =>
+                                      setTokenDraft(providerId, event.currentTarget.value)
+                                    }
+                                  />
+                                  <button
+                                    class="bg-primary text-primary-foreground rounded px-2 py-1 text-xs"
+                                    onClick={() => void connectToken(providerId)}
+                                  >
+                                    Connect
+                                  </button>
+                                </div>
+                              </Show>
+
+                              <Show when={method.type === "oauth"}>
+                                <div class="flex flex-wrap items-center gap-2">
+                                  <button
+                                    class="border-border rounded border px-2 py-1 text-xs"
+                                    disabled={busy()}
+                                    onClick={() => void connectOAuth(providerId, index())}
+                                  >
+                                    {method.label}
+                                  </button>
+                                  <Show when={busy()}>
+                                    <button
+                                      class="border-border rounded border px-2 py-1 text-xs"
+                                      onClick={() => cancelOAuth(providerId)}
+                                    >
+                                      Cancel OAuth
+                                    </button>
+                                  </Show>
+                                </div>
+                              </Show>
+                            </div>
+                          )}
+                        </For>
+
+                        <Show when={pending()}>
+                          <div class="flex flex-wrap items-center gap-2">
+                            <input
+                              type="text"
+                              class="bg-background border-border rounded border px-2 py-1 text-xs"
+                              placeholder="Paste OAuth code"
+                              value={oauthCodeByProvider()[providerId] || ""}
+                              onInput={event =>
+                                setOauthCodeDraft(providerId, event.currentTarget.value)
+                              }
+                            />
+                            <button
+                              class="bg-primary text-primary-foreground rounded px-2 py-1 text-xs"
+                              onClick={() => void submitOAuthCode(providerId)}
+                            >
+                              Submit Code
+                            </button>
+                          </div>
+                        </Show>
+
+                        <Show when={oauthError()}>
+                          <p class="text-xs text-red-600 dark:text-red-400">{oauthError()}</p>
+                        </Show>
+                      </div>
+                    );
+                  }}
+                </Show>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Show>
     </section>
   );
 }

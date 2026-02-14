@@ -61,6 +61,53 @@
         }
       }
     },
+    "/api/providers/preferences": {
+      "get": {
+        "response": {
+          "type": "object",
+          "required": ["selectedProviderId", "selectedModelId", "updatedAt"],
+          "properties": {
+            "selectedProviderId": {
+              "type": ["string", "null"]
+            },
+            "selectedModelId": {
+              "type": ["string", "null"]
+            },
+            "updatedAt": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "put": {
+        "request": {
+          "type": "object",
+          "properties": {
+            "selectedProviderId": {
+              "type": ["string", "null"]
+            },
+            "selectedModelId": {
+              "type": ["string", "null"]
+            }
+          }
+        },
+        "response": {
+          "type": "object",
+          "required": ["selectedProviderId", "selectedModelId", "updatedAt"],
+          "properties": {
+            "selectedProviderId": {
+              "type": ["string", "null"]
+            },
+            "selectedModelId": {
+              "type": ["string", "null"]
+            },
+            "updatedAt": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
     "/api/providers/{providerId}/auth/token": {
       "post": {
         "request": {

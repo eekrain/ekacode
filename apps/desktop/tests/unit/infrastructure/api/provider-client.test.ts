@@ -108,4 +108,47 @@ describe("provider client", () => {
     const callback = await client.oauthCallback("zai", 1, "auth-1");
     expect(callback.status).toBe("connected");
   });
+
+  it("gets and updates provider preferences", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            selectedProviderId: null,
+            selectedModelId: null,
+            updatedAt: "2026-02-14T00:00:00.000Z",
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            selectedProviderId: "zai",
+            selectedModelId: "zai/glm-4.7",
+            updatedAt: "2026-02-14T00:01:00.000Z",
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }
+        )
+      );
+
+    const client = createProviderClient({ fetcher });
+
+    const prefs = await client.getPreferences();
+    expect(prefs.selectedProviderId).toBeNull();
+
+    const updated = await client.updatePreferences({
+      selectedProviderId: "zai",
+      selectedModelId: "zai/glm-4.7",
+    });
+    expect(updated.selectedProviderId).toBe("zai");
+    expect(updated.selectedModelId).toBe("zai/glm-4.7");
+  });
 });

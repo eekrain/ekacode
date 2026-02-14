@@ -34,6 +34,12 @@ export interface ProviderOAuthCallbackResponse {
   status: "pending" | "connected";
 }
 
+export interface ProviderPreferences {
+  selectedProviderId: string | null;
+  selectedModelId: string | null;
+  updatedAt: string;
+}
+
 export interface ProviderModel {
   id: string;
   providerId: string;
@@ -65,6 +71,10 @@ export interface ProviderClient {
     authorizationId: string,
     code?: string
   ): Promise<ProviderOAuthCallbackResponse>;
+  getPreferences(): Promise<ProviderPreferences>;
+  updatePreferences(
+    input: Partial<Pick<ProviderPreferences, "selectedProviderId" | "selectedModelId">>
+  ): Promise<ProviderPreferences>;
 }
 
 export interface CreateProviderClientOptions {
@@ -151,6 +161,22 @@ export function createProviderClient(options: CreateProviderClientOptions): Prov
       });
 
       return parseJsonOrThrow<ProviderOAuthCallbackResponse>(response);
+    },
+
+    async getPreferences() {
+      const response = await options.fetcher("/api/providers/preferences", { method: "GET" });
+      return parseJsonOrThrow<ProviderPreferences>(response);
+    },
+
+    async updatePreferences(input) {
+      const response = await options.fetcher("/api/providers/preferences", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(input),
+      });
+      return parseJsonOrThrow<ProviderPreferences>(response);
     },
   };
 }

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { createProviderAuthService } from "./auth/service";
 import { ensureCredentialProfileBootstrapSync } from "./bootstrap";
 import { createModelCatalogService } from "./models/catalog";
+import { createProviderPreferenceService } from "./preferences";
 import { createProviderRegistry } from "./registry";
 import { createProviderCredentialStorage } from "./storage";
 
@@ -16,6 +17,7 @@ export interface ChatSelection {
 export interface ProviderRuntime {
   registry: ReturnType<typeof createProviderRegistry>;
   authService: ReturnType<typeof createProviderAuthService>;
+  preferenceService: ReturnType<typeof createProviderPreferenceService>;
   modelCatalogService: ReturnType<typeof createModelCatalogService>;
 }
 
@@ -97,10 +99,15 @@ export function getProviderRuntime(): ProviderRuntime {
   const modelCatalogService = createModelCatalogService({
     adapters: Array.from(registry.adapters.values()),
   });
+  const preferenceService = createProviderPreferenceService({
+    baseDir: join(appPaths.state, "provider-preferences"),
+    profileId: "default",
+  });
 
   runtime = {
     registry,
     authService,
+    preferenceService,
     modelCatalogService,
   };
 

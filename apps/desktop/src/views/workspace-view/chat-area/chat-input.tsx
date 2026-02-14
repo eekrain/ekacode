@@ -1,6 +1,21 @@
 import type { AgentMode } from "@/core/chat/types";
 import { cn } from "@/utils";
-import { type Component, createEffect, createSignal, mergeProps, onMount } from "solid-js";
+import {
+  type Component,
+  Show,
+  createEffect,
+  createMemo,
+  createSignal,
+  mergeProps,
+  onMount,
+} from "solid-js";
+
+export interface ChatInputModelOption {
+  id: string;
+  providerId: string;
+  name?: string;
+  connected: boolean;
+}
 
 export interface ChatInputProps {
   value?: string;
@@ -11,6 +26,8 @@ export interface ChatInputProps {
   mode?: AgentMode;
   onModeChange?: (mode: AgentMode) => void;
   selectedModel?: string;
+  modelOptions?: ChatInputModelOption[];
+  onModelChange?: (modelId: string) => void;
   isSending?: boolean;
   disabled?: boolean;
   placeholder?: string;
@@ -24,7 +41,8 @@ export const ChatInput: Component<ChatInputProps> = props => {
       isSending: false,
       disabled: false,
       mode: "plan" as AgentMode,
-      selectedModel: "claude-sonnet",
+      selectedModel: "",
+      modelOptions: [] as ChatInputModelOption[],
       placeholder: "Type your message...",
     },
     props
@@ -33,6 +51,11 @@ export const ChatInput: Component<ChatInputProps> = props => {
   const [inputValue, setInputValue] = createSignal(merged.value);
   const [isFocused, setIsFocused] = createSignal(false);
   let textareaRef: HTMLTextAreaElement | undefined;
+
+  const connectedModels = createMemo(() => merged.modelOptions.filter(model => model.connected));
+  const notConnectedModels = createMemo(() =>
+    merged.modelOptions.filter(model => !model.connected)
+  );
 
   const autoResize = () => {
     if (!textareaRef) return;
@@ -74,21 +97,22 @@ export const ChatInput: Component<ChatInputProps> = props => {
 
   const modeLabel = () => (merged.mode === "plan" ? "Plan" : "Build");
   const modelLabel = () => {
-    switch (merged.selectedModel) {
-      case "claude-opus":
-        return "Opus 4.5";
-      case "claude-sonnet":
-        return "Sonnet 4.5";
-      case "gpt-4":
-        return "GPT-4";
-      default:
-        return merged.selectedModel;
-    }
+    if (!merged.selectedModel) return "Select model";
+    const selected = merged.modelOptions.find(model => model.id === merged.selectedModel);
+    if (!selected) return merged.selectedModel;
+    return selected.name ?? selected.id;
   };
 
   const toggleMode = () => {
     const nextMode: AgentMode = merged.mode === "plan" ? "build" : "plan";
     merged.onModeChange?.(nextMode);
+  };
+
+  const handleModelChange = (event: Event) => {
+    const target = event.currentTarget as HTMLSelectElement;
+    const modelId = target.value;
+    if (!modelId) return;
+    merged.onModelChange?.(modelId);
   };
 
   return (
@@ -168,7 +192,38 @@ export const ChatInput: Component<ChatInputProps> = props => {
         </div>
 
         <div class="flex items-center gap-2">
-          <span class="text-muted-foreground/60 select-none text-xs">{modelLabel()}</span>
+          <Show when={merged.modelOptions.length > 0}>
+            <div class="flex flex-col items-end gap-0.5">
+              <select
+                value={merged.selectedModel}
+                onInput={handleModelChange}
+                class="bg-background border-border rounded border px-2 py-1 text-xs"
+                aria-label="Model selector"
+              >
+                <option value="" disabled>
+                  Select model
+                </option>
+                <Show when={connectedModels().length > 0}>
+                  <optgroup label="Connected">
+                    {connectedModels().map(model => (
+                      <option value={model.id}>{model.name ?? model.id}</option>
+                    ))}
+                  </optgroup>
+                </Show>
+                <Show when={notConnectedModels().length > 0}>
+                  <optgroup label="Not Connected">
+                    {notConnectedModels().map(model => (
+                      <option value={model.id}>{model.name ?? model.id}</option>
+                    ))}
+                  </optgroup>
+                </Show>
+              </select>
+              <p class="text-muted-foreground/60 text-[10px]">Connected / Not Connected</p>
+            </div>
+          </Show>
+          <Show when={merged.modelOptions.length === 0}>
+            <span class="text-muted-foreground/60 select-none text-xs">{modelLabel()}</span>
+          </Show>
           <button
             type="button"
             onClick={handleSend}

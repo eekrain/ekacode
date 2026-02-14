@@ -17,6 +17,7 @@ import {
   providerDescriptorSchema,
   providerOAuthAuthorizeRequestSchema,
   providerOAuthCallbackRequestSchema,
+  providerPreferencesUpdateSchema,
 } from "../provider/schema";
 
 const providerRouter = new Hono<Env>();
@@ -61,6 +62,25 @@ providerRouter.get("/api/providers/auth/methods", async c => {
 providerRouter.get("/api/providers/models", async c => {
   const models = await providerRuntime.modelCatalogService.list();
   return c.json({ models });
+});
+
+providerRouter.get("/api/providers/preferences", async c => {
+  const preferences = await providerRuntime.preferenceService.get();
+  return c.json(preferences);
+});
+
+providerRouter.put("/api/providers/preferences", async c => {
+  const body = providerPreferencesUpdateSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!body.success) {
+    const normalized = normalizeProviderError(new Error("Invalid provider preferences payload"));
+    return c.json(normalized, normalized.status);
+  }
+
+  const preferences = await providerRuntime.preferenceService.set({
+    selectedProviderId: body.data.selectedProviderId,
+    selectedModelId: body.data.selectedModelId,
+  });
+  return c.json(preferences);
 });
 
 providerRouter.post("/api/providers/:providerId/auth/token", async c => {

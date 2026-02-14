@@ -50,6 +50,17 @@ export const providerOAuthCallbackResponseSchema = z.object({
   status: z.enum(["pending", "connected"]),
 });
 
+export const providerPreferencesSchema = z.object({
+  selectedProviderId: z.string().nullable(),
+  selectedModelId: z.string().nullable(),
+  updatedAt: z.string(),
+});
+
+export const providerPreferencesUpdateSchema = z.object({
+  selectedProviderId: z.string().nullable().optional(),
+  selectedModelId: z.string().nullable().optional(),
+});
+
 export const modelDescriptorSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),

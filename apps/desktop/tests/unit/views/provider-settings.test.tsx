@@ -17,12 +17,10 @@ describe("ProviderSettings", () => {
     document.body.removeChild(container);
   });
 
-  it("loads providers and connects token", async () => {
+  it("shows empty-state when no provider connected", async () => {
     const client: ProviderClient = {
       listProviders: vi.fn().mockResolvedValue([{ id: "zai", name: "Z.AI" }]),
-      listAuthMethods: vi.fn().mockResolvedValue({
-        zai: [{ type: "token", label: "API Token" }],
-      }),
+      listAuthMethods: vi.fn().mockResolvedValue({ zai: [{ type: "token", label: "API Token" }] }),
       listAuthStates: vi.fn().mockResolvedValue({
         zai: {
           providerId: "zai",
@@ -32,7 +30,7 @@ describe("ProviderSettings", () => {
           updatedAt: "2026-02-14T11:00:00.000Z",
         },
       }),
-      listModels: vi.fn().mockResolvedValue([{ id: "zai/glm-4.7", providerId: "zai" }]),
+      listModels: vi.fn().mockResolvedValue([]),
       setToken: vi.fn().mockResolvedValue(undefined),
       clearToken: vi.fn().mockResolvedValue(undefined),
       oauthAuthorize: vi.fn(),
@@ -40,68 +38,60 @@ describe("ProviderSettings", () => {
     };
 
     dispose = render(() => <ProviderSettings client={client} />, container);
-
     await new Promise(resolve => setTimeout(resolve, 0));
     await new Promise(resolve => setTimeout(resolve, 0));
 
-    expect(container.textContent).toContain("Z.AI");
-
-    const input = container.querySelector("input[type='password']") as HTMLInputElement;
-    input.value = "token-123";
-    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
-
-    const connectButton = Array.from(container.querySelectorAll("button")).find(
-      button => button.textContent === "Connect"
-    ) as HTMLButtonElement;
-    connectButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-
-    await new Promise(resolve => setTimeout(resolve, 0));
-
-    expect(client.setToken).toHaveBeenCalledWith("zai", "token-123");
+    expect(container.textContent).toContain("No provider connected yet.");
+    expect(container.textContent).toContain("Select provider");
   });
 
-  it("persists selected model preference", async () => {
+  it("opens connect-provider modal and connects token", async () => {
     const client: ProviderClient = {
       listProviders: vi.fn().mockResolvedValue([{ id: "zai", name: "Z.AI" }]),
-      listAuthMethods: vi.fn().mockResolvedValue({
-        zai: [{ type: "token", label: "API Token" }],
-      }),
+      listAuthMethods: vi.fn().mockResolvedValue({ zai: [{ type: "token", label: "API Token" }] }),
       listAuthStates: vi.fn().mockResolvedValue({
         zai: {
           providerId: "zai",
-          status: "connected",
+          status: "disconnected",
           method: "token",
           accountLabel: null,
           updatedAt: "2026-02-14T11:00:00.000Z",
         },
       }),
-      listModels: vi.fn().mockResolvedValue([
-        { id: "zai/glm-4.7", providerId: "zai" },
-        { id: "zai/glm-4.6v", providerId: "zai" },
-      ]),
+      listModels: vi.fn().mockResolvedValue([]),
       setToken: vi.fn().mockResolvedValue(undefined),
       clearToken: vi.fn().mockResolvedValue(undefined),
       oauthAuthorize: vi.fn(),
       oauthCallback: vi.fn(),
     };
 
-    localStorage.removeItem("ekacode:selected-model");
-    localStorage.removeItem("ekacode:selected-provider");
-
     dispose = render(() => <ProviderSettings client={client} />, container);
-
     await new Promise(resolve => setTimeout(resolve, 0));
     await new Promise(resolve => setTimeout(resolve, 0));
 
-    const select = container.querySelector("select") as HTMLSelectElement;
-    select.value = "zai/glm-4.6v";
-    select.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    const openModalButton = Array.from(container.querySelectorAll("button")).find(button =>
+      button.textContent?.includes("Connect a provider")
+    ) as HTMLButtonElement;
+    openModalButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-    expect(localStorage.getItem("ekacode:selected-model")).toBe("zai/glm-4.6v");
-    expect(localStorage.getItem("ekacode:selected-provider")).toBe("zai");
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(container.querySelector('[data-testid="provider-modal"]')).toBeTruthy();
+
+    const input = container.querySelector('input[type="password"]') as HTMLInputElement;
+    input.value = "token-123";
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+
+    const connect = Array.from(container.querySelectorAll("button")).find(
+      button => button.textContent === "Connect"
+    ) as HTMLButtonElement;
+    connect.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(client.setToken).toHaveBeenCalledWith("zai", "token-123");
   });
 
-  it("runs oauth auto flow from provider settings", async () => {
+  it("runs oauth auto flow from provider modal", async () => {
     const openExternal = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(window, "ekacodeAPI", {
       configurable: true,
@@ -126,7 +116,7 @@ describe("ProviderSettings", () => {
           updatedAt: "2026-02-14T11:00:00.000Z",
         },
       }),
-      listModels: vi.fn().mockResolvedValue([{ id: "zai/glm-4.7", providerId: "zai" }]),
+      listModels: vi.fn().mockResolvedValue([]),
       setToken: vi.fn().mockResolvedValue(undefined),
       clearToken: vi.fn().mockResolvedValue(undefined),
       oauthAuthorize: vi.fn().mockResolvedValue({
@@ -142,6 +132,12 @@ describe("ProviderSettings", () => {
     dispose = render(() => <ProviderSettings client={client} />, container);
 
     await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const openModalButton = Array.from(container.querySelectorAll("button")).find(button =>
+      button.textContent?.includes("Connect a provider")
+    ) as HTMLButtonElement;
+    openModalButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await new Promise(resolve => setTimeout(resolve, 0));
 
     const connectOAuthButton = Array.from(container.querySelectorAll("button")).find(button =>
@@ -173,7 +169,7 @@ describe("ProviderSettings", () => {
           updatedAt: "2026-02-14T11:00:00.000Z",
         },
       }),
-      listModels: vi.fn().mockResolvedValue([{ id: "zai/glm-4.7", providerId: "zai" }]),
+      listModels: vi.fn().mockResolvedValue([]),
       setToken: vi.fn().mockResolvedValue(undefined),
       clearToken: vi.fn().mockResolvedValue(undefined),
       oauthAuthorize: vi.fn().mockRejectedValue(new Error("oauth failed")),
@@ -183,6 +179,12 @@ describe("ProviderSettings", () => {
     dispose = render(() => <ProviderSettings client={client} />, container);
 
     await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const openModalButton = Array.from(container.querySelectorAll("button")).find(button =>
+      button.textContent?.includes("Connect a provider")
+    ) as HTMLButtonElement;
+    openModalButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await new Promise(resolve => setTimeout(resolve, 0));
 
     const connectOAuthButton = Array.from(container.querySelectorAll("button")).find(button =>

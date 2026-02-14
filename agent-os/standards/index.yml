@@ -1,7 +1,0 @@
-# Agent OS Standards Index
-
-global:
-  tech-stack:
-    description: Frontend/backend technology choices and rationale
-  code-quality:
-    description: TypeScript/ESLint error resolution, clean code principles, naming conventions, code organization
