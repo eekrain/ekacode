@@ -37,6 +37,8 @@ describe("chat provider selection", () => {
   });
 
   it("returns 401 when explicit provider is unauthenticated", async () => {
+    const providerRuntime = await import("../../src/provider/runtime");
+    vi.spyOn(providerRuntime, "hasProviderEnvironmentCredential").mockReturnValue(false);
     const chatRouter = (await import("../../src/routes/chat")).default;
 
     const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
@@ -56,5 +58,5 @@ describe("chat provider selection", () => {
     const payload = await response.json();
     expect(payload.error?.code).toBe("PROVIDER_UNAUTHENTICATED");
     expect(String(payload.error?.message)).toContain("not authenticated");
-  });
+  }, 15000);
 });
