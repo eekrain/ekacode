@@ -8,11 +8,16 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import type { Env } from "../index";
-import { completeOAuth, startOAuth } from "../provider/auth/oauth";
+import { completeOAuth, listProviderAuthMethods, startOAuth } from "../provider/auth/oauth";
 import { normalizeProviderError } from "../provider/errors";
 import { listProviderDescriptors, resolveProviderAdapter } from "../provider/registry";
 import { getProviderRuntime } from "../provider/runtime";
-import { providerAuthStateSchema, providerDescriptorSchema } from "../provider/schema";
+import {
+  providerAuthStateSchema,
+  providerDescriptorSchema,
+  providerOAuthAuthorizeRequestSchema,
+  providerOAuthCallbackRequestSchema,
+} from "../provider/schema";
 
 const providerRouter = new Hono<Env>();
 const setTokenBodySchema = z.object({
@@ -46,6 +51,11 @@ providerRouter.get("/api/providers/auth", async c => {
   );
 
   return c.json(Object.fromEntries(authStates));
+});
+
+providerRouter.get("/api/providers/auth/methods", async c => {
+  const providers = listProviderDescriptors();
+  return c.json(listProviderAuthMethods(providers.map(provider => provider.id)));
 });
 
 providerRouter.get("/api/providers/models", async c => {
@@ -96,7 +106,23 @@ providerRouter.post("/api/providers/:providerId/oauth/authorize", async c => {
     return c.json(normalized, normalized.status);
   }
 
-  return c.json(startOAuth(providerId));
+  const body = providerOAuthAuthorizeRequestSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!body.success) {
+    const normalized = normalizeProviderError(new Error("Invalid oauth authorize payload"));
+    return c.json(normalized, normalized.status);
+  }
+
+  try {
+    const result = await startOAuth({
+      providerId,
+      method: body.data.method,
+      inputs: body.data.inputs,
+    });
+    return c.json(result);
+  } catch (error) {
+    const normalized = normalizeProviderError(error);
+    return c.json(normalized, normalized.status);
+  }
 });
 
 providerRouter.post("/api/providers/:providerId/oauth/callback", async c => {
@@ -107,8 +133,27 @@ providerRouter.post("/api/providers/:providerId/oauth/callback", async c => {
     return c.json(normalized, normalized.status);
   }
 
-  completeOAuth(providerId);
-  return c.json({ ok: true });
+  const body = providerOAuthCallbackRequestSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!body.success) {
+    const normalized = normalizeProviderError(new Error("Invalid oauth callback payload"));
+    return c.json(normalized, normalized.status);
+  }
+
+  try {
+    const result = await completeOAuth(
+      {
+        providerId,
+        method: body.data.method,
+        authorizationId: body.data.authorizationId,
+        code: body.data.code,
+      },
+      providerRuntime.authService
+    );
+    return c.json(result);
+  } catch (error) {
+    const normalized = normalizeProviderError(error);
+    return c.json(normalized, normalized.status);
+  }
 });
 
 export default providerRouter;

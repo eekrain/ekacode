@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const providerAuthMethodSchema = z.enum(["token", "oauth", "none"]);
+export const providerOAuthFlowMethodSchema = z.enum(["auto", "code"]);
 
 export const providerDescriptorSchema = z.object({
   id: z.string().min(1),
@@ -19,6 +20,34 @@ export const providerAuthStateSchema = z.object({
   method: providerAuthMethodSchema,
   accountLabel: z.string().nullable(),
   updatedAt: z.string(),
+});
+
+export const providerAuthMethodDescriptorSchema = z.object({
+  type: providerAuthMethodSchema,
+  label: z.string().min(1),
+});
+
+export const providerOAuthAuthorizeRequestSchema = z.object({
+  method: z.number().int().nonnegative(),
+  inputs: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const providerOAuthAuthorizeResponseSchema = z.object({
+  providerId: z.string().min(1),
+  authorizationId: z.string().min(1),
+  url: z.string().min(1),
+  method: providerOAuthFlowMethodSchema,
+  instructions: z.string().min(1),
+});
+
+export const providerOAuthCallbackRequestSchema = z.object({
+  method: z.number().int().nonnegative(),
+  authorizationId: z.string().min(1),
+  code: z.string().optional(),
+});
+
+export const providerOAuthCallbackResponseSchema = z.object({
+  status: z.enum(["pending", "connected"]),
 });
 
 export const modelDescriptorSchema = z.object({

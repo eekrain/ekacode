@@ -9,6 +9,7 @@ beforeEach(async () => {
   testHome = await mkdtemp(join(tmpdir(), "ekacode-provider-routes-"));
   process.env.EKACODE_HOME = testHome;
   vi.resetModules();
+  vi.restoreAllMocks();
 });
 
 afterEach(async () => {
@@ -86,31 +87,99 @@ describe("provider routes", () => {
   });
 
   it("supports oauth authorize and callback stubs", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            verification_uri: "https://zen.example.com/device",
+            user_code: "ABCD-EFGH",
+            device_code: "device-code-1",
+            interval: 1,
+            expires_in: 300,
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            access_token: "access-token-1",
+            refresh_token: "refresh-token-1",
+            expires_in: 3600,
+            account_label: "zen-user",
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }
+        )
+      );
+
     const providerRouter = (await import("../../src/routes/provider")).default;
+
+    const methods = await providerRouter.request("http://localhost/api/providers/auth/methods");
+    expect(methods.status).toBe(200);
+    const methodsBody = await methods.json();
+    expect(Array.isArray(methodsBody.zai)).toBe(true);
+    expect(methodsBody.zai.some((method: { type: string }) => method.type === "oauth")).toBe(true);
 
     const authorize = await providerRouter.request(
       "http://localhost/api/providers/zai/oauth/authorize",
       {
         method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ method: 1 }),
       }
     );
 
     expect(authorize.status).toBe(200);
     const authorizeBody = await authorize.json();
     expect(authorizeBody.providerId).toBe("zai");
-    expect(typeof authorizeBody.state).toBe("string");
+    expect(typeof authorizeBody.authorizationId).toBe("string");
+    expect(typeof authorizeBody.url).toBe("string");
+    expect(["auto", "code"]).toContain(authorizeBody.method);
 
     const callback = await providerRouter.request(
       "http://localhost/api/providers/zai/oauth/callback",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code: "abc" }),
+        body: JSON.stringify({
+          method: 1,
+          authorizationId: authorizeBody.authorizationId,
+          code: "abc",
+        }),
       }
     );
 
     expect(callback.status).toBe(200);
     const callbackBody = await callback.json();
-    expect(callbackBody.ok).toBe(true);
+    expect(["pending", "connected"]).toContain(callbackBody.status);
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it("returns normalized oauth error for missing authorization", async () => {
+    const providerRouter = (await import("../../src/routes/provider")).default;
+
+    const callback = await providerRouter.request(
+      "http://localhost/api/providers/zai/oauth/callback",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          method: 1,
+          authorizationId: "missing-auth",
+          code: "abc",
+        }),
+      }
+    );
+
+    expect(callback.status).toBe(404);
+    const body = await callback.json();
+    expect(body.error?.code).toBe("PROVIDER_UNKNOWN");
   });
 });

@@ -59,4 +59,40 @@ describe("chat provider selection", () => {
     expect(payload.error?.code).toBe("PROVIDER_UNAUTHENTICATED");
     expect(String(payload.error?.message)).toContain("not authenticated");
   }, 15000);
+
+  it("accepts explicit provider when persisted oauth credential exists after runtime reset", async () => {
+    const { getProviderRuntime, resetProviderRuntimeForTests } =
+      await import("../../src/provider/runtime");
+    const runtimeA = getProviderRuntime();
+    await runtimeA.authService.setOAuth({
+      providerId: "zai",
+      accessToken: "persisted-access",
+      refreshToken: "persisted-refresh",
+      expiresAt: Date.now() + 60_000,
+      accountLabel: "persisted-user",
+    });
+
+    resetProviderRuntimeForTests();
+
+    const providerRuntime = await import("../../src/provider/runtime");
+    vi.spyOn(providerRuntime, "hasProviderEnvironmentCredential").mockReturnValue(false);
+    const chatRouter = (await import("../../src/routes/chat")).default;
+
+    const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        message: "hello",
+        providerId: "zai",
+        modelId: "zai/glm-4.7",
+        stream: false,
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.message).toContain("Streaming is required");
+  }, 15000);
 });

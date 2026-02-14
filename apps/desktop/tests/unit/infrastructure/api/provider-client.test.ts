@@ -63,4 +63,49 @@ describe("provider client", () => {
       expect.objectContaining({ method: "DELETE" })
     );
   });
+
+  it("lists auth methods and performs oauth authorize/callback", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            zai: [
+              { type: "token", label: "API Token" },
+              { type: "oauth", label: "Login with Zen" },
+            ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            providerId: "zai",
+            authorizationId: "auth-1",
+            url: "https://example.com/oauth",
+            method: "auto",
+            instructions: "Continue in browser",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ status: "connected" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      );
+
+    const client = createProviderClient({ fetcher });
+
+    const methods = await client.listAuthMethods();
+    expect(methods.zai).toHaveLength(2);
+
+    const auth = await client.oauthAuthorize("zai", 1);
+    expect(auth.authorizationId).toBe("auth-1");
+
+    const callback = await client.oauthCallback("zai", 1, "auth-1");
+    expect(callback.status).toBe("connected");
+  });
 });

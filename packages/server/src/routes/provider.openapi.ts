@@ -23,6 +23,24 @@ export const providerSchemaArtifact = {
         },
       },
     },
+    "/api/providers/auth/methods": {
+      get: {
+        response: {
+          type: "object",
+          additionalProperties: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["type", "label"],
+              properties: {
+                type: { type: "string", enum: ["token", "oauth", "none"] },
+                label: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+    },
     "/api/providers/models": {
       get: {
         response: {
@@ -54,9 +72,17 @@ export const providerSchemaArtifact = {
     },
     "/api/providers/{providerId}/oauth/authorize": {
       post: {
+        request: {
+          type: "object",
+          required: ["method"],
+          properties: {
+            method: { type: "number" },
+            inputs: { type: "object" },
+          },
+        },
         response: {
           type: "object",
-          required: ["providerId", "state", "url"],
+          required: ["providerId", "authorizationId", "url", "method", "instructions"],
         },
       },
     },
@@ -64,7 +90,19 @@ export const providerSchemaArtifact = {
       post: {
         request: {
           type: "object",
-          properties: { code: { type: "string" } },
+          required: ["method", "authorizationId"],
+          properties: {
+            method: { type: "number" },
+            authorizationId: { type: "string" },
+            code: { type: "string" },
+          },
+        },
+        response: {
+          type: "object",
+          required: ["status"],
+          properties: {
+            status: { type: "string", enum: ["pending", "connected"] },
+          },
         },
       },
     },

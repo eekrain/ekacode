@@ -63,4 +63,66 @@ describe("provider auth service", () => {
 
     expect((state as unknown as { secret?: string }).secret).toBeUndefined();
   });
+
+  it("stores oauth credential and reports oauth method", async () => {
+    const base = await mkdtemp(join(tmpdir(), "ekacode-provider-auth-"));
+    tempDirs.push(base);
+
+    const auth = createProviderAuthService({
+      storage: createProviderCredentialStorage({ baseDir: base }),
+      profileId: "default",
+    });
+
+    await auth.setOAuth({
+      providerId: "zai",
+      accessToken: "access-123",
+      refreshToken: "refresh-123",
+      expiresAt: 1890000000000,
+      accountLabel: "user@example.com",
+    });
+
+    const state = await auth.getState("zai");
+    expect(state.status).toBe("connected");
+    expect(state.method).toBe("oauth");
+
+    const credential = await auth.getCredential("zai");
+    expect(credential?.kind).toBe("oauth");
+    if (!credential || credential.kind !== "oauth") {
+      throw new Error("expected oauth credential");
+    }
+    expect(credential.oauth.accessToken).toBe("access-123");
+    expect(credential.oauth.refreshToken).toBe("refresh-123");
+  });
+
+  it("loads persisted oauth credential after service recreation", async () => {
+    const base = await mkdtemp(join(tmpdir(), "ekacode-provider-auth-"));
+    tempDirs.push(base);
+
+    const storage = createProviderCredentialStorage({ baseDir: base });
+    const authA = createProviderAuthService({
+      storage,
+      profileId: "default",
+    });
+
+    await authA.setOAuth({
+      providerId: "zai",
+      accessToken: "persist-access",
+      refreshToken: "persist-refresh",
+      expiresAt: 1890000000000,
+      accountLabel: "persisted",
+    });
+
+    const authB = createProviderAuthService({
+      storage: createProviderCredentialStorage({ baseDir: base }),
+      profileId: "default",
+    });
+
+    const credential = await authB.getCredential("zai");
+    expect(credential?.kind).toBe("oauth");
+    if (!credential || credential.kind !== "oauth") {
+      throw new Error("expected oauth credential");
+    }
+    expect(credential.oauth.accessToken).toBe("persist-access");
+    expect(credential.oauth.refreshToken).toBe("persist-refresh");
+  });
 });

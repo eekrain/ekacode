@@ -1,4 +1,5 @@
 import type {
+  ProviderAuthMethodDescriptor,
   ProviderAuthState,
   ProviderClient,
   ProviderDescriptor,
@@ -13,21 +14,33 @@ interface ProviderSettingsProps {
 
 export function ProviderSettings(props: ProviderSettingsProps) {
   const [providers, setProviders] = createSignal<ProviderDescriptor[]>([]);
+  const [authMethods, setAuthMethods] = createSignal<
+    Record<string, ProviderAuthMethodDescriptor[]>
+  >({});
   const [auth, setAuth] = createSignal<Record<string, ProviderAuthState>>({});
   const [models, setModels] = createSignal<ProviderModel[]>([]);
   const [tokenByProvider, setTokenByProvider] = createSignal<Record<string, string>>({});
+  const [oauthCodeByProvider, setOauthCodeByProvider] = createSignal<Record<string, string>>({});
+  const [oauthPendingByProvider, setOauthPendingByProvider] = createSignal<
+    Record<string, { methodIndex: number; authorizationId: string }>
+  >({});
+  const [oauthBusyByProvider, setOauthBusyByProvider] = createSignal<Record<string, boolean>>({});
+  const [oauthErrorByProvider, setOauthErrorByProvider] = createSignal<Record<string, string>>({});
+  const [oauthRunByProvider, setOauthRunByProvider] = createSignal<Record<string, string>>({});
   const [selectedModel, setSelectedModel] = createSignal<string>("");
   const [isLoading, setIsLoading] = createSignal(true);
 
-  const refresh = async () => {
+  const refreshData = async () => {
     setIsLoading(true);
     try {
-      const [providerData, authData, modelData] = await Promise.all([
+      const [providerData, methodData, authData, modelData] = await Promise.all([
         props.client.listProviders(),
+        props.client.listAuthMethods(),
         props.client.listAuthStates(),
         props.client.listModels(),
       ]);
       setProviders(providerData);
+      setAuthMethods(methodData);
       setAuth(authData);
       setModels(modelData);
       if (!selectedModel() && modelData.length > 0) {
@@ -44,7 +57,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
   };
 
   onMount(() => {
-    void refresh();
+    void refreshData();
   });
 
   const setTokenDraft = (providerId: string, token: string) => {
@@ -57,12 +70,99 @@ export function ProviderSettings(props: ProviderSettingsProps) {
 
     await props.client.setToken(providerId, token);
     setTokenDraft(providerId, "");
-    await refresh();
+    await refreshData();
   };
 
   const disconnect = async (providerId: string) => {
     await props.client.clearToken(providerId);
-    await refresh();
+    await refreshData();
+  };
+
+  const setOauthCodeDraft = (providerId: string, code: string) => {
+    setOauthCodeByProvider(prev => ({ ...prev, [providerId]: code }));
+  };
+
+  const openExternal = async (url: string) => {
+    if (window.ekacodeAPI?.shell?.openExternal) {
+      await window.ekacodeAPI.shell.openExternal(url);
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const connectOAuth = async (providerId: string, methodIndex: number) => {
+    const runId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setOauthRunByProvider(prev => ({ ...prev, [providerId]: runId }));
+    setOauthBusyByProvider(prev => ({ ...prev, [providerId]: true }));
+    setOauthErrorByProvider(prev => ({ ...prev, [providerId]: "" }));
+
+    try {
+      const authorization = await props.client.oauthAuthorize(providerId, methodIndex);
+      await openExternal(authorization.url);
+
+      if (authorization.method === "auto") {
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          if (oauthRunByProvider()[providerId] !== runId) {
+            setOauthBusyByProvider(prev => ({ ...prev, [providerId]: false }));
+            return;
+          }
+          const callback = await props.client.oauthCallback(
+            providerId,
+            methodIndex,
+            authorization.authorizationId
+          );
+          if (callback.status === "connected") {
+            setOauthBusyByProvider(prev => ({ ...prev, [providerId]: false }));
+            await refreshData();
+            return;
+          }
+          await new Promise(resolve => setTimeout(resolve, 750));
+        }
+        setOauthErrorByProvider(prev => ({
+          ...prev,
+          [providerId]: "Authorization is still pending. Retry or continue waiting.",
+        }));
+        return;
+      }
+
+      setOauthPendingByProvider(prev => ({
+        ...prev,
+        [providerId]: { methodIndex, authorizationId: authorization.authorizationId },
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setOauthErrorByProvider(prev => ({ ...prev, [providerId]: message }));
+    } finally {
+      setOauthBusyByProvider(prev => ({ ...prev, [providerId]: false }));
+    }
+  };
+
+  const submitOAuthCode = async (providerId: string) => {
+    const pending = oauthPendingByProvider()[providerId];
+    const code = oauthCodeByProvider()[providerId]?.trim();
+    if (!pending || !code) return;
+
+    const callback = await props.client.oauthCallback(
+      providerId,
+      pending.methodIndex,
+      pending.authorizationId,
+      code
+    );
+
+    if (callback.status === "connected") {
+      setOauthPendingByProvider(prev => {
+        const next = { ...prev };
+        delete next[providerId];
+        return next;
+      });
+      setOauthCodeByProvider(prev => ({ ...prev, [providerId]: "" }));
+      await refreshData();
+    }
+  };
+
+  const cancelOAuth = (providerId: string) => {
+    setOauthRunByProvider(prev => ({ ...prev, [providerId]: `${Date.now()}-cancelled` }));
+    setOauthBusyByProvider(prev => ({ ...prev, [providerId]: false }));
   };
 
   const handleModelChange = (modelId: string) => {
@@ -84,6 +184,15 @@ export function ProviderSettings(props: ProviderSettingsProps) {
               {provider => {
                 const state = () => auth()[provider.id];
                 const connected = () => state()?.status === "connected";
+                const methods = () => authMethods()[provider.id] || [];
+                const tokenMethod = () => methods().find(method => method.type === "token");
+                const oauthMethodIndex = () =>
+                  methods().findIndex(method => method.type === "oauth");
+                const oauthMethod = () =>
+                  oauthMethodIndex() >= 0 ? methods()[oauthMethodIndex()] : undefined;
+                const oauthPending = () => oauthPendingByProvider()[provider.id];
+                const oauthBusy = () => oauthBusyByProvider()[provider.id] === true;
+                const oauthError = () => oauthErrorByProvider()[provider.id];
 
                 return (
                   <div
@@ -101,19 +210,38 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2">
-                      <input
-                        type="password"
-                        class="bg-background border-border rounded border px-2 py-1 text-xs"
-                        placeholder="API token"
-                        value={tokenByProvider()[provider.id] || ""}
-                        onInput={event => setTokenDraft(provider.id, event.currentTarget.value)}
-                      />
-                      <button
-                        class="bg-primary text-primary-foreground rounded px-2 py-1 text-xs"
-                        onClick={() => connectToken(provider.id)}
-                      >
-                        Connect
-                      </button>
+                      <Show when={tokenMethod()}>
+                        <input
+                          type="password"
+                          class="bg-background border-border rounded border px-2 py-1 text-xs"
+                          placeholder="API token"
+                          value={tokenByProvider()[provider.id] || ""}
+                          onInput={event => setTokenDraft(provider.id, event.currentTarget.value)}
+                        />
+                        <button
+                          class="bg-primary text-primary-foreground rounded px-2 py-1 text-xs"
+                          onClick={() => connectToken(provider.id)}
+                        >
+                          Connect
+                        </button>
+                      </Show>
+                      <Show when={oauthMethod()}>
+                        <button
+                          class="border-border rounded border px-2 py-1 text-xs"
+                          disabled={oauthBusy()}
+                          onClick={() => connectOAuth(provider.id, oauthMethodIndex())}
+                        >
+                          {oauthMethod()?.label}
+                        </button>
+                      </Show>
+                      <Show when={oauthBusy()}>
+                        <button
+                          class="border-border rounded border px-2 py-1 text-xs"
+                          onClick={() => cancelOAuth(provider.id)}
+                        >
+                          Cancel OAuth
+                        </button>
+                      </Show>
                       <button
                         class="border-border rounded border px-2 py-1 text-xs"
                         onClick={() => disconnect(provider.id)}
@@ -121,6 +249,28 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                         Disconnect
                       </button>
                     </div>
+                    <Show when={oauthPending()}>
+                      <div class="mt-2 flex flex-wrap items-center gap-2">
+                        <input
+                          type="text"
+                          class="bg-background border-border rounded border px-2 py-1 text-xs"
+                          placeholder="Paste OAuth code"
+                          value={oauthCodeByProvider()[provider.id] || ""}
+                          onInput={event =>
+                            setOauthCodeDraft(provider.id, event.currentTarget.value)
+                          }
+                        />
+                        <button
+                          class="bg-primary text-primary-foreground rounded px-2 py-1 text-xs"
+                          onClick={() => submitOAuthCode(provider.id)}
+                        >
+                          Submit Code
+                        </button>
+                      </div>
+                    </Show>
+                    <Show when={oauthError()}>
+                      <p class="mt-2 text-xs text-red-600 dark:text-red-400">{oauthError()}</p>
+                    </Show>
                   </div>
                 );
               }}

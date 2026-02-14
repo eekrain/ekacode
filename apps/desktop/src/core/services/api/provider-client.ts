@@ -17,6 +17,23 @@ export interface ProviderAuthState {
   updatedAt: string;
 }
 
+export interface ProviderAuthMethodDescriptor {
+  type: "token" | "oauth" | "none";
+  label: string;
+}
+
+export interface ProviderOAuthAuthorizeResponse {
+  providerId: string;
+  authorizationId: string;
+  url: string;
+  method: "auto" | "code";
+  instructions: string;
+}
+
+export interface ProviderOAuthCallbackResponse {
+  status: "pending" | "connected";
+}
+
 export interface ProviderModel {
   id: string;
   providerId: string;
@@ -32,10 +49,22 @@ export interface ProviderModel {
 
 export interface ProviderClient {
   listProviders(): Promise<ProviderDescriptor[]>;
+  listAuthMethods(): Promise<Record<string, ProviderAuthMethodDescriptor[]>>;
   listAuthStates(): Promise<Record<string, ProviderAuthState>>;
   listModels(): Promise<ProviderModel[]>;
   setToken(providerId: string, token: string): Promise<void>;
   clearToken(providerId: string): Promise<void>;
+  oauthAuthorize(
+    providerId: string,
+    method: number,
+    inputs?: Record<string, unknown>
+  ): Promise<ProviderOAuthAuthorizeResponse>;
+  oauthCallback(
+    providerId: string,
+    method: number,
+    authorizationId: string,
+    code?: string
+  ): Promise<ProviderOAuthCallbackResponse>;
 }
 
 export interface CreateProviderClientOptions {
@@ -62,6 +91,11 @@ export function createProviderClient(options: CreateProviderClientOptions): Prov
       return parseJsonOrThrow<Record<string, ProviderAuthState>>(response);
     },
 
+    async listAuthMethods() {
+      const response = await options.fetcher("/api/providers/auth/methods", { method: "GET" });
+      return parseJsonOrThrow<Record<string, ProviderAuthMethodDescriptor[]>>(response);
+    },
+
     async listModels() {
       const response = await options.fetcher("/api/providers/models", { method: "GET" });
       const data = await parseJsonOrThrow<{ models: ProviderModel[] }>(response);
@@ -86,6 +120,37 @@ export function createProviderClient(options: CreateProviderClientOptions): Prov
       });
 
       await parseJsonOrThrow(response);
+    },
+
+    async oauthAuthorize(providerId, method, inputs) {
+      const response = await options.fetcher(`/api/providers/${providerId}/oauth/authorize`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          method,
+          inputs,
+        }),
+      });
+
+      return parseJsonOrThrow<ProviderOAuthAuthorizeResponse>(response);
+    },
+
+    async oauthCallback(providerId, method, authorizationId, code) {
+      const response = await options.fetcher(`/api/providers/${providerId}/oauth/callback`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          method,
+          authorizationId,
+          code,
+        }),
+      });
+
+      return parseJsonOrThrow<ProviderOAuthCallbackResponse>(response);
     },
   };
 }

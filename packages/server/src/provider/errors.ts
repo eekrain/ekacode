@@ -9,7 +9,7 @@ export interface ProviderErrorPayload {
     code: ProviderErrorCode;
     message: string;
   };
-  status: 400 | 401 | 404 | 500;
+  status: 400 | 401 | 404 | 429 | 500;
 }
 
 export function normalizeProviderError(error: unknown): ProviderErrorPayload {
@@ -36,6 +36,16 @@ export function normalizeProviderError(error: unknown): ProviderErrorPayload {
     };
   }
 
+  if (lower.includes("oauth authorization not found")) {
+    return {
+      status: 404,
+      error: {
+        code: "PROVIDER_UNKNOWN",
+        message,
+      },
+    };
+  }
+
   if (lower.includes("unknown provider")) {
     return {
       status: 400,
@@ -51,6 +61,31 @@ export function normalizeProviderError(error: unknown): ProviderErrorPayload {
       status: 400,
       error: {
         code: "PROVIDER_INVALID_REQUEST",
+        message,
+      },
+    };
+  }
+
+  if (
+    lower.includes("invalid_grant") ||
+    lower.includes("authorization_pending") ||
+    lower.includes("slow_down") ||
+    lower.includes("expired_token")
+  ) {
+    return {
+      status: 400,
+      error: {
+        code: "PROVIDER_INVALID_REQUEST",
+        message,
+      },
+    };
+  }
+
+  if (lower.includes("rate_limit") || lower.includes("too many requests")) {
+    return {
+      status: 429,
+      error: {
+        code: "PROVIDER_ERROR",
         message,
       },
     };
