@@ -16,6 +16,11 @@ import { z } from "zod";
 import { MessagePartUpdated, MessageUpdated, publish, SessionStatus } from "../bus";
 import type { Env } from "../index";
 import { createSessionMessage, sessionBridge } from "../middleware/session-bridge";
+import {
+  getProviderRuntime,
+  hasProviderEnvironmentCredential,
+  resolveChatSelection,
+} from "../provider/runtime";
 import { getSessionManager } from "../runtime";
 import { getSessionMessages } from "../state/session-message-store";
 
@@ -280,6 +285,8 @@ const chatMessageSchema = z.object({
   ]),
   messageId: z.string().optional(),
   retryOfAssistantMessageId: z.string().optional(),
+  providerId: z.string().optional(),
+  modelId: z.string().optional(),
   stream: z.boolean().optional().default(true),
 });
 
@@ -841,6 +848,10 @@ app.post("/api/chat", async c => {
       ? body.retryOfAssistantMessageId
       : undefined;
   const shouldStream = body.stream !== false;
+  const selection = resolveChatSelection({
+    providerId: body.providerId,
+    modelId: body.modelId,
+  });
 
   // Parse message - support both simple string and multimodal formats
   let messageText = "";
@@ -932,6 +943,20 @@ app.post("/api/chat", async c => {
   const directory = instanceContext?.directory;
   if (!directory) {
     return c.json({ error: "No workspace directory" }, 400);
+  }
+
+  if (selection.explicit) {
+    const providerRuntime = getProviderRuntime();
+    const provider = providerRuntime.registry.adapters.get(selection.providerId);
+    if (!provider) {
+      return c.json({ error: `Unknown provider: ${selection.providerId}` }, 400);
+    }
+
+    const authState = await providerRuntime.authService.getState(selection.providerId);
+    const hasEnvCredential = hasProviderEnvironmentCredential(selection.providerId);
+    if (authState.status !== "connected" && !hasEnvCredential) {
+      return c.json({ error: `Provider ${selection.providerId} is not authenticated` }, 401);
+    }
   }
 
   logger.debug("Getting or creating session controller", {
@@ -1029,8 +1054,8 @@ app.post("/api/chat", async c => {
           id: messageId,
           sessionID: session.sessionId,
           parentID: userMessageId,
-          modelID: "unknown",
-          providerID: "unknown",
+          modelID: selection.modelId,
+          providerID: selection.providerId,
           time: {
             created: Date.now(),
           },

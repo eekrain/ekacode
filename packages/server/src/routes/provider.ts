@@ -5,47 +5,20 @@
  * GET /api/providers/auth - Get auth state for providers
  */
 
-import { resolveAppPaths } from "@ekacode/shared/paths";
 import { Hono } from "hono";
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
 import { z } from "zod";
 import type { Env } from "../index";
 import { completeOAuth, startOAuth } from "../provider/auth/oauth";
-import { createProviderAuthService } from "../provider/auth/service";
-import { createModelCatalogService } from "../provider/models/catalog";
-import {
-  createProviderRegistry,
-  listProviderDescriptors,
-  resolveProviderAdapter,
-} from "../provider/registry";
+import { listProviderDescriptors, resolveProviderAdapter } from "../provider/registry";
+import { getProviderRuntime } from "../provider/runtime";
 import { providerAuthStateSchema, providerDescriptorSchema } from "../provider/schema";
-import { createProviderCredentialStorage } from "../provider/storage";
 
 const providerRouter = new Hono<Env>();
 const setTokenBodySchema = z.object({
   token: z.string().min(1),
 });
 
-const providerRegistry = createProviderRegistry();
-const appPaths = resolveAppPaths({
-  mode: "dev",
-  cwd: process.cwd(),
-  env: process.env,
-});
-const credentialBaseDir = join(appPaths.state, "provider-credentials");
-mkdirSync(credentialBaseDir, { recursive: true });
-
-const credentialStorage = createProviderCredentialStorage({
-  baseDir: credentialBaseDir,
-});
-const providerAuthService = createProviderAuthService({
-  storage: credentialStorage,
-  profileId: "default",
-});
-const modelCatalogService = createModelCatalogService({
-  adapters: Array.from(providerRegistry.adapters.values()),
-});
+const providerRuntime = getProviderRuntime();
 
 /**
  * List available LLM providers
@@ -66,7 +39,7 @@ providerRouter.get("/api/providers", async c => {
 providerRouter.get("/api/providers/auth", async c => {
   const authStates = await Promise.all(
     listProviderDescriptors().map(async provider => {
-      const state = await providerAuthService.getState(provider.id);
+      const state = await providerRuntime.authService.getState(provider.id);
       return [provider.id, providerAuthStateSchema.parse(state)] as const;
     })
   );
@@ -75,7 +48,7 @@ providerRouter.get("/api/providers/auth", async c => {
 });
 
 providerRouter.get("/api/providers/models", async c => {
-  const models = await modelCatalogService.list();
+  const models = await providerRuntime.modelCatalogService.list();
   return c.json({ models });
 });
 
@@ -91,7 +64,7 @@ providerRouter.post("/api/providers/:providerId/auth/token", async c => {
     return c.json({ error: "Invalid token payload" }, 400);
   }
 
-  await providerAuthService.setToken({
+  await providerRuntime.authService.setToken({
     providerId,
     token: body.data.token,
   });
@@ -106,7 +79,7 @@ providerRouter.delete("/api/providers/:providerId/auth/token", async c => {
     return c.json({ error: "Provider not found" }, 404);
   }
 
-  await providerAuthService.clear(providerId);
+  await providerRuntime.authService.clear(providerId);
 
   return c.json({ ok: true });
 });
