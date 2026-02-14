@@ -25,7 +25,8 @@
     "tree-sitter": "^0.25.0",
     "tree-sitter-bash": "^0.25.1",
     "ts-morph": "^25.0.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "unstorage": "^1.17.4"
   },
   "devDependencies": {
     "@types/node": "^22.19.1",
