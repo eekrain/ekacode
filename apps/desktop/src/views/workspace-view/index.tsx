@@ -1,17 +1,18 @@
 import type { DiffChange, FileTab, TerminalOutput } from "@/core/chat/types";
-import { createApiClient } from "@/core/services/api/api-client";
 import { cn } from "@/utils";
-import { createEffect, createMemo, createResource, createSignal, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onMount, Show } from "solid-js";
 
 import { ResizeableHandle } from "@/components/shared/resizeable-handle";
 import { useSessionTurns } from "@/core/chat/hooks";
 import type { AgentMode } from "@/core/chat/types";
 import { usePermissions } from "@/core/permissions/hooks/use-permissions";
-import { ChatProvider, useChatContext } from "@/state/contexts/chat-provider";
+import { useChatContext } from "@/state/contexts/chat-provider";
 import {
   usePermissionStore,
+  useProviderSelectionStore,
   useQuestionStore,
   useWorkspace,
+  WorkspaceChatProvider,
   WorkspaceProvider,
 } from "@/state/providers";
 import Resizable from "@corvu/resizable";
@@ -24,6 +25,7 @@ import { ContextPanel } from "./right-side/right-side";
  */
 function WorkspaceViewContent() {
   const ctx = useWorkspace();
+  const providerSelection = useProviderSelectionStore();
   const { chat } = useChatContext();
   const permissions = usePermissions({
     client: ctx.client()!,
@@ -58,43 +60,41 @@ function WorkspaceViewContent() {
 
   // Loading state
   const [isLoading, setIsLoading] = createSignal(true);
-  const [selectedModel, setSelectedModel] = createSignal<string>(
-    localStorage.getItem("ekacode:selected-model") || ""
+  const modelOptions = createMemo<ChatInputModelOption[]>(() =>
+    providerSelection.docs().map(model => ({
+      id: model.id,
+      providerId: model.providerId,
+      name: model.name,
+      connected: model.connected,
+    }))
   );
-
-  const loadModelOptions = async (): Promise<{
-    modelOptions: ChatInputModelOption[];
-    selectedModelId: string | null;
-    selectedProviderId: string | null;
-  }> => {
-    const apiClient = await createApiClient();
-    const providerClient = apiClient.getProviderClient();
-    const [models, authStates, preferences] = await Promise.all([
-      providerClient.listModels(),
-      providerClient.listAuthStates(),
-      providerClient.getPreferences(),
-    ]);
-    const connectedProviders = new Set(
-      Object.entries(authStates)
-        .filter(([, state]) => state.status === "connected")
-        .map(([providerId]) => providerId)
-    );
-    return {
-      modelOptions: models.map(model => ({
-        id: model.id,
-        providerId: model.providerId,
-        name: model.name,
-        connected: connectedProviders.has(model.providerId),
-      })),
-      selectedModelId: preferences.selectedModelId,
-      selectedProviderId: preferences.selectedProviderId,
-    };
-  };
-
-  const [modelOptionsResource] = createResource(loadModelOptions);
-  const modelOptions = createMemo<ChatInputModelOption[]>(
-    () => modelOptionsResource()?.modelOptions ?? []
+  const selectedModel = createMemo(
+    () => providerSelection.data()?.preferences.selectedModelId ?? ""
   );
+  const mapDocToOption = (model: {
+    id: string;
+    providerId: string;
+    providerName?: string;
+    name?: string;
+    connected: boolean;
+  }): ChatInputModelOption => ({
+    id: model.id,
+    providerId: model.providerId,
+    providerName: model.providerName,
+    name: model.name,
+    connected: model.connected,
+  });
+  const connectedModelOptions = (query: string): ChatInputModelOption[] =>
+    providerSelection.connectedResults(query).map(mapDocToOption);
+  const notConnectedModelOptions = (query: string): ChatInputModelOption[] =>
+    providerSelection.notConnectedResults(query).map(mapDocToOption);
+  const modelSections = (query: string) =>
+    providerSelection.providerGroupedSections(query).map(section => ({
+      providerId: section.providerId,
+      providerName: section.providerName,
+      connected: section.connected,
+      models: section.models.map(mapDocToOption),
+    }));
 
   onMount(async () => {
     const storedSizes = localStorage.getItem("ekacode-panel-sizes");
@@ -106,34 +106,6 @@ function WorkspaceViewContent() {
       }
     }
     setIsLoading(false);
-  });
-
-  createEffect(() => {
-    const data = modelOptionsResource();
-    const mapped = data?.modelOptions ?? [];
-    if (mapped.length === 0) return;
-    const storedModel = localStorage.getItem("ekacode:selected-model");
-    const serverModel = data?.selectedModelId;
-    const fallback =
-      mapped.find(model => model.connected)?.id ??
-      mapped[0]?.id ??
-      serverModel ??
-      storedModel ??
-      "";
-    const nextModel =
-      serverModel && mapped.some(model => model.id === serverModel)
-        ? serverModel
-        : storedModel && mapped.some(model => model.id === storedModel)
-          ? storedModel
-          : fallback;
-    if (!nextModel) return;
-    setSelectedModel(nextModel);
-    const selected = mapped.find(model => model.id === nextModel);
-    if (!selected) return;
-    localStorage.setItem("ekacode:selected-model", selected.id);
-    localStorage.setItem("ekacode:selected-model:server", selected.id);
-    localStorage.setItem("ekacode:selected-provider", selected.providerId);
-    localStorage.setItem("ekacode:selected-provider:server", selected.providerId);
   });
 
   createEffect(() => {
@@ -175,25 +147,11 @@ function WorkspaceViewContent() {
   };
 
   const handleModelChange = (modelId: string) => {
-    setSelectedModel(modelId);
     const selected = modelOptions().find(model => model.id === modelId);
     if (!selected) return;
-    localStorage.setItem("ekacode:selected-model", selected.id);
-    localStorage.setItem("ekacode:selected-model:server", selected.id);
-    localStorage.setItem("ekacode:selected-provider", selected.providerId);
-    localStorage.setItem("ekacode:selected-provider:server", selected.providerId);
-    void (async () => {
-      try {
-        const apiClient = await createApiClient();
-        const providerClient = apiClient.getProviderClient();
-        await providerClient.updatePreferences({
-          selectedModelId: selected.id,
-          selectedProviderId: selected.providerId,
-        });
-      } catch (error) {
-        console.error("Failed to persist provider preferences:", error);
-      }
-    })();
+    void providerSelection.setSelectedModel(selected.id).catch(error => {
+      console.error("Failed to persist provider preferences:", error);
+    });
   };
 
   const [draftMessage, setDraftMessage] = createSignal("");
@@ -375,6 +333,9 @@ function WorkspaceViewContent() {
                   onModeChange={setAgentMode}
                   selectedModel={selectedModel()}
                   modelOptions={modelOptions()}
+                  getModelSections={modelSections}
+                  getConnectedModelOptions={connectedModelOptions}
+                  getNotConnectedModelOptions={notConnectedModelOptions}
                   onModelChange={handleModelChange}
                   isSending={isGenerating()}
                   disabled={isPromptBlocked()}
@@ -444,7 +405,7 @@ function WorkspaceViewWithProviders() {
 
   return (
     <Show when={canRenderChat()}>
-      <ChatProvider
+      <WorkspaceChatProvider
         client={chatClient()!}
         workspace={() => ctx.workspace()}
         sessionId={ctx.activeSessionId}
@@ -456,7 +417,7 @@ function WorkspaceViewWithProviders() {
         }}
       >
         <WorkspaceViewContent />
-      </ChatProvider>
+      </WorkspaceChatProvider>
     </Show>
   );
 }

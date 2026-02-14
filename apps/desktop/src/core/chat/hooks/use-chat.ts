@@ -102,6 +102,10 @@ export interface UseChatOptions {
 
   /** API client for making chat requests (optional for testing) */
   client?: EkacodeApiClient;
+  /** Selected provider id accessor */
+  providerId?: Accessor<string | null | undefined>;
+  /** Selected model id accessor */
+  modelId?: Accessor<string | null | undefined>;
 
   /** Called when session ID is received/updated */
   onSessionIdReceived?: (sessionId: string) => void;
@@ -443,6 +447,8 @@ export function useChat(options: UseChatOptions): UseChatResult {
         messageId: userMessageId,
         retryOfAssistantMessageId: retryOptions?.retryOfAssistantMessageId,
         workspace: ws,
+        providerId: options.providerId?.() ?? undefined,
+        modelId: options.modelId?.() ?? undefined,
         signal: abortController.signal,
       });
 

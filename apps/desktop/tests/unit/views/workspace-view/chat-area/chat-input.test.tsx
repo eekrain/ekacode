@@ -94,4 +94,166 @@ describe("ChatInput", () => {
 
     expect(onModeChange).toHaveBeenCalledWith("build");
   });
+
+  it("shows provider-grouped model command center with header and hints", () => {
+    dispose = render(
+      () => (
+        <ChatInput
+          selectedModel="zai/glm-4.7"
+          getModelSections={() => [
+            {
+              providerId: "zai",
+              providerName: "Z.AI",
+              connected: true,
+              models: [{ id: "zai/glm-4.7", providerId: "zai", name: "GLM 4.7", connected: true }],
+            },
+            {
+              providerId: "openai",
+              providerName: "OpenAI",
+              connected: false,
+              models: [
+                {
+                  id: "openai/gpt-4o-mini",
+                  providerId: "openai",
+                  name: "GPT-4o mini",
+                  connected: false,
+                },
+              ],
+            },
+          ]}
+          modelOptions={[
+            { id: "zai/glm-4.7", providerId: "zai", name: "GLM 4.7", connected: true },
+            {
+              id: "openai/gpt-4o-mini",
+              providerId: "openai",
+              name: "GPT-4o mini",
+              connected: false,
+            },
+          ]}
+        />
+      ),
+      container
+    );
+
+    const modelButton = container.querySelector(
+      'button[aria-label="Open model selector"]'
+    ) as HTMLButtonElement;
+    modelButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(document.body.textContent).toContain("Selecting model");
+    expect(document.body.textContent).toContain("/model");
+    expect(document.body.textContent).toContain("Z.AI");
+    expect(document.body.textContent).toContain("OpenAI");
+    expect(document.body.textContent).toContain("Enter");
+    expect(document.body.textContent).toContain("Navigate");
+    expect(container.textContent).toContain("Connected / Not Connected");
+  });
+
+  it("filters model results by search query", () => {
+    dispose = render(
+      () => (
+        <ChatInput
+          selectedModel="zai/glm-4.7"
+          modelOptions={[
+            { id: "zai/glm-4.7", providerId: "zai", name: "GLM 4.7", connected: true },
+            { id: "zai/glm-4.6", providerId: "zai", name: "GLM 4.6", connected: true },
+            {
+              id: "openai/gpt-4o-mini",
+              providerId: "openai",
+              name: "GPT-4o mini",
+              connected: false,
+            },
+          ]}
+        />
+      ),
+      container
+    );
+
+    const modelButton = container.querySelector(
+      'button[aria-label="Open model selector"]'
+    ) as HTMLButtonElement;
+    modelButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    const searchInput = document.body.querySelector(
+      'input[aria-label="Search models"]'
+    ) as HTMLInputElement;
+    searchInput.value = "gpt";
+    searchInput.dispatchEvent(new InputEvent("input", { bubbles: true }));
+
+    const options = Array.from(document.body.querySelectorAll('[role="option"]')).map(
+      option => option.textContent ?? ""
+    );
+    expect(options).not.toContain("GLM 4.7");
+    expect(options.some(option => option.includes("GPT-4o mini"))).toBe(true);
+  });
+
+  it("supports keyboard navigation and enter to pick model", () => {
+    const onModelChange = vi.fn();
+
+    dispose = render(
+      () => (
+        <ChatInput
+          selectedModel="zai/glm-4.7"
+          onModelChange={onModelChange}
+          modelOptions={[
+            { id: "zai/glm-4.7", providerId: "zai", name: "GLM 4.7", connected: true },
+            { id: "zai/glm-4.6", providerId: "zai", name: "GLM 4.6", connected: true },
+            {
+              id: "openai/gpt-4o-mini",
+              providerId: "openai",
+              name: "GPT-4o mini",
+              connected: false,
+            },
+          ]}
+        />
+      ),
+      container
+    );
+
+    const modelButton = container.querySelector(
+      'button[aria-label="Open model selector"]'
+    ) as HTMLButtonElement;
+    modelButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    const searchInput = document.body.querySelector(
+      'input[aria-label="Search models"]'
+    ) as HTMLInputElement;
+    searchInput.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    searchInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+
+    expect(onModelChange).toHaveBeenCalledWith("zai/glm-4.6");
+  });
+
+  it("does not compute model sections until selector is opened", () => {
+    const getModelSections = vi.fn(() => [
+      {
+        providerId: "zai",
+        providerName: "Z.AI",
+        connected: true,
+        models: [{ id: "zai/glm-4.7", providerId: "zai", name: "GLM 4.7", connected: true }],
+      },
+    ]);
+
+    dispose = render(
+      () => (
+        <ChatInput
+          selectedModel="zai/glm-4.7"
+          getModelSections={getModelSections}
+          modelOptions={[
+            { id: "zai/glm-4.7", providerId: "zai", name: "GLM 4.7", connected: true },
+          ]}
+        />
+      ),
+      container
+    );
+
+    expect(getModelSections).not.toHaveBeenCalled();
+
+    const modelButton = container.querySelector(
+      'button[aria-label="Open model selector"]'
+    ) as HTMLButtonElement;
+    modelButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(getModelSections).toHaveBeenCalled();
+  });
 });

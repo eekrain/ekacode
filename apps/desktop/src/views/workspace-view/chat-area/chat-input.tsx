@@ -1,18 +1,24 @@
+import {
+  ModelSelector,
+  type CommandCenterMode,
+  type ModelSelectorSection,
+} from "@/components/model-selector";
 import type { AgentMode } from "@/core/chat/types";
 import { cn } from "@/utils";
 import {
-  type Component,
   Show,
   createEffect,
   createMemo,
   createSignal,
   mergeProps,
   onMount,
+  type Component,
 } from "solid-js";
 
 export interface ChatInputModelOption {
   id: string;
   providerId: string;
+  providerName?: string;
   name?: string;
   connected: boolean;
 }
@@ -27,6 +33,9 @@ export interface ChatInputProps {
   onModeChange?: (mode: AgentMode) => void;
   selectedModel?: string;
   modelOptions?: ChatInputModelOption[];
+  getModelSections?: (query: string) => ModelSelectorSection[];
+  getConnectedModelOptions?: (query: string) => ChatInputModelOption[];
+  getNotConnectedModelOptions?: (query: string) => ChatInputModelOption[];
   onModelChange?: (modelId: string) => void;
   isSending?: boolean;
   disabled?: boolean;
@@ -50,12 +59,53 @@ export const ChatInput: Component<ChatInputProps> = props => {
 
   const [inputValue, setInputValue] = createSignal(merged.value);
   const [isFocused, setIsFocused] = createSignal(false);
+  const [isModelSelectorOpen, setIsModelSelectorOpen] = createSignal(false);
+  const [commandMode, setCommandMode] = createSignal<CommandCenterMode>("model");
+  const [modelSearch, setModelSearch] = createSignal("");
   let textareaRef: HTMLTextAreaElement | undefined;
-
-  const connectedModels = createMemo(() => merged.modelOptions.filter(model => model.connected));
-  const notConnectedModels = createMemo(() =>
-    merged.modelOptions.filter(model => !model.connected)
+  const fallbackFilteredModels = createMemo(() => {
+    const query = modelSearch().trim().toLowerCase();
+    if (!query) return merged.modelOptions;
+    return merged.modelOptions.filter(model => {
+      const haystack = `${model.id} ${model.name ?? ""} ${model.providerId}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  });
+  const connectedModels = createMemo(() =>
+    merged.getConnectedModelOptions
+      ? merged.getConnectedModelOptions(modelSearch())
+      : fallbackFilteredModels().filter(model => model.connected)
   );
+  const notConnectedModels = createMemo(() =>
+    merged.getNotConnectedModelOptions
+      ? merged.getNotConnectedModelOptions(modelSearch())
+      : fallbackFilteredModels().filter(model => !model.connected)
+  );
+  const fallbackModelSections = createMemo<ModelSelectorSection[]>(() => {
+    const map = new Map<string, ModelSelectorSection>();
+    for (const model of [...connectedModels(), ...notConnectedModels()]) {
+      const providerName = model.providerName ?? model.providerId;
+      const existing = map.get(model.providerId);
+      if (existing) {
+        existing.models.push(model);
+        existing.connected = existing.connected || model.connected;
+        continue;
+      }
+      map.set(model.providerId, {
+        providerId: model.providerId,
+        providerName,
+        connected: model.connected,
+        models: [model],
+      });
+    }
+    return Array.from(map.values());
+  });
+  const modelSections = createMemo(() => {
+    if (!isModelSelectorOpen()) return [] as ModelSelectorSection[];
+    return merged.getModelSections
+      ? merged.getModelSections(modelSearch())
+      : fallbackModelSections();
+  });
 
   const autoResize = () => {
     if (!textareaRef) return;
@@ -82,6 +132,31 @@ export const ChatInput: Component<ChatInputProps> = props => {
     setInputValue(value);
     merged.onValueChange?.(value);
     autoResize();
+
+    const trimmed = value.trimStart();
+    if (trimmed.startsWith("/model")) {
+      setCommandMode("model");
+      setModelSearch(trimmed.slice("/model".length).trim());
+      setIsModelSelectorOpen(true);
+      return;
+    }
+    if (trimmed.startsWith("/mcp")) {
+      setCommandMode("mcp");
+      setModelSearch(trimmed.slice("/mcp".length).trim());
+      setIsModelSelectorOpen(true);
+      return;
+    }
+    if (trimmed.startsWith("/skills")) {
+      setCommandMode("skills");
+      setModelSearch(trimmed.slice("/skills".length).trim());
+      setIsModelSelectorOpen(true);
+      return;
+    }
+    if (/(^|\s)@[\w/-]*$/.test(value)) {
+      setCommandMode("context");
+      setModelSearch(value.split("@").pop()?.trim() ?? "");
+      setIsModelSelectorOpen(true);
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -108,11 +183,10 @@ export const ChatInput: Component<ChatInputProps> = props => {
     merged.onModeChange?.(nextMode);
   };
 
-  const handleModelChange = (event: Event) => {
-    const target = event.currentTarget as HTMLSelectElement;
-    const modelId = target.value;
-    if (!modelId) return;
+  const handleModelPick = (modelId: string) => {
     merged.onModelChange?.(modelId);
+    setIsModelSelectorOpen(false);
+    setModelSearch("");
   };
 
   return (
@@ -194,31 +268,28 @@ export const ChatInput: Component<ChatInputProps> = props => {
         <div class="flex items-center gap-2">
           <Show when={merged.modelOptions.length > 0}>
             <div class="flex flex-col items-end gap-0.5">
-              <select
-                value={merged.selectedModel}
-                onInput={handleModelChange}
-                class="bg-background border-border rounded border px-2 py-1 text-xs"
-                aria-label="Model selector"
+              <button
+                type="button"
+                onClick={() => {
+                  setCommandMode("model");
+                  setIsModelSelectorOpen(open => !open);
+                }}
+                class="bg-background border-border hover:bg-muted rounded border px-2 py-1 text-xs"
+                aria-label="Open model selector"
               >
-                <option value="" disabled>
-                  Select model
-                </option>
-                <Show when={connectedModels().length > 0}>
-                  <optgroup label="Connected">
-                    {connectedModels().map(model => (
-                      <option value={model.id}>{model.name ?? model.id}</option>
-                    ))}
-                  </optgroup>
-                </Show>
-                <Show when={notConnectedModels().length > 0}>
-                  <optgroup label="Not Connected">
-                    {notConnectedModels().map(model => (
-                      <option value={model.id}>{model.name ?? model.id}</option>
-                    ))}
-                  </optgroup>
-                </Show>
-              </select>
+                {modelLabel()}
+              </button>
               <p class="text-muted-foreground/60 text-[10px]">Connected / Not Connected</p>
+              <ModelSelector
+                open={isModelSelectorOpen()}
+                onOpenChange={setIsModelSelectorOpen}
+                mode={commandMode()}
+                onModeChange={setCommandMode}
+                selectedModelId={merged.selectedModel}
+                modelSections={modelSections()}
+                onSearchChange={setModelSearch}
+                onSelect={handleModelPick}
+              />
             </div>
           </Show>
           <Show when={merged.modelOptions.length === 0}>

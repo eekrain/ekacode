@@ -27,6 +27,7 @@
     "dompurify": "^3.3.1",
     "marked": "^15.0.6",
     "marked-shiki": "^1.2.1",
+    "minisearch": "^7.2.0",
     "morphdom": "^2.7.8",
     "shiki": "^1.24.2",
     "solid-js": "catalog:",

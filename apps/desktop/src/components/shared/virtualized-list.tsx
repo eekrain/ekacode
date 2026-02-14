@@ -1,14 +1,4 @@
-/**
- * VirtualizedList Component
- *
- * Efficiently renders large lists by only showing visible items.
- * Uses @solid-primitives/virtual for performant virtualization.
- *
- * Part of Phase 6: Cleanup & Optimization
- */
-
-import { VirtualList } from "@solid-primitives/virtual";
-import { Accessor, JSX } from "solid-js";
+import { createMemo, createSignal, For, type Accessor, type JSX } from "solid-js";
 
 export interface VirtualListProps<T> {
   /** Accessor for the items to render */
@@ -40,14 +30,45 @@ export interface VirtualListProps<T> {
  * ```
  */
 export const VirtualizedList = <T,>(props: VirtualListProps<T>) => {
+  const [scrollTop, setScrollTop] = createSignal(0);
+  const overscan = createMemo(() => props.overscan ?? 3);
+  const visibleWindow = createMemo(() => {
+    const items = props.items();
+    const start = Math.max(0, Math.floor(scrollTop() / props.itemSize) - overscan());
+    const end = Math.min(
+      items.length,
+      Math.ceil((scrollTop() + props.containerHeight) / props.itemSize) + overscan()
+    );
+    return { start, end, items };
+  });
+
+  const totalHeight = createMemo(() => props.items().length * props.itemSize);
+
   return (
-    <VirtualList
-      each={props.items()}
-      fallback={null}
-      rootHeight={props.containerHeight}
-      rowHeight={props.itemSize}
-      overscanCount={props.overscan ?? 3}
-      children={props.children}
-    />
+    <div
+      class="overflow-y-auto"
+      style={{ height: `${props.containerHeight}px` }}
+      onScroll={event => setScrollTop(event.currentTarget.scrollTop)}
+      data-component="virtualized-list"
+    >
+      <div class="relative w-full" style={{ height: `${totalHeight()}px` }}>
+        <For each={visibleWindow().items.slice(visibleWindow().start, visibleWindow().end)}>
+          {(item, localIndex) => {
+            const absoluteIndex = () => visibleWindow().start + localIndex();
+            return (
+              <div
+                class="absolute left-0 right-0"
+                style={{
+                  top: `${absoluteIndex() * props.itemSize}px`,
+                  height: `${props.itemSize}px`,
+                }}
+              >
+                {props.children(item, absoluteIndex)}
+              </div>
+            );
+          }}
+        </For>
+      </div>
+    </div>
   );
 };

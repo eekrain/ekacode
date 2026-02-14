@@ -40,6 +40,10 @@ export interface ChatOptions {
   retryOfAssistantMessageId?: string;
   /** Workspace directory path */
   workspace: string;
+  /** Selected provider id from app state */
+  providerId?: string;
+  /** Selected model id from app state */
+  modelId?: string;
   /** Abort signal for request cancellation */
   signal?: AbortSignal;
 }
@@ -198,14 +202,8 @@ export class EkacodeApiClient {
           message: messageText,
           messageId: options.messageId,
           retryOfAssistantMessageId: options.retryOfAssistantMessageId,
-          providerId:
-            localStorage.getItem("ekacode:selected-provider") ||
-            localStorage.getItem("ekacode:selected-provider:server") ||
-            undefined,
-          modelId:
-            localStorage.getItem("ekacode:selected-model") ||
-            localStorage.getItem("ekacode:selected-model:server") ||
-            undefined,
+          providerId: options.providerId,
+          modelId: options.modelId,
           stream: true,
         }),
         signal: options.signal,

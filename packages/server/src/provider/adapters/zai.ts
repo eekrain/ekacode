@@ -3,6 +3,21 @@ import type { ProviderAdapter, SetProviderCredentialInput } from "./base";
 
 const ZAI_MODELS: ModelDescriptor[] = [
   {
+    id: "zai/glm-5",
+    name: "GLM-5",
+    providerId: "zai",
+    providerName: "Z.AI",
+    contextWindow: 128000,
+    maxOutputTokens: 8192,
+    capabilities: {
+      text: true,
+      vision: false,
+      tools: true,
+      reasoning: true,
+      plan: true,
+    },
+  },
+  {
     id: "zai/glm-4.7",
     name: "GLM-4.7",
     providerId: "zai",

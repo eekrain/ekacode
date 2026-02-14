@@ -60,6 +60,10 @@ interface ChatProviderProps {
 
   /** Called when session ID is received/updated */
   onSessionIdReceived?: (sessionId: string) => void;
+  /** Selected provider id accessor */
+  providerId?: Accessor<string | null | undefined>;
+  /** Selected model id accessor */
+  modelId?: Accessor<string | null | undefined>;
 
   /** Called on error */
   onError?: (error: Error) => void;
@@ -83,6 +87,8 @@ export const ChatProvider: ParentComponent<ChatProviderProps> = props => {
     workspace: props.workspace,
     sessionId: props.sessionId,
     onSessionIdReceived: props.onSessionIdReceived,
+    providerId: props.providerId,
+    modelId: props.modelId,
     onError: props.onError,
     onFinish: props.onFinish,
   });

@@ -38,6 +38,6 @@
     "moduleResolution": "bundler"
   },
   "include": ["src/**/*", "vite.config.ts"],
-  "exclude": ["src/views/workspace-view-old/**/*"],
+  "exclude": ["src/views/workspace-view-old/**/*", "src/components/reference/**/*"],
   "references": [{ "path": "../../packages/shared" }]
 }

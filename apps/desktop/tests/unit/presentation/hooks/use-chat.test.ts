@@ -182,6 +182,33 @@ describe("useChat", () => {
     });
   });
 
+  it("forwards selected provider and model to chat client", async () => {
+    const { useChat } = await import("@/core/chat/hooks");
+    mockChatFn.mockResolvedValue(okResponse());
+
+    await createRoot(async dispose => {
+      const chat = useChat({
+        sessionId: () => "session-1",
+        workspace: () => "/repo",
+        client: mockClient,
+        providerId: () => "zai",
+        modelId: () => "zai/glm-4.7",
+      });
+
+      await chat.sendMessage("hello");
+
+      expect(mockChatFn).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({
+          providerId: "zai",
+          modelId: "zai/glm-4.7",
+        })
+      );
+
+      dispose();
+    });
+  });
+
   it("aborts in-flight requests when stop is called", async () => {
     const { useChat } = await import("@/core/chat/hooks");
     mockChatFn.mockImplementation(

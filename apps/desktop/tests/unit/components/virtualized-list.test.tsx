@@ -1,24 +1,6 @@
 import { createSignal, type JSX } from "solid-js";
 import { render } from "solid-js/web";
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-let capturedVirtualListProps: Record<string, unknown> | null = null;
-
-vi.mock("@solid-primitives/virtual", () => ({
-  VirtualList: (
-    props: {
-      each: unknown[];
-      children: (item: unknown, index: () => number) => unknown;
-    } & Record<string, unknown>
-  ) => {
-    capturedVirtualListProps = props;
-    return (
-      <div data-testid="mock-virtual-list">
-        {props.each.map((item, index) => props.children(item, () => index))}
-      </div>
-    );
-  },
-}));
+import { afterEach, describe, expect, it } from "vitest";
 
 import { VirtualizedList } from "@/components/shared/virtualized-list";
 
@@ -36,7 +18,6 @@ function mount(ui: () => JSX.Element) {
 }
 
 afterEach(() => {
-  capturedVirtualListProps = null;
   document.body.innerHTML = "";
 });
 
@@ -55,17 +36,18 @@ describe("VirtualizedList", () => {
     app.dispose();
   });
 
-  it("passes sizing and overscan config to VirtualList", () => {
-    const [items] = createSignal([1, 2, 3]);
+  it("renders only the visible window plus overscan", () => {
+    const [items] = createSignal(Array.from({ length: 50 }, (_, i) => i));
     const app = mount(() => (
-      <VirtualizedList items={items} itemSize={48} containerHeight={600} overscan={7}>
+      <VirtualizedList items={items} itemSize={20} containerHeight={100} overscan={1}>
         {item => <div>{String(item)}</div>}
       </VirtualizedList>
     ));
 
-    expect(capturedVirtualListProps?.rowHeight).toBe(48);
-    expect(capturedVirtualListProps?.rootHeight).toBe(600);
-    expect(capturedVirtualListProps?.overscanCount).toBe(7);
+    const renderedRows = app.container.querySelectorAll(
+      '[data-component="virtualized-list"] > div > div'
+    );
+    expect(renderedRows.length).toBeLessThan(50);
     app.dispose();
   });
 });

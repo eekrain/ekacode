@@ -7,7 +7,7 @@ describe("EkacodeApiClient provider/model payload", () => {
     localStorage.clear();
   });
 
-  it("includes selected provider and model from localStorage in chat request", async () => {
+  it("includes selected provider and model from chat options in request", async () => {
     localStorage.setItem("ekacode:selected-provider", "zai");
     localStorage.setItem("ekacode:selected-model", "zai/glm-4.7");
 
@@ -24,6 +24,8 @@ describe("EkacodeApiClient provider/model payload", () => {
 
     await client.chat([{ id: "m1", role: "user", parts: [{ type: "text", text: "hello" }] }], {
       workspace: "/repo",
+      providerId: "openai",
+      modelId: "openai/gpt-4o-mini",
     });
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -31,7 +33,7 @@ describe("EkacodeApiClient provider/model payload", () => {
     const init = call?.[1] as RequestInit;
     const body = JSON.parse(String(init.body));
 
-    expect(body.providerId).toBe("zai");
-    expect(body.modelId).toBe("zai/glm-4.7");
+    expect(body.providerId).toBe("openai");
+    expect(body.modelId).toBe("openai/gpt-4o-mini");
   });
 });

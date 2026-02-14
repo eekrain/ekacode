@@ -10,6 +10,7 @@ module.exports = [
       "**/coverage/**",
       "*.local",
       "packages/*/out/**",
+      "apps/desktop/src/components/reference/**",
     ],
   },
   {
