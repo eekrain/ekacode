@@ -454,7 +454,7 @@ describe("ProviderSettings", () => {
         },
       ]),
       listAuthMethods: vi.fn().mockResolvedValue({
-        zai: [{ type: "oauth", label: "Connect with Zen" }],
+        zai: [{ type: "api", label: "API Key" }],
         "zai-coding-plan": [{ type: "token", label: "API Token" }],
         abacus: [{ type: "token", label: "API Token" }],
       }),
@@ -462,7 +462,7 @@ describe("ProviderSettings", () => {
         zai: {
           providerId: "zai",
           status: "disconnected",
-          method: "oauth",
+          method: "token",
           accountLabel: null,
           updatedAt: "2026-02-14T11:00:00.000Z",
         },
@@ -500,6 +500,8 @@ describe("ProviderSettings", () => {
     openModalButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await new Promise(resolve => setTimeout(resolve, 0));
 
+    expect(container.textContent).not.toContain("Connect with Zen");
+    expect(container.querySelector('input[placeholder="API key"]')).toBeTruthy();
     expect(container.textContent).toContain("Abacus");
 
     const searchInput = container.querySelector(

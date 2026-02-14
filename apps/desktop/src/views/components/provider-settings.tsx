@@ -63,23 +63,32 @@ export function ProviderSettings(props: ProviderSettingsProps) {
 
     const fallbackCatalog = fallbackCatalogFromProviders({ providers, authMethods, auth });
     const supportedProviderIds = new Set(providers.map(provider => provider.id));
-    const mergedCatalog = (catalog.length > 0 ? catalog : fallbackCatalog).map(provider => ({
-      ...provider,
-      authMethods:
-        provider.authMethods.length > 0
-          ? provider.authMethods
-          : (authMethods[provider.id] ?? [{ type: "api" as const, label: "API Key" }]),
-      connected: auth[provider.id]?.status === "connected" || provider.connected,
-      supported:
-        typeof provider.supported === "boolean"
-          ? provider.supported
-          : supportedProviderIds.has(provider.id),
-    }));
+    const mergedCatalog = (catalog.length > 0 ? catalog : fallbackCatalog).map(provider => {
+      const isSupported = supportedProviderIds.has(provider.id);
+      const serverMethods = authMethods[provider.id];
+      const resolvedMethods =
+        serverMethods ??
+        (isSupported
+          ? [{ type: "api" as const, label: "API Key" }]
+          : provider.authMethods.length > 0
+            ? provider.authMethods
+            : [{ type: "api" as const, label: "API Key" }]);
+
+      return {
+        ...provider,
+        authMethods: resolvedMethods,
+        connected: auth[provider.id]?.status === "connected" || provider.connected,
+        supported: typeof provider.supported === "boolean" ? provider.supported : isSupported,
+      };
+    });
 
     const mergedAuthMethods: Record<string, ProviderAuthMethodDescriptor[]> = { ...authMethods };
     for (const provider of mergedCatalog) {
       if (!mergedAuthMethods[provider.id]) {
-        mergedAuthMethods[provider.id] = provider.authMethods;
+        mergedAuthMethods[provider.id] =
+          supportedProviderIds.has(provider.id) && authMethods[provider.id]
+            ? authMethods[provider.id]
+            : provider.authMethods;
       }
     }
 
