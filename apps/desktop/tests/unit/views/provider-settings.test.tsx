@@ -54,4 +54,40 @@ describe("ProviderSettings", () => {
 
     expect(client.setToken).toHaveBeenCalledWith("zai", "token-123");
   });
+
+  it("persists selected model preference", async () => {
+    const client: ProviderClient = {
+      listProviders: vi.fn().mockResolvedValue([{ id: "zai", name: "Z.AI" }]),
+      listAuthStates: vi.fn().mockResolvedValue({
+        zai: {
+          providerId: "zai",
+          status: "connected",
+          method: "token",
+          accountLabel: null,
+          updatedAt: "2026-02-14T11:00:00.000Z",
+        },
+      }),
+      listModels: vi.fn().mockResolvedValue([
+        { id: "zai/glm-4.7", providerId: "zai" },
+        { id: "zai/glm-4.6v", providerId: "zai" },
+      ]),
+      setToken: vi.fn().mockResolvedValue(undefined),
+      clearToken: vi.fn().mockResolvedValue(undefined),
+    };
+
+    localStorage.removeItem("ekacode:selected-model");
+    localStorage.removeItem("ekacode:selected-provider");
+
+    dispose = render(() => <ProviderSettings client={client} />, container);
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const select = container.querySelector("select") as HTMLSelectElement;
+    select.value = "zai/glm-4.6v";
+    select.dispatchEvent(new InputEvent("input", { bubbles: true }));
+
+    expect(localStorage.getItem("ekacode:selected-model")).toBe("zai/glm-4.6v");
+    expect(localStorage.getItem("ekacode:selected-provider")).toBe("zai");
+  });
 });

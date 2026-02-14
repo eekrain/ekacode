@@ -31,7 +31,12 @@ export function ProviderSettings(props: ProviderSettingsProps) {
       setAuth(authData);
       setModels(modelData);
       if (!selectedModel() && modelData.length > 0) {
-        setSelectedModel(modelData[0]!.id);
+        const storedModel = localStorage.getItem("ekacode:selected-model");
+        if (storedModel && modelData.some(model => model.id === storedModel)) {
+          setSelectedModel(storedModel);
+        } else {
+          setSelectedModel(modelData[0]!.id);
+        }
       }
     } finally {
       setIsLoading(false);
@@ -58,6 +63,15 @@ export function ProviderSettings(props: ProviderSettingsProps) {
   const disconnect = async (providerId: string) => {
     await props.client.clearToken(providerId);
     await refresh();
+  };
+
+  const handleModelChange = (modelId: string) => {
+    setSelectedModel(modelId);
+    localStorage.setItem("ekacode:selected-model", modelId);
+    const model = models().find(entry => entry.id === modelId);
+    if (model?.providerId) {
+      localStorage.setItem("ekacode:selected-provider", model.providerId);
+    }
   };
 
   return (
@@ -116,7 +130,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
               <ModelSelector
                 models={models()}
                 selectedModelId={selectedModel()}
-                onChange={setSelectedModel}
+                onChange={handleModelChange}
               />
             </Show>
           </div>
