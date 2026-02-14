@@ -16,11 +16,24 @@ interface ModelCatalogServiceOptions {
 interface CatalogModelLike {
   id: string;
   name: string;
+  modalities?: {
+    input?: Array<"text" | "audio" | "image" | "video" | "pdf">;
+    output?: Array<"text" | "audio" | "image" | "video" | "pdf">;
+  };
+  provider?: {
+    api?: string;
+    npm?: string;
+  };
 }
 
 function buildModelDescriptor(
   providerId: string,
   providerName: string,
+  providerMeta: {
+    api?: string;
+    npm?: string;
+    env?: string[];
+  },
   model: CatalogModelLike
 ): ModelDescriptor {
   return {
@@ -28,12 +41,23 @@ function buildModelDescriptor(
     name: model.name,
     providerId,
     providerName,
+    providerApiUrl: model.provider?.api || providerMeta.api,
+    providerNpmPackage: model.provider?.npm || providerMeta.npm,
+    providerEnvVars: providerMeta.env,
     contextWindow: 128000,
     maxOutputTokens: 8192,
+    modalities:
+      model.modalities?.input || model.modalities?.output
+        ? {
+            input: model.modalities?.input ?? [],
+            output: model.modalities?.output ?? [],
+          }
+        : undefined,
     capabilities: inferModelCapabilities({
       providerId,
       modelId: model.id,
       modelName: model.name,
+      modalities: model.modalities,
     }),
   };
 }
@@ -73,7 +97,16 @@ export function createModelCatalogService(options: ModelCatalogServiceOptions) {
       for (const [providerKey, provider] of Object.entries(snapshotData)) {
         const providerId = normalizeProviderAlias(providerKey);
         for (const model of Object.values(provider.models ?? {})) {
-          const descriptor = buildModelDescriptor(providerId, provider.name ?? providerId, model);
+          const descriptor = buildModelDescriptor(
+            providerId,
+            provider.name ?? providerId,
+            {
+              api: provider.api,
+              npm: provider.npm,
+              env: provider.env,
+            },
+            model
+          );
           finalMap.set(descriptor.id, descriptor);
         }
       }
@@ -81,7 +114,16 @@ export function createModelCatalogService(options: ModelCatalogServiceOptions) {
       for (const [providerKey, provider] of Object.entries(modelsDevData)) {
         const providerId = normalizeProviderAlias(providerKey);
         for (const model of Object.values(provider.models ?? {})) {
-          const descriptor = buildModelDescriptor(providerId, provider.name ?? providerId, model);
+          const descriptor = buildModelDescriptor(
+            providerId,
+            provider.name ?? providerId,
+            {
+              api: provider.api,
+              npm: provider.npm,
+              env: provider.env,
+            },
+            model
+          );
           finalMap.set(descriptor.id, descriptor);
         }
       }

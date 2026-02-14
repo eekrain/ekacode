@@ -4,6 +4,7 @@ import {
   providerAuthStateSchema,
   providerConfigPayloadSchema,
   providerDescriptorSchema,
+  providerPreferencesSchema,
 } from "../../src/provider/schema";
 
 describe("provider domain schemas", () => {
@@ -52,10 +53,30 @@ describe("provider domain schemas", () => {
         reasoning: true,
         plan: false,
       },
+      modalities: {
+        input: ["text", "image"],
+        output: ["text"],
+      },
     });
 
     expect(parsed.providerId).toBe("zai");
     expect(parsed.capabilities.vision).toBe(true);
+    expect(parsed.modalities?.input).toContain("image");
+  });
+
+  it("parses ProviderPreferences with hybrid fallback fields", () => {
+    const parsed = providerPreferencesSchema.parse({
+      selectedProviderId: "zai",
+      selectedModelId: "zai/glm-5",
+      hybridEnabled: true,
+      hybridVisionProviderId: "zai",
+      hybridVisionModelId: "zai/glm-4.6v",
+      updatedAt: "2026-02-14T11:00:00.000Z",
+    });
+
+    expect(parsed.hybridEnabled).toBe(true);
+    expect(parsed.hybridVisionProviderId).toBe("zai");
+    expect(parsed.hybridVisionModelId).toBe("zai/glm-4.6v");
   });
 
   it("parses ProviderConfigPayload", () => {

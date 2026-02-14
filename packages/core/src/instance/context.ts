@@ -29,6 +29,20 @@ export interface InstanceContext {
   agent?: string;
   /** Optional abort signal for cancellation */
   abort?: AbortSignal;
+  /** Optional provider/model runtime selection for the current request */
+  providerRuntime?: {
+    providerId: string;
+    modelId: string;
+    providerApiUrl?: string;
+    apiKey?: string;
+    providerCredentialEnvVar?: string;
+    headers?: Record<string, string>;
+    hybridVisionEnabled?: boolean;
+    hybridVisionProviderId?: string;
+    hybridVisionModelId?: string;
+    hybridVisionProviderApiUrl?: string;
+    hybridVisionApiKey?: string;
+  };
 }
 
 /**

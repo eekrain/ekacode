@@ -5,6 +5,9 @@ import fsLiteDriver from "unstorage/drivers/fs-lite";
 export interface ProviderPreferences {
   selectedProviderId: string | null;
   selectedModelId: string | null;
+  hybridEnabled: boolean;
+  hybridVisionProviderId: string | null;
+  hybridVisionModelId: string | null;
   updatedAt: string;
 }
 
@@ -16,7 +19,16 @@ export interface ProviderPreferenceServiceOptions {
 export interface ProviderPreferenceService {
   get(): Promise<ProviderPreferences>;
   set(
-    input: Partial<Pick<ProviderPreferences, "selectedProviderId" | "selectedModelId">>
+    input: Partial<
+      Pick<
+        ProviderPreferences,
+        | "selectedProviderId"
+        | "selectedModelId"
+        | "hybridEnabled"
+        | "hybridVisionProviderId"
+        | "hybridVisionModelId"
+      >
+    >
   ): Promise<ProviderPreferences>;
 }
 
@@ -28,6 +40,9 @@ function defaultPreferences(): ProviderPreferences {
   return {
     selectedProviderId: null,
     selectedModelId: null,
+    hybridEnabled: true,
+    hybridVisionProviderId: null,
+    hybridVisionModelId: null,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -55,6 +70,11 @@ export function createProviderPreferenceService(
         selectedProviderId:
           typeof data.selectedProviderId === "string" ? data.selectedProviderId : null,
         selectedModelId: typeof data.selectedModelId === "string" ? data.selectedModelId : null,
+        hybridEnabled: typeof data.hybridEnabled === "boolean" ? data.hybridEnabled : true,
+        hybridVisionProviderId:
+          typeof data.hybridVisionProviderId === "string" ? data.hybridVisionProviderId : null,
+        hybridVisionModelId:
+          typeof data.hybridVisionModelId === "string" ? data.hybridVisionModelId : null,
         updatedAt: typeof data.updatedAt === "string" ? data.updatedAt : new Date().toISOString(),
       };
     },
@@ -68,6 +88,15 @@ export function createProviderPreferenceService(
             : input.selectedProviderId,
         selectedModelId:
           input.selectedModelId === undefined ? prev.selectedModelId : input.selectedModelId,
+        hybridEnabled: input.hybridEnabled === undefined ? prev.hybridEnabled : input.hybridEnabled,
+        hybridVisionProviderId:
+          input.hybridVisionProviderId === undefined
+            ? prev.hybridVisionProviderId
+            : input.hybridVisionProviderId,
+        hybridVisionModelId:
+          input.hybridVisionModelId === undefined
+            ? prev.hybridVisionModelId
+            : input.hybridVisionModelId,
         updatedAt: new Date().toISOString(),
       };
       await storage.setItem(keyFor(options.profileId), next);

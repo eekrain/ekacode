@@ -10,9 +10,20 @@ import { createLogger } from "@ekacode/shared/logger";
 import { streamText, type ModelMessage, type ToolResultPart, type UserModelMessage } from "ai";
 import { createHash } from "node:crypto";
 import { v7 as uuidv7 } from "uuid";
-import { getBuildModel, getExploreModel, getPlanModel } from "../agent/workflow/model-provider";
+import {
+  getBuildModel,
+  getExploreModel,
+  getModelByReference,
+  getPlanModel,
+} from "../agent/workflow/model-provider";
 import { AgentConfig, AgentEvent, AgentInput, AgentResult } from "../agent/workflow/types";
 import { Instance } from "../instance";
+import {
+  applyToolDefinitionHook,
+  resolveHookModel,
+  triggerChatHeadersHook,
+  triggerChatParamsHook,
+} from "../plugin/hooks";
 import { classifyAgentError } from "./error-classification";
 
 const logger = createLogger("ekacode");
@@ -198,6 +209,7 @@ export class AgentProcessor {
   private iterationCount = 0;
   private toolCallHistory: string[] = [];
   private toolCallResults: ToolCallResult[] = [];
+  private latestInput: AgentInput | null = null;
 
   constructor(config: AgentConfig, eventCallback: (event: AgentEvent) => void) {
     this.config = config;
@@ -212,6 +224,7 @@ export class AgentProcessor {
    */
   async run(input: AgentInput): Promise<AgentResult> {
     const startTime = Date.now();
+    this.latestInput = input;
 
     logger.info(`Starting agent execution: ${this.config.id}`, {
       module: "agent:processor",
@@ -377,7 +390,36 @@ export class AgentProcessor {
     void Instance.context;
 
     const iterationMessages = this.buildIterationMessages();
-    const toolsForIteration = this.config.tools as Record<string, unknown>;
+    const hookModel = resolveHookModel({
+      configuredModelID: this.config.model,
+      agentType: this.config.type,
+      runtimeProviderID: Instance.context.providerRuntime?.providerId,
+      runtimeModelID: Instance.context.providerRuntime?.modelId,
+    });
+    const hookInput = {
+      sessionID: Instance.context.sessionID,
+      agent: this.config.id,
+      model: hookModel,
+      provider: { id: hookModel.providerID },
+      message: { role: "user" as const, content: this.latestInput?.task ?? "" },
+    };
+    const chatParams = await triggerChatParamsHook(hookInput, {
+      temperature: this.config.temperature,
+      topP: undefined,
+      topK: undefined,
+      options: {},
+    });
+    const chatHeaders = await triggerChatHeadersHook(hookInput, { headers: {} });
+    if (Object.keys(chatHeaders.headers).length > 0 && Instance.context.providerRuntime) {
+      Instance.context.providerRuntime.headers = {
+        ...(Instance.context.providerRuntime.headers ?? {}),
+        ...chatHeaders.headers,
+      };
+    }
+
+    const toolsForIteration = await applyToolDefinitionHook({
+      tools: this.config.tools as Record<string, unknown>,
+    });
     const activeTools = this.isLastStep() ? [] : undefined;
 
     return streamText({
@@ -386,7 +428,10 @@ export class AgentProcessor {
       tools: toolsForIteration as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       activeTools: activeTools as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       abortSignal: this.abortController.signal,
-      temperature: this.config.temperature,
+      temperature: chatParams.temperature,
+      topP: chatParams.topP,
+      topK: chatParams.topK,
+      ...(chatParams.options as Record<string, unknown>),
       experimental_repairToolCall: this.buildToolRepairFunction(toolsForIteration) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
     });
   }
@@ -973,6 +1018,10 @@ export class AgentProcessor {
    * Get the model for this agent based on agent type.
    */
   private getModel(): LanguageModelV3 {
+    if (this.config.model.includes("/")) {
+      return getModelByReference(this.config.model);
+    }
+
     switch (this.config.type) {
       case "explore":
         return getExploreModel();

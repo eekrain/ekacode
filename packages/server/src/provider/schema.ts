@@ -27,6 +27,18 @@ export const providerAuthMethodDescriptorSchema = z.object({
   label: z.string().min(1),
 });
 
+export const providerCatalogItemSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  aliases: z.array(z.string().min(1)),
+  authMethods: z.array(providerAuthMethodDescriptorSchema),
+  connected: z.boolean(),
+  modelCount: z.number().int().nonnegative(),
+  popular: z.boolean(),
+  supported: z.boolean().optional(),
+  note: z.string().optional(),
+});
+
 export const providerOAuthAuthorizeRequestSchema = z.object({
   method: z.number().int().nonnegative(),
   inputs: z.record(z.string(), z.unknown()).optional(),
@@ -53,12 +65,23 @@ export const providerOAuthCallbackResponseSchema = z.object({
 export const providerPreferencesSchema = z.object({
   selectedProviderId: z.string().nullable(),
   selectedModelId: z.string().nullable(),
+  hybridEnabled: z.boolean().default(true),
+  hybridVisionProviderId: z.string().nullable().default(null),
+  hybridVisionModelId: z.string().nullable().default(null),
   updatedAt: z.string(),
 });
 
 export const providerPreferencesUpdateSchema = z.object({
   selectedProviderId: z.string().nullable().optional(),
   selectedModelId: z.string().nullable().optional(),
+  hybridEnabled: z.boolean().optional(),
+  hybridVisionProviderId: z.string().nullable().optional(),
+  hybridVisionModelId: z.string().nullable().optional(),
+});
+
+const modelModalitiesSchema = z.object({
+  input: z.array(z.enum(["text", "audio", "image", "video", "pdf"])),
+  output: z.array(z.enum(["text", "audio", "image", "video", "pdf"])),
 });
 
 export const modelDescriptorSchema = z.object({
@@ -66,8 +89,12 @@ export const modelDescriptorSchema = z.object({
   name: z.string().min(1),
   providerId: z.string().min(1),
   providerName: z.string().min(1),
+  providerApiUrl: z.string().url().optional(),
+  providerNpmPackage: z.string().min(1).optional(),
+  providerEnvVars: z.array(z.string().min(1)).optional(),
   contextWindow: z.number().int().nonnegative(),
   maxOutputTokens: z.number().int().nonnegative(),
+  modalities: modelModalitiesSchema.optional(),
   capabilities: z.object({
     text: z.boolean(),
     vision: z.boolean(),

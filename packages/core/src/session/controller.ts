@@ -78,7 +78,12 @@ export class SessionController {
 
     try {
       // Create build agent configuration
-      const agentConfig = createAgent("build", this.sessionId);
+      const activeModelId = process.env.EKACODE_ACTIVE_MODEL_ID?.trim();
+      const agentConfig = createAgent(
+        "build",
+        this.sessionId,
+        activeModelId ? { model: activeModelId } : undefined
+      );
 
       // Create processor
       this.currentAgent = new AgentProcessor(agentConfig, event => {

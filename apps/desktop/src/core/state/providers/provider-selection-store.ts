@@ -34,12 +34,12 @@ function toModelDoc(
   const provider = providersById[model.providerId];
   const aliasTerms = getProviderAliasTerms(model.providerId, provider?.name);
   const keywords =
-    `${model.id} ${model.name ?? ""} ${model.providerId} ${provider?.name ?? ""} ${aliasTerms.join(" ")}`.trim();
+    `${model.id} ${model.name ?? ""} ${model.providerId} ${provider?.name ?? model.providerName ?? ""} ${aliasTerms.join(" ")}`.trim();
   return {
     id: model.id,
     name: model.name ?? model.id,
     providerId: model.providerId,
-    providerName: provider?.name ?? model.providerId,
+    providerName: provider?.name ?? model.providerName ?? model.providerId,
     connected: auth[model.providerId]?.status === "connected",
     keywords,
     searchableText: keywords.toLowerCase(),

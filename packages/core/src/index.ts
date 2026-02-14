@@ -192,4 +192,21 @@ export { SessionManager } from "./session/manager";
 export { ShutdownHandler } from "./session/shutdown";
 export { Checkpoint, SessionConfig, SessionPhase, SessionStatus } from "./session/types";
 
+// Plugin hook compatibility layer (OpenCode-style hook names)
+export {
+  applyToolDefinitionHook,
+  clearCorePluginHooks,
+  resolveHookModel,
+  setCorePluginHooks,
+  triggerChatHeadersHook,
+  triggerChatParamsHook,
+} from "./plugin/hooks";
+export type {
+  ChatHeadersOutput,
+  ChatHookInput,
+  ChatParamsOutput,
+  CorePluginHooks,
+  ToolDefinitionOutput,
+} from "./plugin/hooks";
+
 export const ekacodeVersion = "0.0.1";

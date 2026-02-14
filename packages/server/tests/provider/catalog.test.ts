@@ -56,15 +56,29 @@ describe("model catalog service", () => {
       modelsDevSource: async () => ({
         zai: {
           name: "Z.AI",
+          api: "https://api.z.ai/api/paas/v4",
+          npm: "@ai-sdk/openai-compatible",
+          env: ["ZHIPU_API_KEY"],
           models: {
-            "glm-4.7": { id: "glm-4.7", name: "GLM 4.7 models.dev" },
-            "glm-4.6v": { id: "glm-4.6v", name: "GLM 4.6V models.dev" },
+            "glm-4.7": {
+              id: "glm-4.7",
+              name: "GLM 4.7 models.dev",
+              modalities: { input: ["text"], output: ["text"] },
+            },
+            "glm-4.6v": {
+              id: "glm-4.6v",
+              name: "GLM 4.6V models.dev",
+              modalities: { input: ["text", "image"], output: ["text"] },
+            },
           },
         },
       }),
       snapshotSource: async () => ({
         zai: {
           name: "Z.AI",
+          api: "https://snapshot.example/v1",
+          npm: "@ai-sdk/openai-compatible",
+          env: ["SNAPSHOT_KEY"],
           models: {
             "glm-4.7": { id: "glm-4.7", name: "GLM 4.7 snapshot" },
             "glm-4.5": { id: "glm-4.5", name: "GLM 4.5 snapshot" },
@@ -80,6 +94,13 @@ describe("model catalog service", () => {
     expect(byId.get("zai/glm-4.7")).toBe("GLM 4.7 Adapter");
     expect(byId.get("zai/glm-4.6v")).toBe("GLM 4.6V models.dev");
     expect(byId.get("zai/glm-4.5")).toBe("GLM 4.5 snapshot");
+
+    const modelWithProviderMeta = catalog.find(model => model.id === "zai/glm-4.6v");
+    expect(modelWithProviderMeta?.providerApiUrl).toBe("https://api.z.ai/api/paas/v4");
+    expect(modelWithProviderMeta?.providerNpmPackage).toBe("@ai-sdk/openai-compatible");
+    expect(modelWithProviderMeta?.providerEnvVars).toEqual(["ZHIPU_API_KEY"]);
+    expect(modelWithProviderMeta?.modalities?.input).toContain("image");
+    expect(modelWithProviderMeta?.capabilities.vision).toBe(true);
   });
 
   it("normalizes alias provider names to canonical ids", () => {

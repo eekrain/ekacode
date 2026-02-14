@@ -23,3 +23,11 @@ export {
 } from "./security/permission-rules";
 
 export { initializePermissionRules } from "./config/permissions";
+
+export {
+  clearCorePluginHooks,
+  setCorePluginHooks,
+  triggerChatHeadersHook,
+  triggerChatParamsHook,
+} from "./plugin/hooks";
+export type { CorePluginHooks } from "./plugin/hooks";

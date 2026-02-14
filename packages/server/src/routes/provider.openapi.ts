@@ -23,6 +23,52 @@ export const providerSchemaArtifact = {
         },
       },
     },
+    "/api/providers/catalog": {
+      get: {
+        response: {
+          type: "object",
+          required: ["providers"],
+          properties: {
+            providers: {
+              type: "array",
+              items: {
+                type: "object",
+                required: [
+                  "id",
+                  "name",
+                  "aliases",
+                  "authMethods",
+                  "connected",
+                  "modelCount",
+                  "popular",
+                ],
+                properties: {
+                  id: { type: "string" },
+                  name: { type: "string" },
+                  aliases: { type: "array", items: { type: "string" } },
+                  authMethods: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      required: ["type", "label"],
+                      properties: {
+                        type: { type: "string", enum: ["token", "oauth", "none"] },
+                        label: { type: "string" },
+                      },
+                    },
+                  },
+                  connected: { type: "boolean" },
+                  modelCount: { type: "number" },
+                  popular: { type: "boolean" },
+                  supported: { type: "boolean" },
+                  note: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     "/api/providers/auth/methods": {
       get: {
         response: {

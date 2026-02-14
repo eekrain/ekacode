@@ -1,10 +1,21 @@
 export interface ModelsDevModel {
   id: string;
   name: string;
+  modalities?: {
+    input?: Array<"text" | "audio" | "image" | "video" | "pdf">;
+    output?: Array<"text" | "audio" | "image" | "video" | "pdf">;
+  };
+  provider?: {
+    api?: string;
+    npm?: string;
+  };
 }
 
 export interface ModelsDevProvider {
   name: string;
+  api?: string;
+  npm?: string;
+  env?: string[];
   models: Record<string, ModelsDevModel>;
 }
 

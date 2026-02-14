@@ -9,11 +9,13 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { Env } from "../index";
 import { completeOAuth, listProviderAuthMethods, startOAuth } from "../provider/auth/oauth";
+import { buildProviderCatalog, collectKnownProviderIds } from "../provider/catalog";
 import { normalizeProviderError } from "../provider/errors";
-import { listProviderDescriptors, resolveProviderAdapter } from "../provider/registry";
+import { listProviderDescriptors } from "../provider/registry";
 import { getProviderRuntime } from "../provider/runtime";
 import {
   providerAuthStateSchema,
+  providerCatalogItemSchema,
   providerDescriptorSchema,
   providerOAuthAuthorizeRequestSchema,
   providerOAuthCallbackRequestSchema,
@@ -27,11 +29,39 @@ const setTokenBodySchema = z.object({
 
 const providerRuntime = getProviderRuntime();
 
+async function providerExists(providerId: string): Promise<boolean> {
+  const providers = listProviderDescriptors();
+  if (providers.some(provider => provider.id === providerId)) return true;
+
+  const models = await providerRuntime.modelCatalogService.list();
+  return models.some(model => model.providerId === providerId);
+}
+
+async function listKnownProviderDescriptors() {
+  const descriptors = listProviderDescriptors();
+  const byId = new Map(descriptors.map(provider => [provider.id, provider] as const));
+  const models = await providerRuntime.modelCatalogService.list();
+
+  for (const model of models) {
+    if (byId.has(model.providerId)) continue;
+    byId.set(model.providerId, {
+      id: model.providerId,
+      name: model.providerName || model.providerId,
+      env: model.providerEnvVars ?? [],
+      api: true,
+      models: true,
+      auth: { kind: "token" as const },
+    });
+  }
+
+  return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 /**
  * List available LLM providers
  */
 providerRouter.get("/api/providers", async c => {
-  const providers = listProviderDescriptors().map(provider =>
+  const providers = (await listKnownProviderDescriptors()).map(provider =>
     providerDescriptorSchema.parse(provider)
   );
 
@@ -44,19 +74,38 @@ providerRouter.get("/api/providers", async c => {
  * Get auth state for providers
  */
 providerRouter.get("/api/providers/auth", async c => {
+  const models = await providerRuntime.modelCatalogService.list();
+  const providerIds = Array.from(
+    collectKnownProviderIds({ providers: listProviderDescriptors(), models })
+  );
   const authStates = await Promise.all(
-    listProviderDescriptors().map(async provider => {
-      const state = await providerRuntime.authService.getState(provider.id);
-      return [provider.id, providerAuthStateSchema.parse(state)] as const;
+    providerIds.map(async providerId => {
+      const state = await providerRuntime.authService.getState(providerId);
+      return [providerId, providerAuthStateSchema.parse(state)] as const;
     })
   );
 
   return c.json(Object.fromEntries(authStates));
 });
 
+providerRouter.get("/api/providers/catalog", async c => {
+  const providers = listProviderDescriptors();
+  const models = await providerRuntime.modelCatalogService.list();
+  const catalog = await buildProviderCatalog({
+    providers,
+    models,
+    authService: providerRuntime.authService,
+  });
+  return c.json({
+    providers: catalog.map(item => providerCatalogItemSchema.parse(item)),
+  });
+});
+
 providerRouter.get("/api/providers/auth/methods", async c => {
   const providers = listProviderDescriptors();
-  return c.json(listProviderAuthMethods(providers.map(provider => provider.id)));
+  const models = await providerRuntime.modelCatalogService.list();
+  const providerIds = Array.from(collectKnownProviderIds({ providers, models }));
+  return c.json(listProviderAuthMethods(providerIds));
 });
 
 providerRouter.get("/api/providers/models", async c => {
@@ -79,14 +128,17 @@ providerRouter.put("/api/providers/preferences", async c => {
   const preferences = await providerRuntime.preferenceService.set({
     selectedProviderId: body.data.selectedProviderId,
     selectedModelId: body.data.selectedModelId,
+    hybridEnabled: body.data.hybridEnabled,
+    hybridVisionProviderId: body.data.hybridVisionProviderId,
+    hybridVisionModelId: body.data.hybridVisionModelId,
   });
   return c.json(preferences);
 });
 
 providerRouter.post("/api/providers/:providerId/auth/token", async c => {
   const providerId = c.req.param("providerId");
-  const adapter = resolveProviderAdapter(providerId);
-  if (!adapter) {
+  const exists = await providerExists(providerId);
+  if (!exists) {
     const normalized = normalizeProviderError(new Error("Provider not found"));
     return c.json(normalized, normalized.status);
   }
@@ -107,8 +159,8 @@ providerRouter.post("/api/providers/:providerId/auth/token", async c => {
 
 providerRouter.delete("/api/providers/:providerId/auth/token", async c => {
   const providerId = c.req.param("providerId");
-  const adapter = resolveProviderAdapter(providerId);
-  if (!adapter) {
+  const exists = await providerExists(providerId);
+  if (!exists) {
     const normalized = normalizeProviderError(new Error("Provider not found"));
     return c.json(normalized, normalized.status);
   }
@@ -120,8 +172,8 @@ providerRouter.delete("/api/providers/:providerId/auth/token", async c => {
 
 providerRouter.post("/api/providers/:providerId/oauth/authorize", async c => {
   const providerId = c.req.param("providerId");
-  const adapter = resolveProviderAdapter(providerId);
-  if (!adapter) {
+  const exists = await providerExists(providerId);
+  if (!exists) {
     const normalized = normalizeProviderError(new Error("Provider not found"));
     return c.json(normalized, normalized.status);
   }
@@ -147,8 +199,8 @@ providerRouter.post("/api/providers/:providerId/oauth/authorize", async c => {
 
 providerRouter.post("/api/providers/:providerId/oauth/callback", async c => {
   const providerId = c.req.param("providerId");
-  const adapter = resolveProviderAdapter(providerId);
-  if (!adapter) {
+  const exists = await providerExists(providerId);
+  if (!exists) {
     const normalized = normalizeProviderError(new Error("Provider not found"));
     return c.json(normalized, normalized.status);
   }

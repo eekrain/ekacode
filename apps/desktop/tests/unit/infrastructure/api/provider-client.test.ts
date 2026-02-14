@@ -37,6 +37,38 @@ describe("provider client", () => {
     expect(fetcher).toHaveBeenCalledWith("/api/providers/models", { method: "GET" });
   });
 
+  it("lists provider catalog", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          providers: [
+            {
+              id: "zai",
+              name: "Z.AI",
+              aliases: ["zai", "z.ai", "zen"],
+              authMethods: [{ type: "oauth", label: "Connect with Zen" }],
+              connected: false,
+              modelCount: 12,
+              popular: true,
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }
+      )
+    );
+
+    const client = createProviderClient({ fetcher });
+    const providers = await client.listProviderCatalog();
+
+    expect(providers).toHaveLength(1);
+    expect(providers[0]?.id).toBe("zai");
+    expect(providers[0]?.aliases).toContain("zen");
+    expect(fetcher).toHaveBeenCalledWith("/api/providers/catalog", { method: "GET" });
+  });
+
   it("sets and clears provider token", async () => {
     const fetcher = vi
       .fn()
@@ -117,6 +149,9 @@ describe("provider client", () => {
           JSON.stringify({
             selectedProviderId: null,
             selectedModelId: null,
+            hybridEnabled: true,
+            hybridVisionProviderId: null,
+            hybridVisionModelId: null,
             updatedAt: "2026-02-14T00:00:00.000Z",
           }),
           {
@@ -130,6 +165,9 @@ describe("provider client", () => {
           JSON.stringify({
             selectedProviderId: "zai",
             selectedModelId: "zai/glm-4.7",
+            hybridEnabled: true,
+            hybridVisionProviderId: "zai",
+            hybridVisionModelId: "zai/glm-4.6v",
             updatedAt: "2026-02-14T00:01:00.000Z",
           }),
           {
@@ -147,8 +185,12 @@ describe("provider client", () => {
     const updated = await client.updatePreferences({
       selectedProviderId: "zai",
       selectedModelId: "zai/glm-4.7",
+      hybridEnabled: true,
+      hybridVisionProviderId: "zai",
+      hybridVisionModelId: "zai/glm-4.6v",
     });
     expect(updated.selectedProviderId).toBe("zai");
     expect(updated.selectedModelId).toBe("zai/glm-4.7");
+    expect(updated.hybridVisionModelId).toBe("zai/glm-4.6v");
   });
 });

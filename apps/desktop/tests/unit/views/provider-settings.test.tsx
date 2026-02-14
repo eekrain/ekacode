@@ -35,6 +35,15 @@ describe("ProviderSettings", () => {
       clearToken: vi.fn().mockResolvedValue(undefined),
       oauthAuthorize: vi.fn(),
       oauthCallback: vi.fn(),
+      getPreferences: vi.fn().mockResolvedValue({
+        selectedProviderId: null,
+        selectedModelId: null,
+        hybridEnabled: true,
+        hybridVisionProviderId: null,
+        hybridVisionModelId: null,
+        updatedAt: "2026-02-14T11:00:00.000Z",
+      }),
+      updatePreferences: vi.fn(),
     };
 
     dispose = render(() => <ProviderSettings client={client} />, container);
@@ -63,6 +72,15 @@ describe("ProviderSettings", () => {
       clearToken: vi.fn().mockResolvedValue(undefined),
       oauthAuthorize: vi.fn(),
       oauthCallback: vi.fn(),
+      getPreferences: vi.fn().mockResolvedValue({
+        selectedProviderId: null,
+        selectedModelId: null,
+        hybridEnabled: true,
+        hybridVisionProviderId: null,
+        hybridVisionModelId: null,
+        updatedAt: "2026-02-14T11:00:00.000Z",
+      }),
+      updatePreferences: vi.fn(),
     };
 
     dispose = render(() => <ProviderSettings client={client} />, container);
@@ -127,6 +145,15 @@ describe("ProviderSettings", () => {
         instructions: "Use browser",
       }),
       oauthCallback: vi.fn().mockResolvedValue({ status: "connected" }),
+      getPreferences: vi.fn().mockResolvedValue({
+        selectedProviderId: null,
+        selectedModelId: null,
+        hybridEnabled: true,
+        hybridVisionProviderId: null,
+        hybridVisionModelId: null,
+        updatedAt: "2026-02-14T11:00:00.000Z",
+      }),
+      updatePreferences: vi.fn(),
     };
 
     dispose = render(() => <ProviderSettings client={client} />, container);
@@ -174,6 +201,15 @@ describe("ProviderSettings", () => {
       clearToken: vi.fn().mockResolvedValue(undefined),
       oauthAuthorize: vi.fn().mockRejectedValue(new Error("oauth failed")),
       oauthCallback: vi.fn().mockResolvedValue({ status: "pending" }),
+      getPreferences: vi.fn().mockResolvedValue({
+        selectedProviderId: null,
+        selectedModelId: null,
+        hybridEnabled: true,
+        hybridVisionProviderId: null,
+        hybridVisionModelId: null,
+        updatedAt: "2026-02-14T11:00:00.000Z",
+      }),
+      updatePreferences: vi.fn(),
     };
 
     dispose = render(() => <ProviderSettings client={client} />, container);
@@ -195,5 +231,228 @@ describe("ProviderSettings", () => {
     await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(container.textContent).toContain("oauth failed");
+  });
+
+  it("searches all providers inside connect dialog", async () => {
+    const client: ProviderClient = {
+      listProviders: vi.fn().mockResolvedValue([
+        { id: "zai", name: "Z.AI" },
+        { id: "openai", name: "OpenAI" },
+      ]),
+      listProviderCatalog: vi.fn().mockResolvedValue([
+        {
+          id: "zai",
+          name: "Z.AI",
+          aliases: ["zai", "z.ai", "zen"],
+          authMethods: [{ type: "oauth", label: "Connect with Zen" }],
+          connected: false,
+          modelCount: 12,
+          popular: true,
+        },
+        {
+          id: "zai-coding-plan",
+          name: "Z.AI Coding Plan",
+          aliases: ["zai-coding-plan", "coding plan", "zai plan"],
+          authMethods: [{ type: "token", label: "API Token" }],
+          connected: false,
+          modelCount: 4,
+          popular: true,
+        },
+        {
+          id: "abacus",
+          name: "Abacus",
+          aliases: ["abacus"],
+          authMethods: [{ type: "token", label: "API Token" }],
+          connected: false,
+          modelCount: 8,
+          popular: false,
+        },
+      ]),
+      listAuthMethods: vi.fn().mockResolvedValue({
+        zai: [{ type: "oauth", label: "Connect with Zen" }],
+        "zai-coding-plan": [{ type: "token", label: "API Token" }],
+        abacus: [{ type: "token", label: "API Token" }],
+      }),
+      listAuthStates: vi.fn().mockResolvedValue({
+        zai: {
+          providerId: "zai",
+          status: "disconnected",
+          method: "oauth",
+          accountLabel: null,
+          updatedAt: "2026-02-14T11:00:00.000Z",
+        },
+        "zai-coding-plan": {
+          providerId: "zai-coding-plan",
+          status: "disconnected",
+          method: "token",
+          accountLabel: null,
+          updatedAt: "2026-02-14T11:00:00.000Z",
+        },
+        abacus: {
+          providerId: "abacus",
+          status: "disconnected",
+          method: "token",
+          accountLabel: null,
+          updatedAt: "2026-02-14T11:00:00.000Z",
+        },
+      }),
+      listModels: vi.fn().mockResolvedValue([]),
+      setToken: vi.fn().mockResolvedValue(undefined),
+      clearToken: vi.fn().mockResolvedValue(undefined),
+      oauthAuthorize: vi.fn(),
+      oauthCallback: vi.fn(),
+      getPreferences: vi.fn(),
+      updatePreferences: vi.fn(),
+    };
+
+    dispose = render(() => <ProviderSettings client={client} />, container);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const openModalButton = Array.from(container.querySelectorAll("button")).find(button =>
+      button.textContent?.includes("Connect a provider")
+    ) as HTMLButtonElement;
+    openModalButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(container.textContent).toContain("Abacus");
+
+    const searchInput = container.querySelector(
+      'input[placeholder="Search providers..."]'
+    ) as HTMLInputElement;
+    searchInput.value = "zai-coding-plan";
+    searchInput.dispatchEvent(new InputEvent("input", { bubbles: true }));
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(container.textContent).toContain("Z.AI Coding Plan");
+    expect(container.textContent).not.toContain("Abacus");
+  });
+
+  it("updates hybrid fallback preferences", async () => {
+    const updatePreferences = vi.fn().mockResolvedValue({
+      selectedProviderId: null,
+      selectedModelId: null,
+      hybridEnabled: false,
+      hybridVisionProviderId: "zai",
+      hybridVisionModelId: "zai/glm-4.6v",
+      updatedAt: "2026-02-14T11:00:00.000Z",
+    });
+    const client: ProviderClient = {
+      listProviders: vi.fn().mockResolvedValue([{ id: "zai", name: "Z.AI" }]),
+      listAuthMethods: vi.fn().mockResolvedValue({ zai: [{ type: "token", label: "API Token" }] }),
+      listAuthStates: vi.fn().mockResolvedValue({
+        zai: {
+          providerId: "zai",
+          status: "connected",
+          method: "token",
+          accountLabel: null,
+          updatedAt: "2026-02-14T11:00:00.000Z",
+        },
+      }),
+      listModels: vi.fn().mockResolvedValue([
+        {
+          id: "zai/glm-4.6v",
+          providerId: "zai",
+          name: "GLM-4.6V",
+          capabilities: { text: true, vision: true, tools: true, reasoning: true, plan: false },
+        },
+      ]),
+      setToken: vi.fn().mockResolvedValue(undefined),
+      clearToken: vi.fn().mockResolvedValue(undefined),
+      oauthAuthorize: vi.fn(),
+      oauthCallback: vi.fn(),
+      getPreferences: vi.fn().mockResolvedValue({
+        selectedProviderId: null,
+        selectedModelId: null,
+        hybridEnabled: true,
+        hybridVisionProviderId: null,
+        hybridVisionModelId: null,
+        updatedAt: "2026-02-14T11:00:00.000Z",
+      }),
+      updatePreferences,
+    };
+
+    dispose = render(() => <ProviderSettings client={client} />, container);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const hybridCheckbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    hybridCheckbox.click();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(updatePreferences).toHaveBeenCalledWith({ hybridEnabled: false });
+  });
+
+  it("shows only connected vision-capable models in hybrid fallback selector", async () => {
+    const client: ProviderClient = {
+      listProviders: vi.fn().mockResolvedValue([
+        { id: "zai", name: "Z.AI" },
+        { id: "openai", name: "OpenAI" },
+      ]),
+      listAuthMethods: vi.fn().mockResolvedValue({
+        zai: [{ type: "token", label: "API Token" }],
+        openai: [{ type: "token", label: "API Token" }],
+      }),
+      listAuthStates: vi.fn().mockResolvedValue({
+        zai: {
+          providerId: "zai",
+          status: "connected",
+          method: "token",
+          accountLabel: null,
+          updatedAt: "2026-02-14T11:00:00.000Z",
+        },
+        openai: {
+          providerId: "openai",
+          status: "disconnected",
+          method: "token",
+          accountLabel: null,
+          updatedAt: "2026-02-14T11:00:00.000Z",
+        },
+      }),
+      listModels: vi.fn().mockResolvedValue([
+        {
+          id: "zai/glm-4.6v",
+          providerId: "zai",
+          name: "GLM-4.6V",
+          capabilities: { text: true, vision: true, tools: true, reasoning: true, plan: false },
+        },
+        {
+          id: "openai/gpt-4o",
+          providerId: "openai",
+          name: "GPT-4o",
+          capabilities: { text: true, vision: true, tools: true, reasoning: true, plan: false },
+        },
+      ]),
+      setToken: vi.fn().mockResolvedValue(undefined),
+      clearToken: vi.fn().mockResolvedValue(undefined),
+      oauthAuthorize: vi.fn(),
+      oauthCallback: vi.fn(),
+      getPreferences: vi.fn().mockResolvedValue({
+        selectedProviderId: null,
+        selectedModelId: null,
+        hybridEnabled: true,
+        hybridVisionProviderId: null,
+        hybridVisionModelId: null,
+        updatedAt: "2026-02-14T11:00:00.000Z",
+      }),
+      updatePreferences: vi.fn().mockResolvedValue({
+        selectedProviderId: null,
+        selectedModelId: null,
+        hybridEnabled: true,
+        hybridVisionProviderId: null,
+        hybridVisionModelId: null,
+        updatedAt: "2026-02-14T11:00:00.000Z",
+      }),
+    };
+
+    dispose = render(() => <ProviderSettings client={client} />, container);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const select = container.querySelector("select") as HTMLSelectElement;
+    const options = Array.from(select.querySelectorAll("option")).map(option => option.textContent);
+
+    expect(options.some(label => label?.includes("GLM-4.6V"))).toBe(true);
+    expect(options.some(label => label?.includes("GPT-4o"))).toBe(false);
   });
 });

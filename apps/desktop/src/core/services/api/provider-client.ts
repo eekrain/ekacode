@@ -37,13 +37,21 @@ export interface ProviderOAuthCallbackResponse {
 export interface ProviderPreferences {
   selectedProviderId: string | null;
   selectedModelId: string | null;
+  hybridEnabled: boolean;
+  hybridVisionProviderId: string | null;
+  hybridVisionModelId: string | null;
   updatedAt: string;
 }
 
 export interface ProviderModel {
   id: string;
   providerId: string;
+  providerName?: string;
   name?: string;
+  modalities?: {
+    input: Array<"text" | "audio" | "image" | "video" | "pdf">;
+    output: Array<"text" | "audio" | "image" | "video" | "pdf">;
+  };
   capabilities?: {
     text: boolean;
     vision: boolean;
@@ -53,8 +61,21 @@ export interface ProviderModel {
   };
 }
 
+export interface ProviderCatalogItem {
+  id: string;
+  name: string;
+  aliases: string[];
+  authMethods: ProviderAuthMethodDescriptor[];
+  connected: boolean;
+  modelCount: number;
+  popular: boolean;
+  supported?: boolean;
+  note?: string;
+}
+
 export interface ProviderClient {
   listProviders(): Promise<ProviderDescriptor[]>;
+  listProviderCatalog?(): Promise<ProviderCatalogItem[]>;
   listAuthMethods(): Promise<Record<string, ProviderAuthMethodDescriptor[]>>;
   listAuthStates(): Promise<Record<string, ProviderAuthState>>;
   listModels(): Promise<ProviderModel[]>;
@@ -73,7 +94,16 @@ export interface ProviderClient {
   ): Promise<ProviderOAuthCallbackResponse>;
   getPreferences(): Promise<ProviderPreferences>;
   updatePreferences(
-    input: Partial<Pick<ProviderPreferences, "selectedProviderId" | "selectedModelId">>
+    input: Partial<
+      Pick<
+        ProviderPreferences,
+        | "selectedProviderId"
+        | "selectedModelId"
+        | "hybridEnabled"
+        | "hybridVisionProviderId"
+        | "hybridVisionModelId"
+      >
+    >
   ): Promise<ProviderPreferences>;
 }
 
@@ -93,6 +123,12 @@ export function createProviderClient(options: CreateProviderClientOptions): Prov
     async listProviders() {
       const response = await options.fetcher("/api/providers", { method: "GET" });
       const data = await parseJsonOrThrow<{ providers: ProviderDescriptor[] }>(response);
+      return data.providers ?? [];
+    },
+
+    async listProviderCatalog() {
+      const response = await options.fetcher("/api/providers/catalog", { method: "GET" });
+      const data = await parseJsonOrThrow<{ providers: ProviderCatalogItem[] }>(response);
       return data.providers ?? [];
     },
 

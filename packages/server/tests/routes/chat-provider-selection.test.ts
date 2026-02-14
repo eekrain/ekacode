@@ -95,4 +95,31 @@ describe("chat provider selection", () => {
     const payload = await response.json();
     expect(payload.message).toContain("Streaming is required");
   }, 15000);
+
+  it("returns actionable error when image prompt uses text-only model without hybrid fallback", async () => {
+    process.env.ZAI_API_KEY = "env-token";
+    const chatRouter = (await import("../../src/routes/chat")).default;
+
+    const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        message: {
+          content: [
+            { type: "text", text: "analyze this image" },
+            { type: "image", image: { url: "https://example.com/image.png" } },
+          ],
+        },
+        providerId: "zai",
+        modelId: "zai/glm-5",
+        stream: false,
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(String(payload.error)).toContain("Configure Hybrid Vision Fallback");
+  }, 15000);
 });

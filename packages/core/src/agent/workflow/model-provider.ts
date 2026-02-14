@@ -17,6 +17,8 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { createZai } from "@ekacode/zai";
+import { Instance } from "../../instance";
+import { HybridAgent, createDefaultPromptRegistry } from "../hybrid-agent";
 
 // ============================================================================
 // ZAI PROVIDER (Primary) - Using "coding" endpoint for better code generation
@@ -70,6 +72,185 @@ const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY ?? "",
 });
 
+const providerCache = new Map<string, ReturnType<typeof createOpenAI>>();
+
+interface RuntimeSelection {
+  providerId: string;
+  modelId: string;
+  providerApiUrl?: string;
+  apiKey?: string;
+  headers?: Record<string, string>;
+}
+
+function getHybridVisionSelectionFromContext(): RuntimeSelection | null {
+  if (!Instance.inContext) return null;
+  const runtime = Instance.context.providerRuntime;
+  if (!runtime?.hybridVisionEnabled) return null;
+  if (!runtime.hybridVisionProviderId || !runtime.hybridVisionModelId) return null;
+
+  const parsed = parseModelReference(runtime.hybridVisionModelId);
+  const modelId =
+    parsed && parsed.providerId === runtime.hybridVisionProviderId
+      ? parsed.modelId
+      : parsed
+        ? parsed.modelId
+        : runtime.hybridVisionModelId;
+
+  return {
+    providerId: runtime.hybridVisionProviderId,
+    modelId,
+    providerApiUrl: runtime.hybridVisionProviderApiUrl?.trim(),
+    apiKey: runtime.hybridVisionApiKey?.trim(),
+  };
+}
+
+function parseModelReference(
+  modelReference: string
+): { providerId: string; modelId: string } | null {
+  const [providerId, ...rest] = modelReference.split("/");
+  if (!providerId || rest.length === 0) return null;
+  return { providerId, modelId: rest.join("/") };
+}
+
+function getRuntimeSelectionFromEnv(): RuntimeSelection | null {
+  const contextSelection = getRuntimeSelectionFromContext();
+  if (contextSelection) return contextSelection;
+
+  const providerId = process.env.EKACODE_ACTIVE_PROVIDER_ID?.trim();
+  const modelRef = process.env.EKACODE_ACTIVE_MODEL_ID?.trim();
+  if (!providerId || !modelRef) return null;
+
+  const parsed = parseModelReference(modelRef);
+  const modelId =
+    parsed && parsed.providerId === providerId
+      ? parsed.modelId
+      : parsed
+        ? parsed.modelId
+        : modelRef;
+
+  return {
+    providerId,
+    modelId,
+    providerApiUrl: process.env.EKACODE_ACTIVE_PROVIDER_API_URL?.trim(),
+    apiKey: process.env.EKACODE_PROVIDER_API_KEY?.trim(),
+  };
+}
+
+function getRuntimeSelectionFromContext(): RuntimeSelection | null {
+  if (!Instance.inContext) return null;
+  const runtime = Instance.context.providerRuntime;
+  if (!runtime?.providerId || !runtime.modelId) return null;
+
+  const parsed = parseModelReference(runtime.modelId);
+  const modelId =
+    parsed && parsed.providerId === runtime.providerId
+      ? parsed.modelId
+      : parsed
+        ? parsed.modelId
+        : runtime.modelId;
+
+  return {
+    providerId: runtime.providerId,
+    modelId,
+    providerApiUrl: runtime.providerApiUrl?.trim(),
+    apiKey: runtime.apiKey?.trim(),
+    headers: runtime.headers,
+  };
+}
+
+function defaultProviderHeaders(providerId: string): Record<string, string> | undefined {
+  switch (providerId) {
+    case "openrouter":
+      return {
+        "HTTP-Referer": "https://opencode.ai/",
+        "X-Title": "opencode",
+      };
+    case "vercel":
+      return {
+        "http-referer": "https://opencode.ai/",
+        "x-title": "opencode",
+      };
+    case "zenmux":
+      return {
+        "HTTP-Referer": "https://opencode.ai/",
+        "X-Title": "opencode",
+      };
+    case "cerebras":
+      return {
+        "X-Cerebras-3rd-Party-Integration": "opencode",
+      };
+    default:
+      return undefined;
+  }
+}
+
+function resolveModelFromSelection(selection: RuntimeSelection): LanguageModelV3 {
+  if (selection.providerId === "zai") {
+    return createZai({
+      apiKey: selection.apiKey || process.env.ZAI_API_KEY,
+      endpoint: "general",
+      baseURL: process.env.ZAI_BASE_URL,
+    })(selection.modelId as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+  }
+
+  if (selection.providerId === "zai-coding-plan") {
+    return createZai({
+      apiKey: selection.apiKey || process.env.ZAI_API_KEY,
+      endpoint: "coding",
+      baseURL: process.env.ZAI_BASE_URL,
+    })(selection.modelId as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+  }
+
+  const cacheKey = `${selection.providerId}|${selection.providerApiUrl ?? ""}|${selection.apiKey ?? ""}`;
+  const headers = {
+    ...(defaultProviderHeaders(selection.providerId) ?? {}),
+    ...(selection.headers ?? {}),
+  };
+  const headersKey = JSON.stringify(headers);
+  const finalCacheKey = `${cacheKey}|${headersKey}`;
+  let provider = providerCache.get(finalCacheKey);
+  if (!provider) {
+    provider = createOpenAI({
+      apiKey: selection.apiKey || process.env.OPENAI_API_KEY || "",
+      baseURL: selection.providerApiUrl,
+      headers,
+    });
+    providerCache.set(finalCacheKey, provider);
+  }
+  return provider(selection.modelId);
+}
+
+export function getModelByReference(modelReference: string): LanguageModelV3 {
+  const contextSelection = getRuntimeSelectionFromContext();
+  if (contextSelection) {
+    const parsed = parseModelReference(modelReference);
+    if (parsed) {
+      return resolveModelFromSelection({
+        providerId: parsed.providerId,
+        modelId: parsed.modelId,
+        providerApiUrl: contextSelection.providerApiUrl,
+        apiKey: contextSelection.apiKey,
+        headers: contextSelection.headers,
+      });
+    }
+    return resolveModelFromSelection(contextSelection);
+  }
+
+  const parsed = parseModelReference(modelReference);
+  if (parsed) {
+    return resolveModelFromSelection({
+      providerId: parsed.providerId,
+      modelId: parsed.modelId,
+      providerApiUrl: process.env.EKACODE_ACTIVE_PROVIDER_API_URL?.trim(),
+      apiKey: process.env.EKACODE_PROVIDER_API_KEY?.trim(),
+    });
+  }
+
+  const active = getRuntimeSelectionFromEnv();
+  if (active) return resolveModelFromSelection(active);
+  throw new Error(`Invalid model reference: ${modelReference}`);
+}
+
 /**
  * Fallback plan model using OpenAI gpt-4o
  *
@@ -93,6 +274,9 @@ export const exploreModelOpenAI: LanguageModelV3 = openai("gpt-4o-mini");
  * Prioritizes Z.ai, falls back to OpenAI if configured.
  */
 export function getPlanModel(): LanguageModelV3 {
+  const active = getRuntimeSelectionFromEnv();
+  if (active) return resolveModelFromSelection(active);
+
   // Use Z.ai by default (requires ZAI_API_KEY)
   if (process.env.ZAI_API_KEY || process.env.ZAI_BASE_URL) {
     return planModel;
@@ -112,6 +296,20 @@ export function getPlanModel(): LanguageModelV3 {
  * Currently only Z.ai is supported for build (optimal for code generation).
  */
 export function getBuildModel(): LanguageModelV3 {
+  const active = getRuntimeSelectionFromEnv();
+  if (active) {
+    const visionSelection = getHybridVisionSelectionFromContext();
+    if (visionSelection) {
+      return new HybridAgent({
+        modelId: `hybrid/${active.providerId}/${active.modelId}`,
+        textModel: resolveModelFromSelection(active),
+        visionModel: resolveModelFromSelection(visionSelection),
+        loadPrompts: () => createDefaultPromptRegistry(),
+      });
+    }
+    return resolveModelFromSelection(active);
+  }
+
   // Build requires Z.ai for optimal performance
   if (process.env.ZAI_API_KEY || process.env.ZAI_BASE_URL) {
     return buildModel;
@@ -124,6 +322,9 @@ export function getBuildModel(): LanguageModelV3 {
  * Prioritizes Z.ai, falls back to OpenAI if configured.
  */
 export function getExploreModel(): LanguageModelV3 {
+  const active = getRuntimeSelectionFromEnv();
+  if (active) return resolveModelFromSelection(active);
+
   // Use Z.ai by default
   if (process.env.ZAI_API_KEY || process.env.ZAI_BASE_URL) {
     return exploreModel;

@@ -8,6 +8,7 @@
  * Publishes Opencode-style part events to the Bus for SSE streaming.
  */
 
+import { Instance } from "@ekacode/core/server";
 import { createLogger } from "@ekacode/shared/logger";
 import { createUIMessageStream, createUIMessageStreamResponse } from "ai";
 import { Hono } from "hono";
@@ -18,12 +19,7 @@ import type { Env } from "../index";
 import { createSessionMessage, sessionBridge } from "../middleware/session-bridge";
 import { resolveOAuthAccessToken } from "../provider/auth/oauth";
 import { normalizeProviderError } from "../provider/errors";
-import {
-  getProviderRuntime,
-  hasProviderEnvironmentCredential,
-  providerCredentialEnvVar,
-  resolveChatSelection,
-} from "../provider/runtime";
+import { getProviderRuntime, resolveChatSelection } from "../provider/runtime";
 import { getSessionManager } from "../runtime";
 import { getSessionMessages } from "../state/session-message-store";
 
@@ -349,6 +345,25 @@ interface AssistantInfoPayload {
       write: number;
     };
   };
+}
+
+function requestHasImageContent(rawMessage: unknown): boolean {
+  if (!rawMessage || typeof rawMessage !== "object" || !("content" in rawMessage)) return false;
+  const content = (rawMessage as { content?: unknown }).content;
+  if (!Array.isArray(content)) return false;
+
+  return content.some(part => {
+    if (!part || typeof part !== "object") return false;
+    const typed = part as { type?: unknown; mediaType?: unknown; url?: unknown; image?: unknown };
+    const partType = typeof typed.type === "string" ? typed.type : "";
+    if (partType === "image" || partType === "image_url") return true;
+    if (partType === "file" && typeof typed.mediaType === "string") {
+      return typed.mediaType.startsWith("image/");
+    }
+    if (typeof typed.url === "string" && typed.url.startsWith("data:image/")) return true;
+    if (typeof typed.image === "string" && typed.image.startsWith("data:image/")) return true;
+    return false;
+  });
 }
 
 export function createPartPublishState(): PartPublishState {
@@ -949,27 +964,101 @@ app.post("/api/chat", async c => {
   }
 
   const providerRuntime = getProviderRuntime();
-  const provider = providerRuntime.registry.adapters.get(selection.providerId);
-  if (!provider) {
+  const modelCatalog = await providerRuntime.modelCatalogService.list();
+  const selectedModelId = selection.modelId.includes("/")
+    ? selection.modelId
+    : `${selection.providerId}/${selection.modelId}`;
+  const selectedModel = modelCatalog.find(model => model.id === selectedModelId);
+  if (!selectedModel) {
     const normalized = normalizeProviderError(
-      new Error(`Unknown provider: ${selection.providerId}`)
+      new Error(`Unknown provider/model: ${selection.providerId}/${selection.modelId}`)
     );
     return c.json(normalized, normalized.status);
   }
 
+  const hasImageInput = requestHasImageContent(rawMessage);
+  const selectedSupportsImage = Boolean(
+    selectedModel.modalities?.input?.includes("image") ?? selectedModel.capabilities?.vision
+  );
+  const preferences = await providerRuntime.preferenceService.get();
+  const shouldUseHybridFallback =
+    hasImageInput && !selectedSupportsImage && preferences.hybridEnabled !== false;
+
+  const hybridVisionModel =
+    shouldUseHybridFallback && preferences.hybridVisionProviderId && preferences.hybridVisionModelId
+      ? modelCatalog.find(model => model.id === preferences.hybridVisionModelId)
+      : undefined;
+
+  if (shouldUseHybridFallback && !hybridVisionModel) {
+    return c.json(
+      {
+        error:
+          "Selected model does not support image input. Configure Hybrid Vision Fallback in Settings.",
+      },
+      400
+    );
+  }
+
+  if (
+    shouldUseHybridFallback &&
+    !(
+      hybridVisionModel?.modalities?.input?.includes("image") ??
+      hybridVisionModel?.capabilities?.vision
+    )
+  ) {
+    return c.json(
+      {
+        error:
+          "Configured Hybrid Vision Fallback model does not support image input. Select a vision-capable model in Settings.",
+      },
+      400
+    );
+  }
+
   const authState = await providerRuntime.authService.getState(selection.providerId);
-  const hasEnvCredential = hasProviderEnvironmentCredential(selection.providerId);
+  const envTokenFromProvider =
+    selectedModel.providerEnvVars
+      ?.map(envName => process.env[envName])
+      .find((value): value is string => typeof value === "string" && value.trim().length > 0) ??
+    null;
   const storedCredential = await providerRuntime.authService.getCredential(selection.providerId);
   if (
     selection.explicit &&
     authState.status !== "connected" &&
-    !hasEnvCredential &&
+    !envTokenFromProvider &&
     !storedCredential
   ) {
     const normalized = normalizeProviderError(
       new Error(`Provider ${selection.providerId} is not authenticated`)
     );
     return c.json(normalized, normalized.status);
+  }
+
+  const hybridVisionProviderId = hybridVisionModel?.providerId;
+  const hybridVisionAuthState = hybridVisionProviderId
+    ? await providerRuntime.authService.getState(hybridVisionProviderId)
+    : null;
+  const hybridVisionEnvToken = hybridVisionModel?.providerEnvVars
+    ?.map(envName => process.env[envName])
+    .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+  const hybridVisionCredential = hybridVisionProviderId
+    ? await providerRuntime.authService.getCredential(hybridVisionProviderId)
+    : null;
+
+  if (
+    shouldUseHybridFallback &&
+    hybridVisionProviderId &&
+    hybridVisionAuthState?.status !== "connected" &&
+    !hybridVisionEnvToken &&
+    !hybridVisionCredential
+  ) {
+    return c.json(
+      {
+        error:
+          "Hybrid Vision Fallback provider is not authenticated. Connect it in Settings before sending image prompts.",
+      },
+      401
+    );
   }
 
   logger.debug("Getting or creating session controller", {
@@ -1115,7 +1204,7 @@ app.post("/api/chat", async c => {
         });
 
         // Check if selected provider is configured
-        if (!hasEnvCredential && !storedCredential) {
+        if (!envTokenFromProvider && !storedCredential) {
           logger.error("No AI provider configured", undefined, {
             module: "chat",
             sessionId: session.sessionId,
@@ -1556,26 +1645,37 @@ app.post("/api/chat", async c => {
 
           // Process the message with agent and stream events
           const result = await (async () => {
-            if (hasEnvCredential || !storedCredential) {
-              return processAgentMessage();
-            }
-
-            const envVar = providerCredentialEnvVar(selection.providerId);
-            const token =
-              storedCredential.kind === "oauth"
+            const token = storedCredential
+              ? storedCredential.kind === "oauth"
                 ? await resolveOAuthAccessToken(selection.providerId, providerRuntime.authService)
-                : storedCredential.token;
-            if (!envVar || !token) {
-              return processAgentMessage();
-            }
+                : storedCredential.token
+              : envTokenFromProvider;
+            const hybridVisionToken = hybridVisionCredential
+              ? hybridVisionCredential.kind === "oauth"
+                ? await resolveOAuthAccessToken(
+                    hybridVisionProviderId!,
+                    providerRuntime.authService
+                  )
+                : hybridVisionCredential.token
+              : hybridVisionEnvToken;
 
-            const previous = process.env[envVar];
-            process.env[envVar] = token;
+            const previousRuntime = Instance.context.providerRuntime;
+            Instance.context.providerRuntime = {
+              providerId: selection.providerId,
+              modelId: selectedModel.id,
+              providerApiUrl: selectedModel.providerApiUrl,
+              apiKey: token ?? undefined,
+              hybridVisionEnabled: shouldUseHybridFallback,
+              hybridVisionProviderId,
+              hybridVisionModelId: hybridVisionModel?.id,
+              hybridVisionProviderApiUrl: hybridVisionModel?.providerApiUrl,
+              hybridVisionApiKey: hybridVisionToken ?? undefined,
+            };
+
             try {
               return await processAgentMessage();
             } finally {
-              if (previous === undefined) delete process.env[envVar];
-              else process.env[envVar] = previous;
+              Instance.context.providerRuntime = previousRuntime;
             }
           })();
           await partPublishQueue;
