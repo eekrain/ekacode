@@ -1,3 +1,4 @@
+import { AnthropicProviderAdapter } from "./adapters/anthropic";
 import type { ProviderAdapter } from "./adapters/base";
 import { OpenAIProviderAdapter } from "./adapters/openai";
 import { ZaiProviderAdapter } from "./adapters/zai";
@@ -13,8 +14,10 @@ export function createProviderRegistry(): ProviderRegistry {
   const adapters = new Map<string, ProviderAdapter>();
   const zai = new ZaiProviderAdapter();
   const openai = new OpenAIProviderAdapter();
+  const anthropic = new AnthropicProviderAdapter();
   adapters.set(zai.id, zai);
   adapters.set(openai.id, openai);
+  adapters.set(anthropic.id, anthropic);
 
   return { adapters };
 }
