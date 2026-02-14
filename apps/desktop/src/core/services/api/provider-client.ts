@@ -21,6 +21,13 @@ export interface ProviderModel {
   id: string;
   providerId: string;
   name?: string;
+  capabilities?: {
+    text: boolean;
+    vision: boolean;
+    tools: boolean;
+    reasoning: boolean;
+    plan: boolean;
+  };
 }
 
 export interface ProviderClient {

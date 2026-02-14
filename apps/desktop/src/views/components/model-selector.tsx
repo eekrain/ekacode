@@ -18,7 +18,7 @@ export function ModelSelector(props: ModelSelectorProps) {
       >
         <For each={props.models}>
           {model => (
-            <option value={model.id}>
+            <option value={model.id} disabled={model.capabilities?.text === false}>
               {model.name || model.id} ({model.providerId})
             </option>
           )}

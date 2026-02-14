@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ProviderAdapter } from "../adapters/base";
+import { inferModelCapabilities } from "../capabilities";
 import type { ModelDescriptor } from "../types";
 import type { ModelsDevPayload } from "./models-dev-client";
 import { fetchModelsDev } from "./models-dev-client";
@@ -29,13 +30,11 @@ function buildModelDescriptor(
     providerName,
     contextWindow: 128000,
     maxOutputTokens: 8192,
-    capabilities: {
-      text: true,
-      vision: false,
-      tools: true,
-      reasoning: true,
-      plan: false,
-    },
+    capabilities: inferModelCapabilities({
+      providerId,
+      modelId: model.id,
+      modelName: model.name,
+    }),
   };
 }
 
