@@ -18,8 +18,22 @@ export interface ProviderAuthState {
 }
 
 export interface ProviderAuthMethodDescriptor {
-  type: "token" | "oauth" | "none";
+  type: "api" | "token" | "oauth" | "none";
   label: string;
+  prompts?: Array<
+    | {
+        type: "text";
+        key: string;
+        message: string;
+        placeholder?: string;
+      }
+    | {
+        type: "select";
+        key: string;
+        message: string;
+        options: Array<{ label: string; value: string; hint?: string }>;
+      }
+  >;
 }
 
 export interface ProviderOAuthAuthorizeResponse {

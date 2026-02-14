@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   modelDescriptorSchema,
+  providerAuthMethodDescriptorSchema,
   providerAuthStateSchema,
   providerConfigPayloadSchema,
   providerDescriptorSchema,
@@ -36,6 +37,24 @@ describe("provider domain schemas", () => {
 
     expect(parsed.status).toBe("connected");
     expect(parsed.method).toBe("token");
+  });
+
+  it("parses ProviderAuthMethodDescriptor with OpenCode-compatible metadata", () => {
+    const parsed = providerAuthMethodDescriptorSchema.parse({
+      type: "api",
+      label: "API Key",
+      prompts: [
+        {
+          type: "text",
+          key: "apiKey",
+          message: "Enter API key",
+          placeholder: "sk-...",
+        },
+      ],
+    });
+
+    expect(parsed.type).toBe("api");
+    expect(parsed.prompts?.[0]?.type).toBe("text");
   });
 
   it("parses ModelDescriptor", () => {

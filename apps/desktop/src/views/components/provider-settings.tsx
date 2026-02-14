@@ -27,7 +27,7 @@ function fallbackCatalogFromProviders(input: {
     id: provider.id,
     name: provider.name,
     aliases: [provider.id, provider.name.toLowerCase()],
-    authMethods: input.authMethods[provider.id] ?? [{ type: "token", label: "API Token" }],
+    authMethods: input.authMethods[provider.id] ?? [{ type: "api", label: "API Key" }],
     connected: input.auth[provider.id]?.status === "connected",
     modelCount: 0,
     popular:
@@ -68,7 +68,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
       authMethods:
         provider.authMethods.length > 0
           ? provider.authMethods
-          : (authMethods[provider.id] ?? [{ type: "token" as const, label: "API Token" }]),
+          : (authMethods[provider.id] ?? [{ type: "api" as const, label: "API Key" }]),
       connected: auth[provider.id]?.status === "connected" || provider.connected,
       supported:
         typeof provider.supported === "boolean"
@@ -89,7 +89,10 @@ export function ProviderSettings(props: ProviderSettingsProps) {
         mergedAuth[provider.id] = {
           providerId: provider.id,
           status: provider.connected ? "connected" : "disconnected",
-          method: provider.authMethods[0]?.type ?? "token",
+          method:
+            provider.authMethods[0]?.type === "api"
+              ? "token"
+              : (provider.authMethods[0]?.type ?? "token"),
           accountLabel: null,
           updatedAt: new Date().toISOString(),
         };
@@ -496,7 +499,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                 <div>
                   <h3 class="text-base font-semibold tracking-tight">Connect a provider</h3>
                   <p class="text-xs text-zinc-400">
-                    Search providers and connect with token or OAuth
+                    Search providers and connect with API key or OAuth
                   </p>
                 </div>
                 <button
@@ -668,23 +671,30 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                                   </span>
                                 </div>
 
-                                <Show when={method.type === "token"}>
-                                  <div class="flex flex-wrap items-center gap-2">
-                                    <input
-                                      type="password"
-                                      class="w-full min-w-[220px] flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-2 text-xs text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-zinc-500"
-                                      placeholder="API token"
-                                      value={tokenByProvider()[providerId] || ""}
-                                      onInput={event =>
-                                        setTokenDraft(providerId, event.currentTarget.value)
-                                      }
-                                    />
-                                    <button
-                                      class="rounded-md border border-zinc-600 bg-zinc-800 px-2.5 py-2 text-xs font-medium text-zinc-100 transition-colors hover:bg-zinc-700"
-                                      onClick={() => void connectToken(providerId)}
-                                    >
-                                      Connect
-                                    </button>
+                                <Show when={method.type === "token" || method.type === "api"}>
+                                  <div class="space-y-2">
+                                    <Show when={providerId === "opencode"}>
+                                      <p class="text-xs text-zinc-400">
+                                        Create an api key at https://opencode.ai/auth
+                                      </p>
+                                    </Show>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                      <input
+                                        type="password"
+                                        class="w-full min-w-[220px] flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-2 text-xs text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-zinc-500"
+                                        placeholder="API key"
+                                        value={tokenByProvider()[providerId] || ""}
+                                        onInput={event =>
+                                          setTokenDraft(providerId, event.currentTarget.value)
+                                        }
+                                      />
+                                      <button
+                                        class="rounded-md border border-zinc-600 bg-zinc-800 px-2.5 py-2 text-xs font-medium text-zinc-100 transition-colors hover:bg-zinc-700"
+                                        onClick={() => void connectToken(providerId)}
+                                      >
+                                        Connect
+                                      </button>
+                                    </div>
                                   </div>
                                 </Show>
 

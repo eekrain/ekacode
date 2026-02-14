@@ -52,8 +52,9 @@ export const providerSchemaArtifact = {
                       type: "object",
                       required: ["type", "label"],
                       properties: {
-                        type: { type: "string", enum: ["token", "oauth", "none"] },
+                        type: { type: "string", enum: ["api", "token", "oauth", "none"] },
                         label: { type: "string" },
+                        prompts: { type: "array" },
                       },
                     },
                   },
@@ -79,8 +80,9 @@ export const providerSchemaArtifact = {
               type: "object",
               required: ["type", "label"],
               properties: {
-                type: { type: "string", enum: ["token", "oauth", "none"] },
+                type: { type: "string", enum: ["api", "token", "oauth", "none"] },
                 label: { type: "string" },
+                prompts: { type: "array" },
               },
             },
           },

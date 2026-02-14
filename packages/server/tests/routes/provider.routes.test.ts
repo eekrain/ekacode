@@ -197,101 +197,43 @@ describe("provider routes", () => {
     expect(authDisconnectedBody[providerId].status).toBe("disconnected");
   });
 
-  it("supports oauth authorize and callback stubs", async () => {
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            zai: {
-              name: "Z.AI",
-              models: {},
-            },
-          }),
-          {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          }
-        )
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            verification_uri: "https://zen.example.com/device",
-            user_code: "ABCD-EFGH",
-            device_code: "device-code-1",
-            interval: 1,
-            expires_in: 300,
-          }),
-          {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          }
-        )
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            access_token: "access-token-1",
-            refresh_token: "refresh-token-1",
-            expires_in: 3600,
-            account_label: "zen-user",
-          }),
-          {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          }
-        )
-      );
-
+  it("does not expose oauth methods for opencode and zai providers", async () => {
     const providerRouter = (await import("../../src/routes/provider")).default;
 
     const methods = await providerRouter.request("http://localhost/api/providers/auth/methods");
     expect(methods.status).toBe(200);
     const methodsBody = await methods.json();
+    expect(Array.isArray(methodsBody.opencode)).toBe(true);
     expect(Array.isArray(methodsBody.zai)).toBe(true);
-    expect(methodsBody.zai.some((method: { type: string }) => method.type === "oauth")).toBe(true);
+    expect(Array.isArray(methodsBody.openai)).toBe(true);
+    expect(methodsBody.openai.some((method: { type: string }) => method.type === "api")).toBe(true);
+    expect(methodsBody.opencode.some((method: { type: string }) => method.type === "oauth")).toBe(
+      false
+    );
+    expect(methodsBody.zai.some((method: { type: string }) => method.type === "oauth")).toBe(false);
+  });
 
+  it("returns normalized error when oauth authorize is requested for non-oauth provider", async () => {
+    const providerRouter = (await import("../../src/routes/provider")).default;
     const authorize = await providerRouter.request(
-      "http://localhost/api/providers/zai/oauth/authorize",
+      "http://localhost/api/providers/opencode/oauth/authorize",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ method: 1 }),
+        body: JSON.stringify({ method: 0 }),
       }
     );
 
-    expect(authorize.status).toBe(200);
-    const authorizeBody = await authorize.json();
-    expect(authorizeBody.providerId).toBe("zai");
-    expect(typeof authorizeBody.authorizationId).toBe("string");
-    expect(typeof authorizeBody.url).toBe("string");
-    expect(["auto", "code"]).toContain(authorizeBody.method);
-
-    const callback = await providerRouter.request(
-      "http://localhost/api/providers/zai/oauth/callback",
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          method: 1,
-          authorizationId: authorizeBody.authorizationId,
-          code: "abc",
-        }),
-      }
-    );
-
-    expect(callback.status).toBe(200);
-    const callbackBody = await callback.json();
-    expect(["pending", "connected"]).toContain(callbackBody.status);
-    expect(fetchMock).toHaveBeenCalled();
+    expect(authorize.status).toBe(400);
+    const body = await authorize.json();
+    expect(body.error?.code).toBe("PROVIDER_INVALID_REQUEST");
   });
 
   it("returns normalized oauth error for missing authorization", async () => {
     const providerRouter = (await import("../../src/routes/provider")).default;
 
     const callback = await providerRouter.request(
-      "http://localhost/api/providers/zai/oauth/callback",
+      "http://localhost/api/providers/opencode/oauth/callback",
       {
         method: "POST",
         headers: { "content-type": "application/json" },

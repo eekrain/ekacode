@@ -1,6 +1,26 @@
 import { z } from "zod";
 
-export const providerAuthMethodSchema = z.enum(["token", "oauth", "none"]);
+const providerAuthPromptTextSchema = z.object({
+  type: z.literal("text"),
+  key: z.string().min(1),
+  message: z.string().min(1),
+  placeholder: z.string().optional(),
+});
+
+const providerAuthPromptSelectSchema = z.object({
+  type: z.literal("select"),
+  key: z.string().min(1),
+  message: z.string().min(1),
+  options: z.array(
+    z.object({
+      label: z.string().min(1),
+      value: z.string().min(1),
+      hint: z.string().optional(),
+    })
+  ),
+});
+
+export const providerAuthMethodSchema = z.enum(["api", "token", "oauth", "none"]);
 export const providerOAuthFlowMethodSchema = z.enum(["auto", "code"]);
 
 export const providerDescriptorSchema = z.object({
@@ -25,6 +45,9 @@ export const providerAuthStateSchema = z.object({
 export const providerAuthMethodDescriptorSchema = z.object({
   type: providerAuthMethodSchema,
   label: z.string().min(1),
+  prompts: z
+    .array(z.union([providerAuthPromptTextSchema, providerAuthPromptSelectSchema]))
+    .optional(),
 });
 
 export const providerCatalogItemSchema = z.object({

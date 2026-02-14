@@ -109,6 +109,60 @@ describe("ProviderSettings", () => {
     expect(client.setToken).toHaveBeenCalledWith("zai", "token-123");
   });
 
+  it("treats api auth method as token input flow", async () => {
+    const client: ProviderClient = {
+      listProviders: vi.fn().mockResolvedValue([{ id: "openai", name: "OpenAI" }]),
+      listAuthMethods: vi.fn().mockResolvedValue({ openai: [{ type: "api", label: "API Key" }] }),
+      listAuthStates: vi.fn().mockResolvedValue({
+        openai: {
+          providerId: "openai",
+          status: "disconnected",
+          method: "token",
+          accountLabel: null,
+          updatedAt: "2026-02-14T11:00:00.000Z",
+        },
+      }),
+      listModels: vi.fn().mockResolvedValue([]),
+      setToken: vi.fn().mockResolvedValue(undefined),
+      clearToken: vi.fn().mockResolvedValue(undefined),
+      oauthAuthorize: vi.fn(),
+      oauthCallback: vi.fn(),
+      getPreferences: vi.fn().mockResolvedValue({
+        selectedProviderId: null,
+        selectedModelId: null,
+        hybridEnabled: true,
+        hybridVisionProviderId: null,
+        hybridVisionModelId: null,
+        updatedAt: "2026-02-14T11:00:00.000Z",
+      }),
+      updatePreferences: vi.fn(),
+    };
+
+    dispose = render(() => <ProviderSettings client={client} />, container);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const openModalButton = Array.from(container.querySelectorAll("button")).find(button =>
+      button.textContent?.includes("Connect a provider")
+    ) as HTMLButtonElement;
+    openModalButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const input = container.querySelector('input[type="password"]') as HTMLInputElement;
+    expect(input).toBeTruthy();
+
+    input.value = "openai-key";
+    input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+
+    const connect = Array.from(container.querySelectorAll("button")).find(
+      button => button.textContent === "Connect"
+    ) as HTMLButtonElement;
+    connect.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(client.setToken).toHaveBeenCalledWith("openai", "openai-key");
+  });
+
   it("runs oauth auto flow from provider modal", async () => {
     const openExternal = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(window, "ekacodeAPI", {
@@ -121,13 +175,13 @@ describe("ProviderSettings", () => {
     });
 
     const client: ProviderClient = {
-      listProviders: vi.fn().mockResolvedValue([{ id: "zai", name: "Z.AI" }]),
+      listProviders: vi.fn().mockResolvedValue([{ id: "openai", name: "OpenAI" }]),
       listAuthMethods: vi.fn().mockResolvedValue({
-        zai: [{ type: "oauth", label: "Connect with Zen" }],
+        openai: [{ type: "oauth", label: "ChatGPT Pro/Plus (browser)" }],
       }),
       listAuthStates: vi.fn().mockResolvedValue({
-        zai: {
-          providerId: "zai",
+        openai: {
+          providerId: "openai",
           status: "disconnected",
           method: "oauth",
           accountLabel: null,
@@ -138,7 +192,7 @@ describe("ProviderSettings", () => {
       setToken: vi.fn().mockResolvedValue(undefined),
       clearToken: vi.fn().mockResolvedValue(undefined),
       oauthAuthorize: vi.fn().mockResolvedValue({
-        providerId: "zai",
+        providerId: "openai",
         authorizationId: "oauth-1",
         url: "https://example.com/oauth",
         method: "auto",
@@ -168,7 +222,7 @@ describe("ProviderSettings", () => {
     await new Promise(resolve => setTimeout(resolve, 0));
 
     const connectOAuthButton = Array.from(container.querySelectorAll("button")).find(button =>
-      button.textContent?.includes("Connect with Zen")
+      button.textContent?.includes("ChatGPT Pro/Plus (browser)")
     ) as HTMLButtonElement;
 
     connectOAuthButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -176,20 +230,20 @@ describe("ProviderSettings", () => {
     await new Promise(resolve => setTimeout(resolve, 0));
     await new Promise(resolve => setTimeout(resolve, 0));
 
-    expect(client.oauthAuthorize).toHaveBeenCalledWith("zai", 0);
+    expect(client.oauthAuthorize).toHaveBeenCalledWith("openai", 0);
     expect(openExternal).toHaveBeenCalledWith("https://example.com/oauth");
-    expect(client.oauthCallback).toHaveBeenCalledWith("zai", 0, "oauth-1");
+    expect(client.oauthCallback).toHaveBeenCalledWith("openai", 0, "oauth-1");
   });
 
   it("shows oauth error when authorize fails", async () => {
     const client: ProviderClient = {
-      listProviders: vi.fn().mockResolvedValue([{ id: "zai", name: "Z.AI" }]),
+      listProviders: vi.fn().mockResolvedValue([{ id: "openai", name: "OpenAI" }]),
       listAuthMethods: vi.fn().mockResolvedValue({
-        zai: [{ type: "oauth", label: "Connect with Zen" }],
+        openai: [{ type: "oauth", label: "ChatGPT Pro/Plus (browser)" }],
       }),
       listAuthStates: vi.fn().mockResolvedValue({
-        zai: {
-          providerId: "zai",
+        openai: {
+          providerId: "openai",
           status: "disconnected",
           method: "oauth",
           accountLabel: null,
@@ -224,13 +278,144 @@ describe("ProviderSettings", () => {
     await new Promise(resolve => setTimeout(resolve, 0));
 
     const connectOAuthButton = Array.from(container.querySelectorAll("button")).find(button =>
-      button.textContent?.includes("Connect with Zen")
+      button.textContent?.includes("ChatGPT Pro/Plus (browser)")
     ) as HTMLButtonElement;
 
     connectOAuthButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
     await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(container.textContent).toContain("oauth failed");
+  });
+
+  it("shows OpenCode Zen API key helper copy", async () => {
+    const client: ProviderClient = {
+      listProviders: vi.fn().mockResolvedValue([{ id: "opencode", name: "OpenCode Zen" }]),
+      listProviderCatalog: vi.fn().mockResolvedValue([
+        {
+          id: "opencode",
+          name: "OpenCode Zen",
+          aliases: ["opencode", "zen"],
+          authMethods: [{ type: "api", label: "API Key" }],
+          connected: false,
+          modelCount: 10,
+          popular: true,
+        },
+      ]),
+      listAuthMethods: vi.fn().mockResolvedValue({
+        opencode: [{ type: "api", label: "API Key" }],
+      }),
+      listAuthStates: vi.fn().mockResolvedValue({
+        opencode: {
+          providerId: "opencode",
+          status: "disconnected",
+          method: "token",
+          accountLabel: null,
+          updatedAt: "2026-02-14T11:00:00.000Z",
+        },
+      }),
+      listModels: vi.fn().mockResolvedValue([]),
+      setToken: vi.fn().mockResolvedValue(undefined),
+      clearToken: vi.fn().mockResolvedValue(undefined),
+      oauthAuthorize: vi.fn(),
+      oauthCallback: vi.fn(),
+      getPreferences: vi.fn().mockResolvedValue({
+        selectedProviderId: null,
+        selectedModelId: null,
+        hybridEnabled: true,
+        hybridVisionProviderId: null,
+        hybridVisionModelId: null,
+        updatedAt: "2026-02-14T11:00:00.000Z",
+      }),
+      updatePreferences: vi.fn(),
+    };
+
+    dispose = render(() => <ProviderSettings client={client} />, container);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const openModalButton = Array.from(container.querySelectorAll("button")).find(button =>
+      button.textContent?.includes("Connect a provider")
+    ) as HTMLButtonElement;
+    openModalButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(container.textContent).toContain("Create an api key at https://opencode.ai/auth");
+    expect(container.textContent).toContain("Search providers and connect with API key or OAuth");
+    const apiInput = container.querySelector('input[placeholder="API key"]');
+    expect(apiInput).toBeTruthy();
+  });
+
+  it("renders only API key input for api-only providers without oauth button", async () => {
+    const client: ProviderClient = {
+      listProviders: vi.fn().mockResolvedValue([
+        { id: "zai", name: "Z.AI" },
+        { id: "opencode", name: "OpenCode" },
+        { id: "zai-coding-plan", name: "Z.AI Coding Plan" },
+      ]),
+      listAuthMethods: vi.fn().mockResolvedValue({
+        zai: [{ type: "api", label: "API Key" }],
+        opencode: [{ type: "api", label: "API Key" }],
+        "zai-coding-plan": [{ type: "api", label: "API Key" }],
+      }),
+      listAuthStates: vi.fn().mockResolvedValue({
+        zai: {
+          providerId: "zai",
+          status: "disconnected",
+          method: "token",
+          accountLabel: null,
+          updatedAt: "2026-02-14T11:00:00.000Z",
+        },
+        opencode: {
+          providerId: "opencode",
+          status: "disconnected",
+          method: "token",
+          accountLabel: null,
+          updatedAt: "2026-02-14T11:00:00.000Z",
+        },
+        "zai-coding-plan": {
+          providerId: "zai-coding-plan",
+          status: "disconnected",
+          method: "token",
+          accountLabel: null,
+          updatedAt: "2026-02-14T11:00:00.000Z",
+        },
+      }),
+      listModels: vi.fn().mockResolvedValue([]),
+      setToken: vi.fn().mockResolvedValue(undefined),
+      clearToken: vi.fn().mockResolvedValue(undefined),
+      oauthAuthorize: vi.fn(),
+      oauthCallback: vi.fn(),
+      getPreferences: vi.fn().mockResolvedValue({
+        selectedProviderId: null,
+        selectedModelId: null,
+        hybridEnabled: true,
+        hybridVisionProviderId: null,
+        hybridVisionModelId: null,
+        updatedAt: "2026-02-14T11:00:00.000Z",
+      }),
+      updatePreferences: vi.fn(),
+    };
+
+    dispose = render(() => <ProviderSettings client={client} />, container);
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const openModalButton = Array.from(container.querySelectorAll("button")).find(b =>
+      b.textContent?.includes("Connect a provider")
+    ) as HTMLButtonElement;
+    openModalButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const apiInput = container.querySelector('input[placeholder="API key"]');
+    expect(apiInput).toBeTruthy();
+    expect(container.textContent).toContain("Connect a provider");
+    const oauthButtons = Array.from(container.querySelectorAll("button")).filter(b =>
+      /oauth|Connect with/i.test(b.textContent || "")
+    );
+
+    expect(oauthButtons.length).toBe(0);
   });
 
   it("searches all providers inside connect dialog", async () => {

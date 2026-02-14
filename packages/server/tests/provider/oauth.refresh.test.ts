@@ -19,12 +19,12 @@ describe("oauth refresh", () => {
       }),
     };
 
-    const token = await resolveOAuthAccessToken("zai", authService);
+    const token = await resolveOAuthAccessToken("opencode", authService);
     expect(token).toBe("access-live");
     expect(authService.setOAuth).not.toHaveBeenCalled();
   });
 
-  it("refreshes expired oauth credential and persists new tokens", async () => {
+  it("returns existing access token when provider has no oauth refresh implementation", async () => {
     const authService: ProviderAuthService = {
       setToken: vi.fn(),
       setOAuth: vi.fn(),
@@ -40,28 +40,9 @@ describe("oauth refresh", () => {
       }),
     };
 
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          access_token: "new-access",
-          refresh_token: "new-refresh",
-          expires_in: 1200,
-          account_label: "refreshed-user",
-        }),
-        { status: 200, headers: { "content-type": "application/json" } }
-      )
-    );
+    const token = await resolveOAuthAccessToken("opencode", authService);
 
-    const token = await resolveOAuthAccessToken("zai", authService);
-
-    expect(token).toBe("new-access");
-    expect(authService.setOAuth).toHaveBeenCalledWith(
-      expect.objectContaining({
-        providerId: "zai",
-        accessToken: "new-access",
-        refreshToken: "new-refresh",
-      })
-    );
-    fetchMock.mockRestore();
+    expect(token).toBe("expired-access");
+    expect(authService.setOAuth).not.toHaveBeenCalled();
   });
 });
