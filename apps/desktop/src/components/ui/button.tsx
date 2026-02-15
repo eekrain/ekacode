@@ -11,13 +11,12 @@ type ButtonSize = "sm" | "md" | "lg" | "icon-sm" | "icon-md" | "icon-lg";
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    "bg-[oklch(0.65_0.18_132)] text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:bg-[oklch(0.6_0.18_132)] active:shadow-md active:scale-[0.98] dark:bg-[oklch(0.7_0.18_130)] dark:hover:bg-[oklch(0.65_0.18_130)]",
+    "bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:bg-primary/90 active:shadow-md active:scale-[0.98]",
   secondary:
-    "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 shadow-md shadow-zinc-200/50 dark:shadow-zinc-900/50 hover:shadow-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 active:shadow-sm active:scale-[0.98]",
-  ghost:
-    "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 active:scale-[0.98]",
+    "bg-secondary text-secondary-foreground shadow-md shadow-secondary/50 hover:shadow-lg hover:bg-secondary/80 active:shadow-sm active:scale-[0.98]",
+  ghost: "text-muted-foreground hover:bg-accent hover:text-accent-foreground active:scale-[0.98]",
   danger:
-    "bg-red-600 text-white shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover:bg-red-500 active:shadow-md active:scale-[0.98]",
+    "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/20 hover:shadow-xl hover:shadow-destructive/30 hover:bg-destructive/90 active:shadow-md active:scale-[0.98]",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
@@ -75,10 +74,9 @@ const Button = <T extends ValidComponent = "button">(
       class={cn(
         "group relative inline-flex items-center justify-center whitespace-nowrap font-medium transition-all duration-200 ease-out",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.65_0.18_132)] focus-visible:ring-offset-2",
+        "focus-visible:ring-ring focus-visible:ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
         "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
         "overflow-hidden before:absolute before:inset-0 before:-z-10 before:opacity-0 before:transition-opacity before:duration-300",
-        "dark:focus-visible:ring-offset-zinc-900",
         local.square && "aspect-square p-0",
         variantStyles[variant()],
         sizeStyles[size()],

@@ -97,7 +97,7 @@ describe("model catalog service", () => {
 
     const modelWithProviderMeta = catalog.find(model => model.id === "zai/glm-4.6v");
     expect(modelWithProviderMeta?.providerApiUrl).toBe("https://api.z.ai/api/paas/v4");
-    expect(modelWithProviderMeta?.providerNpmPackage).toBe("@ai-sdk/openai-compatible");
+    expect(modelWithProviderMeta?.providerNpmPackage).toBe("@ekacode/zai");
     expect(modelWithProviderMeta?.providerEnvVars).toEqual(["ZHIPU_API_KEY"]);
     expect(modelWithProviderMeta?.modalities?.input).toContain("image");
     expect(modelWithProviderMeta?.capabilities.vision).toBe(true);
@@ -144,5 +144,33 @@ describe("model catalog service", () => {
 
     expect(kimi?.providerNpmPackage).toBe("@ai-sdk/openai-compatible");
     expect(gpt?.providerNpmPackage).toBe("@ai-sdk/openai");
+  });
+
+  it("forces custom npm package for zai-coding-plan", async () => {
+    const service = createModelCatalogService({
+      adapters: [],
+      modelsDevSource: async () => ({
+        "zai-coding-plan": {
+          name: "Z.AI Coding Plan",
+          api: "https://api.z.ai/api/paas/v4",
+          npm: "@ai-sdk/openai-compatible",
+          env: ["ZHIPU_API_KEY"],
+          models: {
+            "glm-4.7": {
+              id: "glm-4.7",
+              name: "GLM 4.7",
+              provider: {
+                npm: "@ai-sdk/openai-compatible",
+              },
+            },
+          },
+        },
+      }),
+      snapshotSource: async () => ({}),
+    });
+
+    const catalog = await service.list();
+    const model = catalog.find(item => item.id === "zai-coding-plan/glm-4.7");
+    expect(model?.providerNpmPackage).toBe("@ekacode/zai");
   });
 });

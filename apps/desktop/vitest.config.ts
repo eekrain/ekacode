@@ -86,6 +86,7 @@ export default defineConfig({
           "@kobalte/core",
           "@kobalte/core/collapsible",
           "solid-presence",
+          "solid-prevent-scroll",
           "@corvu/utils",
           "@corvu/resizable",
         ],

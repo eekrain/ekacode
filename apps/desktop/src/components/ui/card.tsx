@@ -13,12 +13,11 @@ const Card: Component<CardProps> = props => {
   const [local, others] = splitProps(props, ["variant", "class"]);
 
   const variantStyles: Record<CardVariant, string> = {
-    default: "bg-zinc-50 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800",
-    elevated:
-      "bg-white dark:bg-zinc-900 shadow-lg shadow-zinc-200/50 dark:shadow-zinc-950/50 border-zinc-200/50 dark:border-zinc-800/50",
+    default: "bg-card border-border",
+    elevated: "bg-card shadow-lg border-border/50",
     interactive:
-      "bg-zinc-50/50 dark:bg-zinc-900/50 border-zinc-200/50 dark:border-zinc-800/50 hover:border-primary/30 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60 hover:shadow-md hover:shadow-primary/5 cursor-pointer transition-all duration-200",
-    bordered: "bg-transparent border-zinc-300 dark:border-zinc-700",
+      "bg-card/50 border-border/50 hover:border-primary/30 hover:bg-card/80 hover:shadow-md hover:shadow-primary/5 cursor-pointer transition-all duration-200",
+    bordered: "bg-transparent border-input",
   };
 
   const variant = () => local.variant ?? "default";
@@ -46,7 +45,7 @@ const CardTitle: Component<ComponentProps<"h3">> = props => {
   return (
     <h3
       class={cn(
-        "text-base font-semibold leading-tight tracking-tight text-zinc-900 dark:text-zinc-100",
+        "text-card-foreground text-base font-semibold leading-tight tracking-tight",
         local.class
       )}
       {...others}
@@ -56,7 +55,7 @@ const CardTitle: Component<ComponentProps<"h3">> = props => {
 
 const CardDescription: Component<ComponentProps<"p">> = props => {
   const [local, others] = splitProps(props, ["class"]);
-  return <p class={cn("text-sm text-zinc-500 dark:text-zinc-400", local.class)} {...others} />;
+  return <p class={cn("text-muted-foreground text-sm", local.class)} {...others} />;
 };
 
 const CardContent: Component<ComponentProps<"div">> = props => {
@@ -95,17 +94,12 @@ const CardItemContent: Component<ComponentProps<"div">> = props => {
 
 const CardItemLabel: Component<ComponentProps<"span">> = props => {
   const [local, others] = splitProps(props, ["class"]);
-  return (
-    <span
-      class={cn("text-sm font-medium text-zinc-900 dark:text-zinc-100", local.class)}
-      {...others}
-    />
-  );
+  return <span class={cn("text-card-foreground text-sm font-medium", local.class)} {...others} />;
 };
 
 const CardItemDescription: Component<ComponentProps<"p">> = props => {
   const [local, others] = splitProps(props, ["class"]);
-  return <p class={cn("text-xs text-zinc-500 dark:text-zinc-400", local.class)} {...others} />;
+  return <p class={cn("text-muted-foreground text-xs", local.class)} {...others} />;
 };
 
 const CardItemAction: Component<ComponentProps<"div">> = props => {

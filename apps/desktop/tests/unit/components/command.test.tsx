@@ -69,12 +69,36 @@ describe("Command primitives", () => {
       container
     );
 
-    expect(container.querySelector('button[aria-label="Close model selector"]')).toBeNull();
+    expect(container.querySelector('[data-component="command-dialog-overlay"]')).toBeNull();
     const overlay = document.body.querySelector(
-      'button[aria-label="Close model selector"]'
-    ) as HTMLButtonElement | null;
+      '[data-component="command-dialog-overlay"]'
+    ) as HTMLDivElement | null;
     expect(overlay).toBeTruthy();
     expect(overlay?.className).toContain("fixed");
     expect(overlay?.className).toContain("inset-0");
+  });
+
+  it("keeps command dialog mounted briefly for exit animation", async () => {
+    vi.useFakeTimers();
+    const [open, setOpen] = createSignal(true);
+
+    dispose = render(
+      () => (
+        <CommandDialog open={open()}>
+          <div data-testid="command-dialog-payload">Dialog content</div>
+        </CommandDialog>
+      ),
+      container
+    );
+
+    expect(document.body.querySelector('[data-testid="command-dialog-payload"]')).toBeTruthy();
+
+    setOpen(false);
+    expect(document.body.querySelector('[data-testid="command-dialog-payload"]')).toBeTruthy();
+
+    await Promise.resolve();
+    vi.runAllTimers();
+    expect(document.body.querySelector('[data-testid="command-dialog-payload"]')).toBeNull();
+    vi.useRealTimers();
   });
 });

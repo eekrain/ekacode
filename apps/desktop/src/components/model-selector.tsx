@@ -292,15 +292,17 @@ export function ModelSelector(props: ModelSelectorProps) {
     <CommandDialog
       open={props.open}
       onOpenChange={props.onOpenChange}
-      contentClass="relative overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-950/95 p-0 shadow-[0_22px_80px_rgba(0,0,0,0.58)]"
+      contentClass="model-selector-shell relative overflow-hidden rounded-xl border border-border/70 bg-popover/95 p-0 shadow-2xl"
     >
-      <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_120%_at_15%_-10%,rgba(56,189,248,0.1),transparent_52%),radial-gradient(70%_100%_at_95%_0%,rgba(16,185,129,0.08),transparent_45%)]" />
-      <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),transparent_36%)]" />
-      <div class="border-b border-zinc-800/90 bg-zinc-900/75 px-3.5 pb-2.5 pt-3 backdrop-blur-xl">
+      <div class="model-selector-aurora pointer-events-none absolute inset-0" />
+      <div class="model-selector-grain pointer-events-none absolute inset-0" />
+      <div class="border-border/70 bg-muted/45 border-b px-3.5 pb-2.5 pt-3 backdrop-blur-xl">
         <div class="mb-1.5 flex items-center justify-between">
           <div>
-            <p class="text-[13px] font-semibold tracking-tight text-zinc-100">Selecting model</p>
-            <p class="text-[10px] text-zinc-500">Command Center</p>
+            <p class="text-popover-foreground text-[13px] font-semibold tracking-tight">
+              Selecting model
+            </p>
+            <p class="text-muted-foreground text-[10px]">Command Center</p>
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-1">
@@ -310,10 +312,10 @@ export function ModelSelector(props: ModelSelectorProps) {
                 type="button"
                 onClick={() => props.onModeChange(pill.mode)}
                 class={cn(
-                  "rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition-all duration-150",
+                  "rounded-full border px-2.5 py-0.5 text-[10px] font-medium transition-all duration-200",
                   props.mode === pill.mode
-                    ? "border-sky-400/25 bg-sky-400/10 text-sky-200 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.12)]"
-                    : "border-zinc-700/60 bg-zinc-800/65 text-zinc-400 hover:border-zinc-500/70 hover:text-zinc-200"
+                    ? "border-primary/35 bg-primary/12 text-primary shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--color-primary)_45%,transparent)]"
+                    : "border-border/75 bg-background/70 text-muted-foreground hover:border-primary/25 hover:text-foreground"
                 )}
               >
                 {pill.label}
@@ -323,7 +325,7 @@ export function ModelSelector(props: ModelSelectorProps) {
         </div>
       </div>
 
-      <div class="border-b border-zinc-800/90 bg-zinc-900/55">
+      <div class="border-border/70 bg-background/45 border-b">
         <CommandInput
           ref={searchInputRef}
           aria-label="Search models"
@@ -339,22 +341,22 @@ export function ModelSelector(props: ModelSelectorProps) {
                   ? "Search skills..."
                   : "Search context commands..."
           }
-          class="text-zinc-100"
+          class="text-popover-foreground"
         />
       </div>
 
       <CommandList
         aria-label="Model selector"
-        class="h-[420px] !max-h-none overflow-hidden bg-zinc-950/35 px-1.5 py-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-700/60 hover:[&::-webkit-scrollbar-thumb]:bg-zinc-600/80 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2"
+        class="bg-background/35 [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50 h-[420px] !max-h-none overflow-hidden px-1.5 py-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2"
       >
         <Show
           when={props.mode === "model" ? modelEntries().length > 0 : commandEntries().length > 0}
-          fallback={<CommandEmpty class="text-zinc-500">No results found.</CommandEmpty>}
+          fallback={<CommandEmpty class="text-muted-foreground">No results found.</CommandEmpty>}
         >
           <Show when={props.mode === "model"}>
             <div
               ref={modelListRef}
-              class="h-[404px] overflow-y-auto [scrollbar-color:rgba(82,82,91,0.7)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-700/60 hover:[&::-webkit-scrollbar-thumb]:bg-zinc-600/80 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2"
+              class="[&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50 h-[404px] overflow-y-auto [scrollbar-color:var(--color-border)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2"
               data-component="model-selector-virtual-list"
               onScroll={event => setModelScrollTop(event.currentTarget.scrollTop)}
             >
@@ -381,11 +383,11 @@ export function ModelSelector(props: ModelSelectorProps) {
                                 props.selectedModelId === (entry.row as ModelItemRow).model.id
                               }
                               class={cn(
-                                "group relative h-9 rounded-md border border-transparent px-2.5 text-zinc-100 transition-all duration-150 hover:border-zinc-700/50 hover:bg-zinc-800/80",
+                                "text-popover-foreground hover:border-border/90 hover:bg-muted/70 group relative h-9 rounded-md border border-transparent px-2.5 transition-all duration-200",
                                 props.selectedModelId === (entry.row as ModelItemRow).model.id &&
-                                  "bg-sky-500/8 border-sky-400/20 text-sky-100",
+                                  "border-primary/35 bg-primary/10 text-primary",
                                 isActive((entry.row as ModelItemRow).model.id) &&
-                                  "border-zinc-600/60 bg-zinc-800/85 shadow-[0_0_0_1px_rgba(56,189,248,0.14),0_4px_16px_rgba(56,189,248,0.12)]"
+                                  "border-primary/45 bg-accent/70 shadow-[0_0_0_1px_color-mix(in_oklch,var(--color-primary)_45%,transparent),0_8px_24px_color-mix(in_oklch,var(--color-primary)_18%,transparent)]"
                               )}
                               onPick={handlePick}
                             >
@@ -398,7 +400,7 @@ export function ModelSelector(props: ModelSelectorProps) {
                         }
                       >
                         <div class="px-1 py-0.5">
-                          <div class="flex items-center justify-between rounded-md border border-zinc-800/70 bg-zinc-900/75 px-2 py-1 text-[11px] font-medium text-zinc-300">
+                          <div class="border-border/80 bg-muted/60 text-foreground flex items-center justify-between rounded-md border px-2 py-1 text-[11px] font-medium">
                             <span class="truncate">
                               {(entry.row as ModelHeadingRow).providerName}
                             </span>
@@ -406,8 +408,8 @@ export function ModelSelector(props: ModelSelectorProps) {
                               class={cn(
                                 "ml-2 rounded-full border px-1.5 py-0.5 text-[10px] uppercase tracking-wide",
                                 (entry.row as ModelHeadingRow).connected
-                                  ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
-                                  : "border-zinc-600 bg-zinc-800 text-zinc-400"
+                                  ? "border-primary/30 bg-primary/10 text-primary"
+                                  : "border-border bg-background text-muted-foreground"
                               )}
                             >
                               {(entry.row as ModelHeadingRow).connected
@@ -428,21 +430,23 @@ export function ModelSelector(props: ModelSelectorProps) {
               heading={
                 props.mode === "mcp" ? "MCP" : props.mode === "skills" ? "Skills" : "Context"
               }
-              class="[&_[cmdk-group-heading]]:rounded-md [&_[cmdk-group-heading]]:border [&_[cmdk-group-heading]]:border-zinc-800/70 [&_[cmdk-group-heading]]:bg-zinc-900/75 [&_[cmdk-group-heading]]:text-zinc-300"
+              class="[&_[cmdk-group-heading]]:border-border/80 [&_[cmdk-group-heading]]:bg-muted/60 [&_[cmdk-group-heading]]:text-foreground [&_[cmdk-group-heading]]:rounded-md [&_[cmdk-group-heading]]:border"
             >
               <For each={commandEntries()}>
                 {entry => (
                   <CommandItem
                     value={entry.id}
                     class={cn(
-                      "h-9 rounded-md border border-transparent px-2.5 text-zinc-100 transition-all duration-150 hover:border-zinc-700/50 hover:bg-zinc-800/80",
+                      "text-popover-foreground hover:border-border/90 hover:bg-muted/70 h-9 rounded-md border border-transparent px-2.5 transition-all duration-200",
                       isActive(entry.id) &&
-                        "border-zinc-600/60 bg-zinc-800/85 shadow-[0_0_0_1px_rgba(56,189,248,0.14),0_4px_16px_rgba(56,189,248,0.12)]"
+                        "border-primary/45 bg-accent/70 shadow-[0_0_0_1px_color-mix(in_oklch,var(--color-primary)_45%,transparent),0_8px_24px_color-mix(in_oklch,var(--color-primary)_18%,transparent)]"
                     )}
                     onPick={handleCommandPick}
                   >
                     <span class="truncate">{entry.label}</span>
-                    <span class="ml-auto text-[11px] text-zinc-500">{entry.description}</span>
+                    <span class="text-muted-foreground ml-auto text-[11px]">
+                      {entry.description}
+                    </span>
                   </CommandItem>
                 )}
               </For>
@@ -451,16 +455,16 @@ export function ModelSelector(props: ModelSelectorProps) {
         </Show>
       </CommandList>
 
-      <div class="flex items-center justify-end gap-2 border-t border-zinc-800/80 bg-zinc-900/80 px-3 py-1.5 text-[10px] text-zinc-400 backdrop-blur-xl">
-        <kbd class="rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-zinc-300">
+      <div class="text-muted-foreground border-border/80 bg-muted/55 flex items-center justify-end gap-2 border-t px-3 py-1.5 text-[10px] backdrop-blur-xl">
+        <kbd class="border-border bg-background text-foreground rounded border px-1.5 py-0.5">
           Enter
         </kbd>
         <span>Select</span>
-        <kbd class="ml-2 rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-zinc-300">
+        <kbd class="border-border bg-background text-foreground ml-2 rounded border px-1.5 py-0.5">
           ↑↓
         </kbd>
         <span>Navigate</span>
-        <kbd class="ml-2 rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-zinc-300">
+        <kbd class="border-border bg-background text-foreground ml-2 rounded border px-1.5 py-0.5">
           Esc
         </kbd>
         <span>Close</span>

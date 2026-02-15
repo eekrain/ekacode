@@ -27,7 +27,7 @@ const POPULAR_PROVIDER_IDS = new Set([
 
 const PROVIDER_NOTES: Record<string, string> = {
   opencode: "Curated models including Claude, GPT, Gemini and more",
-  zai: "Curated models including Claude, GPT, Gemini and more",
+  zai: "Direct access to Z.AI GLM models",
   "zai-coding-plan": "Specialized package for coding plan workflows",
   openai: "GPT models for fast, capable general AI tasks",
   anthropic: "Direct access to Claude models",

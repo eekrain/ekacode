@@ -1,7 +1,8 @@
 import { cn } from "@/utils";
+import * as DialogPrimitive from "@kobalte/core/dialog";
+import { createPresence } from "@solid-primitives/presence";
 import type { Component, ComponentProps, JSX, ParentComponent } from "solid-js";
-import { Show, splitProps } from "solid-js";
-import { Portal } from "solid-js/web";
+import { Show, createEffect, splitProps } from "solid-js";
 
 export const CommandRoot: ParentComponent<ComponentProps<"div">> = props => {
   const [local, others] = splitProps(props, ["class", "children"]);
@@ -22,29 +23,54 @@ export const CommandDialog: ParentComponent<{
   contentClass?: string;
   children: JSX.Element;
 }> = props => {
+  const DEBUG_PREFIX = "[command-dialog-debug]";
   const [local] = splitProps(props, ["open", "onOpenChange", "children", "contentClass"]);
+  const presence = createPresence(() => (local.open ? true : undefined), {
+    transitionDuration: 220,
+    initialEnter: true,
+  });
+  createEffect(() => {
+    console.log(`${DEBUG_PREFIX} lifecycle`, {
+      open: local.open,
+      isMounted: presence.isMounted(),
+      isVisible: presence.isVisible(),
+      isEntering: presence.isEntering(),
+      isExiting: presence.isExiting(),
+    });
+  });
+
   return (
-    <Show when={local.open}>
-      <Portal>
-        <div class="fixed inset-0 z-50">
-          <button
-            type="button"
-            class="fixed inset-0 bg-black/50 backdrop-blur-sm"
-            aria-label="Close model selector"
-            onClick={() => local.onOpenChange?.(false)}
-          />
-          <div class="fixed left-1/2 top-1/2 w-[680px] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2">
-            <CommandRoot
+    <Show when={presence.isMounted()}>
+      <DialogPrimitive.Root
+        open={local.open}
+        forceMount={true}
+        onOpenChange={local.onOpenChange}
+        modal
+      >
+        <DialogPrimitive.Portal>
+          <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <DialogPrimitive.Overlay
+              data-component="command-dialog-overlay"
+              data-visible={presence.isVisible() ? "" : undefined}
+              data-exiting={presence.isExiting() ? "" : undefined}
+              class={cn("command-dialog-overlay-motion fixed inset-0")}
+            />
+            <DialogPrimitive.Content
+              data-component="command-dialog-content"
+              data-visible={presence.isVisible() ? "" : undefined}
+              data-exiting={presence.isExiting() ? "" : undefined}
               class={cn(
-                "bg-popover text-popover-foreground border-border flex size-full flex-col overflow-hidden rounded-md border shadow-lg blur-none",
+                "command-dialog-content-motion fixed left-1/2 top-1/2 w-[680px] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2",
                 local.contentClass
               )}
             >
-              {local.children}
-            </CommandRoot>
+              <CommandRoot class="bg-popover text-popover-foreground border-border flex size-full flex-col overflow-hidden rounded-md border shadow-lg blur-none">
+                {local.children}
+              </CommandRoot>
+            </DialogPrimitive.Content>
           </div>
-        </div>
-      </Portal>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     </Show>
   );
 };

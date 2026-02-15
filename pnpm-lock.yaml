@@ -144,6 +144,9 @@ importers:
       '@solid-primitives/event-bus':
         specifier: ^1.1.2
         version: 1.1.2(solid-js@1.9.11)
+      '@solid-primitives/presence':
+        specifier: ^0.1.2
+        version: 0.1.2(solid-js@1.9.11)
       '@solid-primitives/resource':
         specifier: ^0.4.3
         version: 0.4.3(solid-js@1.9.11)
@@ -1932,6 +1935,11 @@ packages:
 
   '@solid-primitives/media@2.3.3':
     resolution: {integrity: sha512-hQ4hLOGvfbugQi5Eu1BFWAIJGIAzztq9x0h02xgBGl2l0Jaa3h7tg6bz5tV1NSuNYVGio4rPoa7zVQQLkkx9dA==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
+  '@solid-primitives/presence@0.1.2':
+    resolution: {integrity: sha512-9TYitFIrun5znOm4SuNTM0XRnLZ7zUHwPbwEPw9hG43ElXoeyuKAnw9WhoaGIBXtJnFbG2hEcQn0bDfCTzZ3hg==}
     peerDependencies:
       solid-js: ^1.6.12
 
@@ -6708,6 +6716,11 @@ snapshots:
       '@solid-primitives/event-listener': 2.4.3(solid-js@1.9.11)
       '@solid-primitives/rootless': 1.5.2(solid-js@1.9.11)
       '@solid-primitives/static-store': 0.1.2(solid-js@1.9.11)
+      '@solid-primitives/utils': 6.3.2(solid-js@1.9.11)
+      solid-js: 1.9.11
+
+  '@solid-primitives/presence@0.1.2(solid-js@1.9.11)':
+    dependencies:
       '@solid-primitives/utils': 6.3.2(solid-js@1.9.11)
       solid-js: 1.9.11
 

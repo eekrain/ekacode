@@ -717,14 +717,14 @@ describe("ProviderSettings", () => {
     openModalButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await new Promise(resolve => setTimeout(resolve, 0));
 
-    const modal = container.querySelector('[data-testid="provider-modal"]') as HTMLDivElement;
     const searchInput = container.querySelector(
       'input[placeholder="Search providers..."]'
     ) as HTMLInputElement;
     expect(searchInput).toBeTruthy();
     expect(document.activeElement).toBe(searchInput);
 
-    modal.dispatchEvent(new KeyboardEvent("keydown", { key: "o", bubbles: true }));
+    searchInput.value = "o";
+    searchInput.dispatchEvent(new InputEvent("input", { bubbles: true }));
     await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(document.activeElement).toBe(searchInput);

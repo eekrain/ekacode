@@ -684,25 +684,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
     if (event.key === "Escape") {
       event.preventDefault();
       closeModal();
-      return;
     }
-
-    if (
-      event.key.length !== 1 ||
-      event.altKey ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.isComposing ||
-      isEditableTarget
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    setProviderSearchQuery(previous => previous + event.key);
-    queueMicrotask(() => {
-      focusProviderSearchInput();
-    });
   };
 
   return (

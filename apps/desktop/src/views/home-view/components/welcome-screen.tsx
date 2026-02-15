@@ -23,25 +23,63 @@ export function WelcomeScreen(props: WelcomeScreenProps) {
       <header class="mb-12 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <div class="bg-primary flex h-10 w-10 items-center justify-center rounded-lg">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="text-primary-foreground"
-            >
-              <path d="M12 2L2 7l10 5 10-5-10-5z" />
-              <path d="m2 17 10 5 10-5" />
-              <path d="m2 12 10 5 10-5" />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+              <defs>
+                <g id="petal">
+                  <path
+                    d="M100 135 
+               C 85 125, 80 90, 100 45 
+               C 120 90, 115 125, 100 135 Z"
+                    fill="none"
+                    stroke="#968436"
+                    stroke-width="4"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+
+                  <path
+                    d="M 86.5 105 C 90 100, 110 100, 113.5 105"
+                    fill="none"
+                    stroke="#968436"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M 84 92 C 90 85, 110 85, 116 92"
+                    fill="none"
+                    stroke="#968436"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M 86 78 C 90 70, 110 70, 114 78"
+                    fill="none"
+                    stroke="#968436"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M 92 65 C 95 60, 105 60, 108 65"
+                    fill="none"
+                    stroke="#968436"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                  />
+                </g>
+              </defs>
+
+              <use href="#petal" transform="rotate(0, 100, 100)" />
+              <use href="#petal" transform="rotate(45, 100, 100)" />
+              <use href="#petal" transform="rotate(90, 100, 100)" />
+              <use href="#petal" transform="rotate(135, 100, 100)" />
+              <use href="#petal" transform="rotate(180, 100, 100)" />
+              <use href="#petal" transform="rotate(225, 100, 100)" />
+              <use href="#petal" transform="rotate(270, 100, 100)" />
+              <use href="#petal" transform="rotate(315, 100, 100)" />
             </svg>
           </div>
           <div>
-            <h1 class="text-foreground text-xl font-semibold">ekacode</h1>
+            <h1 class="text-foreground text-xl font-semibold">Sakti Agentic Coder</h1>
             <p class="text-muted-foreground text-xs">Privacy-focused local AI coding agent</p>
           </div>
         </div>

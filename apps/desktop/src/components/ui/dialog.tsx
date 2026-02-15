@@ -30,7 +30,7 @@ const DialogOverlay = <T extends ValidComponent = "div">(
   return (
     <DialogPrimitive.Overlay
       class={cn(
-        "data-expanded:animate-in data-closed:animate-out data-closed:fade-out-0 data-expanded:fade-in-0 fixed inset-0 z-50 bg-black/50 backdrop-blur-sm",
+        "dialog-overlay-motion fixed inset-0 z-50 bg-black/65 backdrop-blur-sm",
         props.class
       )}
       {...rest}
@@ -53,7 +53,7 @@ const DialogContent = <T extends ValidComponent = "div">(
       <DialogOverlay />
       <DialogPrimitive.Content
         class={cn(
-          "border-border bg-card data-expanded:animate-in data-closed:animate-out data-closed:fade-out-0 data-expanded:fade-in-0 data-closed:slide-out-to-bottom data-expanded:slide-in-from-bottom fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border p-6 shadow-lg duration-200 sm:rounded-lg",
+          "dialog-content-motion border-border bg-card fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border p-6 shadow-lg sm:rounded-lg",
           props.class
         )}
         {...rest}

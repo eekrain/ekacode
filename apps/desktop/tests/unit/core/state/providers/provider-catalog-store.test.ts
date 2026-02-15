@@ -57,7 +57,7 @@ describe("provider-catalog-store", () => {
     expect(results[0]?.id).toBe("zai");
   });
 
-  it("groups empty-query results into popular and all providers", async () => {
+  it("groups empty-query results into popular and other providers", async () => {
     const { createProviderCatalogSearchIndex } =
       await import("@/core/state/providers/provider-catalog-store");
     const store = createProviderCatalogSearchIndex(FIXTURE);
@@ -65,7 +65,7 @@ describe("provider-catalog-store", () => {
 
     expect(groups[0]?.title).toBe("Popular");
     expect(groups[0]?.providers.some(provider => provider.id === "zai")).toBe(true);
-    expect(groups[1]?.title).toBe("All Providers");
+    expect(groups[1]?.title).toBe("Other");
     expect(groups[1]?.providers.some(provider => provider.id === "abacus")).toBe(true);
   });
 });

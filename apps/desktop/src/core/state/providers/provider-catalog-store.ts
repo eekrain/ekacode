@@ -154,7 +154,7 @@ export function createProviderCatalogSearchIndex(items: ProviderCatalogItem[]) {
 
     return [
       { key: "popular", title: "Popular", providers: popular },
-      { key: "all", title: "All Providers", providers: rest },
+      { key: "other", title: "Other", providers: rest },
     ];
   };
 

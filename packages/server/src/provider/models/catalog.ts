@@ -36,13 +36,18 @@ function buildModelDescriptor(
   },
   model: CatalogModelLike
 ): ModelDescriptor {
+  const providerNpmPackage =
+    providerId === "zai" || providerId === "zai-coding-plan"
+      ? "@ekacode/zai"
+      : model.provider?.npm || providerMeta.npm;
+
   return {
     id: `${providerId}/${model.id}`,
     name: model.name,
     providerId,
     providerName,
     providerApiUrl: model.provider?.api || providerMeta.api,
-    providerNpmPackage: model.provider?.npm || providerMeta.npm,
+    providerNpmPackage,
     providerEnvVars: providerMeta.env,
     contextWindow: 128000,
     maxOutputTokens: 8192,

@@ -182,6 +182,33 @@ describe("agent/workflow/model-provider", () => {
     });
   });
 
+  it("keeps zai-coding-plan on custom zai sdk even when npm metadata is openai-compatible", async () => {
+    const { getBuildModel } = await import("../../../src/agent/workflow/model-provider");
+
+    const model = await Instance.provide({
+      directory: process.cwd(),
+      async fn() {
+        Instance.context.providerRuntime = {
+          providerId: "zai-coding-plan",
+          modelId: "zai-coding-plan/glm-4.7",
+          providerNpmPackage: "@ai-sdk/openai-compatible",
+          apiKey: "zai-context-key",
+        };
+        return getBuildModel();
+      },
+    });
+
+    expect(model).toEqual({
+      provider: "zai",
+      modelId: "glm-4.7",
+      options: {
+        apiKey: "zai-context-key",
+        endpoint: "coding",
+        baseURL: undefined,
+      },
+    });
+  });
+
   it("prefers context-scoped credentials when resolving model references", async () => {
     const { getModelByReference } = await import("../../../src/agent/workflow/model-provider");
 
