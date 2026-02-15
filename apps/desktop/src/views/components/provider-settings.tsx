@@ -1,3 +1,8 @@
+import {
+  ModelSelector,
+  type CommandCenterMode,
+  type ModelSelectorSection,
+} from "@/components/model-selector";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type {
@@ -8,7 +13,16 @@ import type {
 } from "@/core/services/api/provider-client";
 import { createProviderCatalogSearchIndex } from "@/core/state/providers/provider-catalog-store";
 import { cn } from "@/utils";
-import { For, Show, createEffect, createMemo, createResource, createSignal } from "solid-js";
+import { createPresence } from "@solid-primitives/presence";
+import {
+  For,
+  Show,
+  createEffect,
+  createMemo,
+  createResource,
+  createSignal,
+  onCleanup,
+} from "solid-js";
 
 interface ProviderSettingsProps {
   client: ProviderClient;
@@ -59,6 +73,11 @@ export function ProviderSettings(props: ProviderSettingsProps) {
   const [authStatusOverrideByProvider, setAuthStatusOverrideByProvider] = createSignal<
     Record<string, "connected" | "disconnected">
   >({});
+  const [isVisionModelSelectorOpen, setIsVisionModelSelectorOpen] = createSignal(false);
+  const [visionModelSelectorMode, setVisionModelSelectorMode] =
+    createSignal<CommandCenterMode>("model");
+  const [visionModelSearchQuery, setVisionModelSearchQuery] = createSignal("");
+  let providerSearchInputRef: HTMLInputElement | undefined;
 
   const loadProviderState = async (): Promise<ProviderStateData> => {
     console.log(`${PROVIDER_SETTINGS_DEBUG_PREFIX} loadProviderState:start`);
@@ -224,6 +243,48 @@ export function ProviderSettings(props: ProviderSettingsProps) {
   const selectedHybridVisionModel = createMemo(() =>
     visionModels().find(model => model.id === preferences()?.hybridVisionModelId)
   );
+  const filteredVisionModels = createMemo(() => {
+    const query = visionModelSearchQuery().trim().toLowerCase();
+    if (!query) return visionModels();
+    const providersById = new Map(catalogProviders().map(provider => [provider.id, provider.name]));
+    return visionModels().filter(model => {
+      const providerName =
+        providersById.get(model.providerId) ?? model.providerName ?? model.providerId;
+      const haystack =
+        `${model.id} ${model.name ?? ""} ${model.providerId} ${providerName}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  });
+  const hybridVisionModelSections = createMemo<ModelSelectorSection[]>(() => {
+    if (!isVisionModelSelectorOpen()) return [];
+    const providersById = new Map(catalogProviders().map(provider => [provider.id, provider.name]));
+    const sectionsByProvider = new Map<string, ModelSelectorSection>();
+
+    for (const model of filteredVisionModels()) {
+      const providerName =
+        providersById.get(model.providerId) ?? model.providerName ?? model.providerId;
+      const option = {
+        id: model.id,
+        providerId: model.providerId,
+        providerName,
+        name: model.name,
+        connected: true,
+      };
+      const existing = sectionsByProvider.get(model.providerId);
+      if (existing) {
+        existing.models.push(option);
+        continue;
+      }
+      sectionsByProvider.set(model.providerId, {
+        providerId: model.providerId,
+        providerName,
+        connected: true,
+        models: [option],
+      });
+    }
+
+    return Array.from(sectionsByProvider.values());
+  });
 
   createEffect(() => {
     const providers = catalogProviders();
@@ -256,6 +317,11 @@ export function ProviderSettings(props: ProviderSettingsProps) {
     }
     const selectedIndex = ids.indexOf(selected);
     if (selectedIndex >= 0) setActiveIndex(selectedIndex);
+  });
+  createEffect(() => {
+    if (isVisionModelSelectorOpen()) return;
+    setVisionModelSearchQuery("");
+    setVisionModelSelectorMode("model");
   });
 
   const openExternal = async (url: string) => {
@@ -511,6 +577,14 @@ export function ProviderSettings(props: ProviderSettingsProps) {
     const next = await props.client.updatePreferences(input);
     setPreferences(next);
   };
+  const handleHybridVisionModelSelect = (modelId: string) => {
+    const model = visionModels().find(item => item.id === modelId);
+    if (!model) return;
+    void updateHybridPreference({
+      hybridVisionModelId: model.id,
+      hybridVisionProviderId: model.providerId,
+    });
+  };
 
   const openModal = (providerId?: string) => {
     const resolvedProviderId =
@@ -529,11 +603,54 @@ export function ProviderSettings(props: ProviderSettingsProps) {
     setIsModalOpen(false);
   };
 
-  const handleSearchKeyDown = (event: KeyboardEvent) => {
+  const focusProviderSearchInput = () => {
+    const input = providerSearchInputRef;
+    if (!input) return false;
+    input.focus({ preventScroll: true });
+    const cursor = input.value.length;
+    input.setSelectionRange(cursor, cursor);
+    return document.activeElement === input;
+  };
+
+  const modalPresence = createPresence(isModalOpen, {
+    transitionDuration: 220,
+    initialEnter: true,
+  });
+
+  createEffect(() => {
+    const shouldFocusSearchInput = isModalOpen() && modalPresence.isMounted();
+    if (!shouldFocusSearchInput) return;
+
+    const focus = () => {
+      focusProviderSearchInput();
+    };
+
+    focus();
+    queueMicrotask(focus);
+    const frame = requestAnimationFrame(focus);
+
+    onCleanup(() => {
+      cancelAnimationFrame(frame);
+    });
+  });
+
+  const isEditableElement = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false;
+    return (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target.isContentEditable
+    );
+  };
+
+  const handleProviderModalKeyDown = (event: KeyboardEvent) => {
     const ids = visibleProviders();
-    if (ids.length === 0) return;
+    const isSearchInputTarget = event.target === providerSearchInputRef;
+    const isEditableTarget = isEditableElement(event.target);
 
     if (event.key === "ArrowDown") {
+      if (ids.length === 0) return;
+      if (isEditableTarget && !isSearchInputTarget) return;
       event.preventDefault();
       setActiveIndex(prev => {
         const next = (prev + 1) % ids.length;
@@ -544,6 +661,8 @@ export function ProviderSettings(props: ProviderSettingsProps) {
     }
 
     if (event.key === "ArrowUp") {
+      if (ids.length === 0) return;
+      if (isEditableTarget && !isSearchInputTarget) return;
       event.preventDefault();
       setActiveIndex(prev => {
         const next = (prev - 1 + ids.length) % ids.length;
@@ -554,18 +673,44 @@ export function ProviderSettings(props: ProviderSettingsProps) {
     }
 
     if (event.key === "Enter") {
+      if (ids.length === 0) return;
+      if (isEditableTarget && !isSearchInputTarget) return;
       event.preventDefault();
       const providerId = ids[activeIndex()];
       if (providerId) setSelectedProviderId(providerId);
+      return;
     }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeModal();
+      return;
+    }
+
+    if (
+      event.key.length !== 1 ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.isComposing ||
+      isEditableTarget
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    setProviderSearchQuery(previous => previous + event.key);
+    queueMicrotask(() => {
+      focusProviderSearchInput();
+    });
   };
 
   return (
     <section class="mb-8">
       <div class="mb-4 flex items-center justify-between">
-        <h2 class="text-foreground text-lg font-medium">Providers</h2>
+        <h2 class="text-foreground text-lg font-medium tracking-tight">Providers</h2>
         <button
-          class="bg-primary text-primary-foreground rounded px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-90"
+          class="border-primary/30 bg-primary/12 text-primary hover:bg-primary/18 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors"
           onClick={() => openModal()}
         >
           Connect a provider
@@ -593,7 +738,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                 {provider => (
                   <Card
                     variant="default"
-                    class="border-border bg-background/70 p-3"
+                    class="border-border/80 bg-background/65 p-3 shadow-[0_10px_24px_color-mix(in_oklch,var(--color-foreground)_6%,transparent)]"
                     data-testid={`provider-${provider.id}`}
                   >
                     <div class="flex items-center justify-between gap-3">
@@ -602,7 +747,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                         <p class="text-muted-foreground truncate text-xs">{provider.id}</p>
                       </div>
                       <div class="flex items-center gap-2">
-                        <span class="rounded-full border border-emerald-300/50 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-300">
+                        <span class="border-primary/35 bg-primary/12 text-primary rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
                           Connected
                         </span>
                         <span class="text-muted-foreground text-[10px]">
@@ -611,12 +756,18 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                       </div>
                     </div>
                     <div class="mt-3 flex items-center gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => openModal(provider.id)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        class="text-xs"
+                        onClick={() => openModal(provider.id)}
+                      >
                         Manage
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
+                        class="text-xs"
                         onClick={() => void disconnect(provider.id)}
                       >
                         Disconnect
@@ -633,7 +784,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
       <Card class="mt-4 p-4">
         <div class="mb-3 flex items-center justify-between gap-3">
           <div>
-            <h3 class="text-sm font-medium">Hybrid Vision Fallback</h3>
+            <h3 class="text-sm font-semibold tracking-tight">Hybrid Vision Fallback</h3>
             <p class="text-muted-foreground mt-0.5 text-xs">
               Auto-route image prompts from text-only models to a vision-capable model.
             </p>
@@ -651,28 +802,50 @@ export function ProviderSettings(props: ProviderSettingsProps) {
         </div>
 
         <label class="text-muted-foreground mb-1 block text-xs">Vision fallback model</label>
-        <select
-          class="border-border bg-background w-full rounded border px-2 py-1.5 text-xs"
-          value={preferences()?.hybridVisionModelId ?? ""}
-          disabled={(preferences()?.hybridEnabled ?? true) === false}
-          onChange={event => {
-            const modelId = event.currentTarget.value || null;
-            const model = visionModels().find(item => item.id === modelId);
-            void updateHybridPreference({
-              hybridVisionModelId: model?.id ?? null,
-              hybridVisionProviderId: model?.providerId ?? null,
-            });
-          }}
-        >
-          <option value="">Select vision model</option>
-          <For each={visionModels()}>
-            {model => (
-              <option value={model.id}>
-                {model.name ?? model.id} ({model.providerId})
-              </option>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class={cn(
+              "border-border/80 bg-background/70 hover:bg-muted/60 w-full rounded-md border px-2.5 py-2 text-left text-xs transition-colors",
+              "disabled:cursor-not-allowed disabled:opacity-60"
             )}
-          </For>
-        </select>
+            disabled={(preferences()?.hybridEnabled ?? true) === false}
+            onClick={() => {
+              setVisionModelSelectorMode("model");
+              setIsVisionModelSelectorOpen(true);
+            }}
+          >
+            {selectedHybridVisionModel()?.name ??
+              selectedHybridVisionModel()?.id ??
+              "Select vision model"}
+          </button>
+          <Show when={preferences()?.hybridVisionModelId}>
+            <Button
+              variant="ghost"
+              size="sm"
+              class="shrink-0 text-xs"
+              disabled={(preferences()?.hybridEnabled ?? true) === false}
+              onClick={() =>
+                void updateHybridPreference({
+                  hybridVisionModelId: null,
+                  hybridVisionProviderId: null,
+                })
+              }
+            >
+              Clear
+            </Button>
+          </Show>
+        </div>
+        <ModelSelector
+          open={isVisionModelSelectorOpen()}
+          onOpenChange={setIsVisionModelSelectorOpen}
+          selectedModelId={preferences()?.hybridVisionModelId ?? undefined}
+          mode={visionModelSelectorMode()}
+          onModeChange={setVisionModelSelectorMode}
+          modelSections={hybridVisionModelSections()}
+          onSearchChange={setVisionModelSearchQuery}
+          onSelect={handleHybridVisionModelSelect}
+        />
 
         <Show
           when={
@@ -681,7 +854,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
             hasLoadedProviderState()
           }
         >
-          <p class="mt-2 text-xs text-amber-600 dark:text-amber-300">
+          <p class="text-primary/85 mt-2 text-xs">
             Hybrid fallback is enabled but no vision model is selected yet.
           </p>
         </Show>
@@ -693,30 +866,38 @@ export function ProviderSettings(props: ProviderSettingsProps) {
         </Show>
       </Card>
 
-      <Show when={isModalOpen()}>
+      <Show when={modalPresence.isMounted()}>
         <div
           class="fixed inset-0 z-50 flex items-center justify-center p-4"
           data-testid="provider-modal"
+          onKeyDown={event => handleProviderModalKeyDown(event)}
         >
           <button
             type="button"
-            class="data-expanded:animate-in data-expanded:fade-in-0 absolute inset-0 bg-black/65 backdrop-blur-sm duration-150"
-            data-expanded=""
+            class="command-dialog-overlay-motion absolute inset-0 bg-black/80 backdrop-blur-sm"
+            data-visible={modalPresence.isVisible() ? "" : undefined}
+            data-exiting={modalPresence.isExiting() ? "" : undefined}
             onClick={closeModal}
             aria-label="Close provider selector"
           />
 
-          <div class="data-expanded:animate-in data-expanded:fade-in-0 data-expanded:zoom-in-95 relative z-10 w-full max-w-5xl overflow-hidden rounded-xl border border-zinc-800/70 bg-zinc-950 text-zinc-100 shadow-[0_28px_80px_rgba(0,0,0,0.6)] duration-200">
-            <div class="border-b border-zinc-800/90 bg-zinc-900/75 px-4 py-3">
+          <div
+            class="provider-modal-content-motion model-selector-shell border-border/70 bg-popover/95 text-popover-foreground relative z-10 w-full max-w-5xl overflow-hidden rounded-xl border shadow-[0_28px_80px_rgba(0,0,0,0.6)]"
+            data-visible={modalPresence.isVisible() ? "" : undefined}
+            data-exiting={modalPresence.isExiting() ? "" : undefined}
+          >
+            <div class="model-selector-aurora pointer-events-none absolute inset-0" />
+            <div class="model-selector-grain pointer-events-none absolute inset-0" />
+            <div class="border-border/80 bg-muted/45 relative border-b px-4 pb-2.5 pt-3 backdrop-blur-xl">
               <div class="flex items-center justify-between gap-3">
                 <div>
-                  <h3 class="text-base font-semibold tracking-tight">Connect a provider</h3>
-                  <p class="text-xs text-zinc-400">
+                  <h3 class="text-[13px] font-semibold tracking-tight">Connect a provider</h3>
+                  <p class="text-muted-foreground text-[10px]">
                     Search providers and connect with API key or OAuth
                   </p>
                 </div>
                 <button
-                  class="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300 transition-colors hover:bg-zinc-800"
+                  class="border-border/80 bg-background/75 text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-md border px-2 py-1 text-xs transition-colors"
                   onClick={closeModal}
                 >
                   Close
@@ -724,7 +905,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
               </div>
 
               <div class="mt-3">
-                <label class="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900/70 px-2.5 py-2 transition-colors focus-within:border-zinc-600">
+                <label class="border-border/80 bg-background/65 focus-within:border-primary/40 flex items-center gap-2 rounded-md border px-2.5 py-2 transition-colors">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
@@ -733,38 +914,42 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                     stroke-width="2"
                     stroke-linecap="round"
                     stroke-linejoin="round"
-                    class="size-4 text-zinc-500"
+                    class="text-muted-foreground size-4"
                   >
                     <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" />
                     <path d="M21 21l-6 -6" />
                   </svg>
                   <input
                     type="text"
-                    class="w-full bg-transparent text-sm outline-none placeholder:text-zinc-500"
+                    ref={element => {
+                      providerSearchInputRef = element;
+                    }}
+                    class="placeholder:text-muted-foreground/80 w-full bg-transparent text-sm outline-none"
                     placeholder="Search providers..."
                     value={providerSearchQuery()}
                     onInput={event => setProviderSearchQuery(event.currentTarget.value)}
-                    onKeyDown={event => handleSearchKeyDown(event)}
                     autofocus
                   />
                 </label>
               </div>
             </div>
 
-            <div class="grid h-[560px] min-h-0 gap-0 md:grid-cols-[1.1fr_1.4fr]">
-              <div class="min-h-0 border-r border-zinc-800/90">
+            <div class="relative grid h-[560px] min-h-0 gap-0 md:grid-cols-[1.1fr_1.4fr]">
+              <div class="border-border/80 min-h-0 border-r">
                 <div
-                  class="h-full min-h-0 overflow-y-auto overscroll-contain px-2 py-2 [scrollbar-color:rgba(113,113,122,0.65)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-600/70 hover:[&::-webkit-scrollbar-thumb]:bg-zinc-500/75 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2"
+                  class="bg-background/35 [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50 h-full min-h-0 overflow-y-auto overscroll-contain px-2 py-2 [scrollbar-color:var(--color-border)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2"
                   data-testid="provider-modal-list"
                 >
                   <Show
                     when={providerGroups().length > 0}
-                    fallback={<p class="px-3 py-4 text-sm text-zinc-500">No providers found.</p>}
+                    fallback={
+                      <p class="text-muted-foreground px-3 py-4 text-sm">No providers found.</p>
+                    }
                   >
                     <For each={providerGroups()}>
                       {group => (
                         <div class="mb-3">
-                          <p class="px-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
+                          <p class="text-muted-foreground px-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.1em]">
                             {group.title}
                           </p>
                           <div class="space-y-1">
@@ -778,8 +963,8 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                                     class={cn(
                                       "duration-120 group w-full rounded-md border px-2.5 py-2 text-left transition-all",
                                       isSelected()
-                                        ? "border-zinc-600 bg-zinc-800/85 shadow-[0_0_0_1px_rgba(59,130,246,0.25),0_10px_22px_rgba(15,23,42,0.45)]"
-                                        : "border-transparent hover:border-zinc-700/70 hover:bg-zinc-900/80"
+                                        ? "border-primary/45 bg-accent/70 shadow-[0_0_0_1px_color-mix(in_oklch,var(--color-primary)_45%,transparent),0_8px_24px_color-mix(in_oklch,var(--color-primary)_18%,transparent)]"
+                                        : "hover:border-border/90 hover:bg-muted/70 border-transparent"
                                     )}
                                     onClick={() => {
                                       console.log(
@@ -799,7 +984,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                                       </span>
                                       <div class="flex items-center gap-1">
                                         <Show when={provider.supported === false}>
-                                          <span class="rounded-full border border-amber-300/35 bg-amber-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-300">
+                                          <span class="border-border bg-background text-muted-foreground rounded-full border px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
                                             Preview
                                           </span>
                                         </Show>
@@ -807,8 +992,8 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                                           class={cn(
                                             "rounded-full border px-1.5 py-0.5 text-[10px] uppercase tracking-wide",
                                             isConnected()
-                                              ? "border-emerald-300/40 bg-emerald-500/10 text-emerald-300"
-                                              : "border-zinc-600 bg-zinc-800 text-zinc-400"
+                                              ? "border-primary/30 bg-primary/10 text-primary"
+                                              : "border-border bg-background text-muted-foreground"
                                           )}
                                         >
                                           {isConnected() ? "Connected" : "Not Connected"}
@@ -816,10 +1001,10 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                                       </div>
                                     </div>
                                     <div class="mt-1 flex items-center justify-between gap-2">
-                                      <span class="truncate text-xs text-zinc-500">
+                                      <span class="text-muted-foreground truncate text-xs">
                                         {provider.id}
                                       </span>
-                                      <span class="text-[10px] text-zinc-500">
+                                      <span class="text-muted-foreground text-[10px]">
                                         {provider.modelCount} models
                                       </span>
                                     </div>
@@ -835,10 +1020,10 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                 </div>
               </div>
 
-              <div class="h-full min-h-0 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-color:rgba(113,113,122,0.65)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-600/70 hover:[&::-webkit-scrollbar-thumb]:bg-zinc-500/75 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2">
+              <div class="bg-background/30 [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50 h-full min-h-0 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-color:var(--color-border)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2">
                 <Show
                   when={selectedProvider()}
-                  fallback={<p class="text-sm text-zinc-500">Select a provider.</p>}
+                  fallback={<p class="text-muted-foreground text-sm">Select a provider.</p>}
                 >
                   {provider => {
                     const providerId = () => provider().id;
@@ -849,34 +1034,34 @@ export function ProviderSettings(props: ProviderSettingsProps) {
 
                     return (
                       <div class="space-y-4">
-                        <div class="rounded-lg border border-zinc-800/80 bg-zinc-900/70 p-3">
+                        <div class="border-border/80 bg-background/65 rounded-lg border p-3">
                           <div class="flex items-center justify-between gap-3">
                             <div class="min-w-0">
                               <p class="truncate text-sm font-semibold tracking-tight">
                                 {provider().name}
                               </p>
-                              <p class="truncate text-xs text-zinc-500">{provider().id}</p>
+                              <p class="text-muted-foreground truncate text-xs">{provider().id}</p>
                             </div>
                             <div class="flex items-center gap-2">
-                              <span class="rounded-full border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-[10px] uppercase tracking-wide text-zinc-300">
+                              <span class="border-border bg-background text-muted-foreground rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide">
                                 {provider().modelCount} models
                               </span>
                               <Show when={provider().popular}>
-                                <span class="rounded-full border border-sky-300/40 bg-sky-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-sky-300">
+                                <span class="border-primary/35 bg-primary/12 text-primary rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide">
                                   Popular
                                 </span>
                               </Show>
                             </div>
                           </div>
                           <Show when={provider().note}>
-                            <p class="mt-2 text-xs text-zinc-400">{provider().note}</p>
+                            <p class="text-muted-foreground mt-2 text-xs">{provider().note}</p>
                           </Show>
                         </div>
 
                         <Show
                           when={provider().supported !== false}
                           fallback={
-                            <div class="rounded-lg border border-amber-300/25 bg-amber-500/5 p-3 text-xs text-amber-200">
+                            <div class="border-border bg-background/60 text-muted-foreground rounded-lg border p-3 text-xs">
                               This provider is listed from the catalog but is not yet configurable
                               in this build.
                             </div>
@@ -887,12 +1072,12 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                             fallback={
                               <For each={methodsForSelected()}>
                                 {(method, index) => (
-                                  <div class="rounded-lg border border-zinc-800/80 bg-zinc-900/60 p-3">
+                                  <div class="border-border/80 bg-background/60 rounded-lg border p-3">
                                     <div class="mb-3 flex items-center justify-between gap-2">
-                                      <p class="text-xs font-semibold tracking-wide text-zinc-300">
+                                      <p class="text-foreground text-xs font-semibold tracking-wide">
                                         {method.label}
                                       </p>
-                                      <span class="rounded-full border border-zinc-700 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-zinc-400">
+                                      <span class="text-muted-foreground border-border rounded-full border px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
                                         {method.type}
                                       </span>
                                     </div>
@@ -900,14 +1085,14 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                                     <Show when={method.type === "token" || method.type === "api"}>
                                       <div class="space-y-2">
                                         <Show when={providerId() === "opencode"}>
-                                          <p class="text-xs text-zinc-400">
+                                          <p class="text-muted-foreground text-xs">
                                             Create an api key at https://opencode.ai/auth
                                           </p>
                                         </Show>
                                         <div class="flex flex-wrap items-center gap-2">
                                           <input
                                             type="password"
-                                            class="w-full min-w-[220px] flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-2 text-xs text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-zinc-500"
+                                            class="border-border bg-background placeholder:text-muted-foreground/80 focus:border-primary/45 text-foreground w-full min-w-[220px] flex-1 rounded-md border px-2.5 py-2 text-xs outline-none transition-colors"
                                             placeholder="API key"
                                             value={tokenByProvider()[providerId()] || ""}
                                             onInput={event => {
@@ -924,7 +1109,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                                             }}
                                           />
                                           <button
-                                            class="rounded-md border border-zinc-600 bg-zinc-800 px-2.5 py-2 text-xs font-medium text-zinc-100 transition-colors hover:bg-zinc-700"
+                                            class="border-border/90 bg-muted/70 text-foreground hover:bg-muted rounded-md border px-2.5 py-2 text-xs font-medium transition-colors"
                                             onClick={() => {
                                               console.log(
                                                 `${PROVIDER_SETTINGS_DEBUG_PREFIX} tokenConnect:click`,
@@ -945,7 +1130,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                                     <Show when={method.type === "oauth"}>
                                       <div class="flex flex-wrap items-center gap-2">
                                         <button
-                                          class="rounded-md border border-zinc-600 bg-zinc-800 px-2.5 py-2 text-xs font-medium text-zinc-100 transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                          class="border-border/90 bg-muted/70 text-foreground hover:bg-muted rounded-md border px-2.5 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                                           disabled={busy()}
                                           onClick={() => void connectOAuth(providerId(), index())}
                                         >
@@ -953,7 +1138,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                                         </button>
                                         <Show when={busy()}>
                                           <button
-                                            class="rounded-md border border-zinc-700 px-2.5 py-2 text-xs text-zinc-300 transition-colors hover:bg-zinc-800"
+                                            class="border-border text-muted-foreground hover:bg-muted rounded-md border px-2.5 py-2 text-xs transition-colors"
                                             onClick={() => cancelOAuth(providerId())}
                                           >
                                             Cancel OAuth
@@ -966,21 +1151,21 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                               </For>
                             }
                           >
-                            <div class="rounded-lg border border-emerald-300/30 bg-emerald-500/5 p-3">
+                            <div class="border-primary/30 bg-primary/10 rounded-lg border p-3">
                               <div class="flex items-center justify-between gap-2">
-                                <p class="text-xs font-semibold tracking-wide text-emerald-300">
+                                <p class="text-primary text-xs font-semibold tracking-wide">
                                   Connected
                                 </p>
-                                <span class="rounded-full border border-emerald-300/35 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-emerald-300">
+                                <span class="text-primary border-primary/35 rounded-full border px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
                                   Active
                                 </span>
                               </div>
-                              <p class="mt-1 text-xs text-zinc-400">
+                              <p class="text-muted-foreground mt-1 text-xs">
                                 This provider is connected. You can disconnect it from here.
                               </p>
                               <div class="mt-3">
                                 <button
-                                  class="rounded-md border border-zinc-600 bg-zinc-800 px-2.5 py-2 text-xs font-medium text-zinc-100 transition-colors hover:bg-zinc-700"
+                                  class="border-border/90 bg-muted/70 text-foreground hover:bg-muted rounded-md border px-2.5 py-2 text-xs font-medium transition-colors"
                                   onClick={() => void disconnect(providerId())}
                                 >
                                   Disconnect
@@ -991,14 +1176,14 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                         </Show>
 
                         <Show when={pending()}>
-                          <div class="rounded-lg border border-zinc-800/80 bg-zinc-900/60 p-3">
-                            <p class="mb-2 text-xs font-semibold tracking-wide text-zinc-300">
+                          <div class="border-border/80 bg-background/60 rounded-lg border p-3">
+                            <p class="text-foreground mb-2 text-xs font-semibold tracking-wide">
                               Complete OAuth
                             </p>
                             <div class="flex flex-wrap items-center gap-2">
                               <input
                                 type="text"
-                                class="w-full min-w-[220px] flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-2 text-xs text-zinc-100 outline-none transition-colors placeholder:text-zinc-500 focus:border-zinc-500"
+                                class="border-border bg-background placeholder:text-muted-foreground/80 focus:border-primary/45 text-foreground w-full min-w-[220px] flex-1 rounded-md border px-2.5 py-2 text-xs outline-none transition-colors"
                                 placeholder="Paste OAuth code"
                                 value={oauthCodeByProvider()[providerId()] || ""}
                                 onInput={event =>
@@ -1006,7 +1191,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                                 }
                               />
                               <button
-                                class="rounded-md border border-zinc-600 bg-zinc-800 px-2.5 py-2 text-xs font-medium text-zinc-100 transition-colors hover:bg-zinc-700"
+                                class="border-border/90 bg-muted/70 text-foreground hover:bg-muted rounded-md border px-2.5 py-2 text-xs font-medium transition-colors"
                                 onClick={() => void submitOAuthCode(providerId())}
                               >
                                 Submit Code
@@ -1016,7 +1201,7 @@ export function ProviderSettings(props: ProviderSettingsProps) {
                         </Show>
 
                         <Show when={oauthError()}>
-                          <p class="text-xs text-red-400">{oauthError()}</p>
+                          <p class="text-destructive text-xs">{oauthError()}</p>
                         </Show>
                       </div>
                     );
@@ -1025,16 +1210,16 @@ export function ProviderSettings(props: ProviderSettingsProps) {
               </div>
             </div>
 
-            <div class="flex items-center justify-end gap-2 border-t border-zinc-800/90 bg-zinc-900/80 px-3 py-1.5 text-[10px] text-zinc-400">
-              <kbd class="rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-zinc-300">
+            <div class="text-muted-foreground border-border/80 bg-muted/55 flex items-center justify-end gap-2 border-t px-3 py-1.5 text-[10px] backdrop-blur-xl">
+              <kbd class="border-border bg-background text-foreground rounded border px-1.5 py-0.5">
                 Enter
               </kbd>
               <span>Select</span>
-              <kbd class="ml-2 rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-zinc-300">
+              <kbd class="border-border bg-background text-foreground ml-2 rounded border px-1.5 py-0.5">
                 ↑↓
               </kbd>
               <span>Navigate</span>
-              <kbd class="ml-2 rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-zinc-300">
+              <kbd class="border-border bg-background text-foreground ml-2 rounded border px-1.5 py-0.5">
                 Esc
               </kbd>
               <span>Close</span>
