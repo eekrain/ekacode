@@ -5,7 +5,7 @@
  * Uses throttled updates during streaming for better performance.
  */
 
-import { Markdown } from "@/components/shared/markdown";
+import { Markdown } from "@/components/ui/markdown";
 import { useThrottledValue } from "@/core/chat/hooks/use-throttled-value";
 import { cn } from "@/utils";
 import { createSignal, Show, type Accessor, type Component } from "solid-js";

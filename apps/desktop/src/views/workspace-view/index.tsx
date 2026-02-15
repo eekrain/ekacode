@@ -2,7 +2,7 @@ import type { DiffChange, FileTab, TerminalOutput } from "@/core/chat/types";
 import { cn } from "@/utils";
 import { createEffect, createMemo, createSignal, onMount, Show } from "solid-js";
 
-import { ResizeableHandle } from "@/components/shared/resizeable-handle";
+import { ResizeableHandle } from "@/components/ui/resizeable-handle";
 import { useSessionTurns } from "@/core/chat/hooks";
 import type { AgentMode } from "@/core/chat/types";
 import { usePermissions } from "@/core/permissions/hooks/use-permissions";

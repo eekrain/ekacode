@@ -1,6 +1,9 @@
 import type { RecentProject } from "@/core/chat/types";
 import { createApiClient } from "@/core/services/api/api-client";
 import type { ProviderClient } from "@/core/services/api/provider-client";
+
+import { Button } from "@/components/ui/button";
+
 import { cn } from "@/utils";
 import { ProviderSettings } from "@/views/components/provider-settings";
 import { For, Show, createSignal, onMount } from "solid-js";
@@ -116,16 +119,9 @@ export default function SettingsView() {
           <div class="mb-4 flex items-center justify-between">
             <h2 class="text-foreground text-lg font-medium">Recent Projects</h2>
             <Show when={recentProjects().length > 0}>
-              <button
-                onClick={handleClearAllProjects}
-                class={cn(
-                  "text-destructive hover:text-destructive/80 text-xs font-medium",
-                  "transition-colors duration-150",
-                  "focus-visible:underline focus-visible:outline-none"
-                )}
-              >
+              <Button variant="ghost" size="sm" onClick={handleClearAllProjects}>
                 Clear All
-              </button>
+              </Button>
             </Show>
           </div>
           <div class="bg-card border-border divide-border divide-y rounded-lg border">
@@ -144,15 +140,10 @@ export default function SettingsView() {
                       <h3 class="text-foreground truncate text-sm font-medium">{project.name}</h3>
                       <p class="text-muted-foreground mt-0.5 truncate text-xs">{project.path}</p>
                     </div>
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => handleRemoveProject(project)}
-                      class={cn(
-                        "opacity-0 group-hover:opacity-100",
-                        "hover:bg-muted rounded p-1.5",
-                        "text-muted-foreground hover:text-destructive",
-                        "transition-all duration-150",
-                        "focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-1"
-                      )}
                       aria-label="Remove project"
                     >
                       <svg
@@ -169,7 +160,7 @@ export default function SettingsView() {
                         <path d="M18 6 6 18" />
                         <path d="m6 6 12 12" />
                       </svg>
-                    </button>
+                    </Button>
                   </div>
                 )}
               </For>

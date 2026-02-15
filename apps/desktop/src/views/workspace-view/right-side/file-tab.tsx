@@ -1,4 +1,6 @@
 import type { FileTab as FileTabType } from "@/core/chat/types";
+
+import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
 import { Component, mergeProps, Show } from "solid-js";
 
@@ -74,15 +76,15 @@ export const FileTab: Component<FileTabProps> = props => {
 
       {/* Close button */}
       <Show when={props.onClose}>
-        <button
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={e => {
             e.stopPropagation();
             props.onClose?.();
           }}
           class={cn(
-            "rounded p-0.5 transition-all duration-150",
             "opacity-0 group-hover:opacity-100",
-            "hover:bg-card/50",
             props.tab.isActive ? "hover:text-foreground" : "hover:text-foreground/80"
           )}
         >
@@ -94,7 +96,7 @@ export const FileTab: Component<FileTabProps> = props => {
               d="M6 18L18 6M6 6l12 12"
             />
           </svg>
-        </button>
+        </Button>
       </Show>
     </button>
   );

@@ -1,4 +1,7 @@
 import type { RecentProject } from "@/core/chat/types";
+
+import { Button } from "@/components/ui/button";
+
 import { cn } from "@/utils";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -33,17 +36,16 @@ function RecentProjectCard(props: RecentProjectCardProps) {
           <p class="text-muted-foreground mt-0.5 truncate text-xs">{props.project.path}</p>
         </div>
         {props.onRemove && (
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={e => {
               e.stopPropagation();
               props.onRemove?.(props.project);
             }}
             class={cn(
               "opacity-0 group-hover:opacity-100",
-              "hover:bg-muted rounded p-1",
-              "text-muted-foreground hover:text-destructive",
-              "transition-all duration-150",
-              "focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-1"
+              "text-muted-foreground hover:text-destructive"
             )}
             aria-label="Remove project"
           >
@@ -61,7 +63,7 @@ function RecentProjectCard(props: RecentProjectCardProps) {
               <path d="M18 6 6 18" />
               <path d="m6 6 12 12" />
             </svg>
-          </button>
+          </Button>
         )}
       </div>
       <p class="text-muted-foreground mt-2 text-xs">{dayjs(props.project.lastOpened).fromNow()}</p>

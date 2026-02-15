@@ -5,7 +5,7 @@
  * Uses subtle/italic styling to differentiate from regular text.
  */
 
-import { Markdown } from "@/components/shared/markdown";
+import { Markdown } from "@/components/ui/markdown";
 import { useThrottledValue } from "@/core/chat/hooks/use-throttled-value";
 import { cn } from "@/utils";
 import { Show, type Accessor, type Component } from "solid-js";

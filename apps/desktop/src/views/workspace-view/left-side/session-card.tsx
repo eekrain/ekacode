@@ -1,5 +1,7 @@
-import { cn } from "@/utils";
 import { Component, Show, mergeProps } from "solid-js";
+
+import { Button } from "@/components/ui/button";
+import { cn } from "@/utils";
 
 /**
  * Base session interface compatible with both old and new formats
@@ -129,14 +131,14 @@ export const SessionCard: Component<SessionCardProps> = props => {
 
         {/* Pin button */}
         <Show when={props.onTogglePin}>
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={e => {
               e.stopPropagation();
               props.onTogglePin?.();
             }}
             class={cn(
-              "rounded p-1 transition-all duration-150",
-              "hover:bg-card/30",
               props.session.isPinned
                 ? "text-primary"
                 : "text-muted-foreground opacity-0 group-hover:opacity-60"
@@ -155,7 +157,7 @@ export const SessionCard: Component<SessionCardProps> = props => {
                 d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
               />
             </svg>
-          </button>
+          </Button>
         </Show>
       </div>
 

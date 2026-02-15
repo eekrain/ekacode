@@ -5,8 +5,8 @@
  * Used as the base for all tool part renderers.
  */
 
-import { Collapsible } from "@/components/shared/collapsible";
-import { Icon } from "@/components/shared/icon";
+import { Collapsible } from "@/components/ui/collapsible";
+import { Icon } from "@/components/ui/icon";
 import { cn } from "@/utils";
 import { createSignal, Show, type JSX, type ParentComponent } from "solid-js";
 

@@ -10,8 +10,8 @@
  * - Custom Shiki theme matching ekacode colors
  */
 
-import { finalizeMarkdownInChunks } from "@/components/shared/markdown-finalizer";
-import { sanitizeMarkdownHtml } from "@/components/shared/markdown-sanitizer";
+import { finalizeMarkdownInChunks } from "@/components/ui/markdown-finalizer";
+import { sanitizeMarkdownHtml } from "@/components/ui/markdown-sanitizer";
 import {
   recordMarkdownCommit,
   recordMarkdownDroppedFrames,

@@ -5,7 +5,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/shared/dialog";
+} from "@/components/ui/dialog";
 import { cn } from "@/utils";
 import { For, Show, createSignal } from "solid-js";
 

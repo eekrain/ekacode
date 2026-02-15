@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+
 import { cn } from "@/utils";
 import { Component, For, Show, createSignal, mergeProps } from "solid-js";
 
@@ -119,15 +121,7 @@ export const TerminalPanel: Component<TerminalPanelProps> = props => {
         </div>
 
         {/* Clear button */}
-        <button
-          onClick={props.onClear}
-          class={cn(
-            "rounded-md p-1.5 transition-all duration-150",
-            "hover:bg-card/30 hover:scale-105",
-            "text-muted-foreground/50 hover:text-muted-foreground"
-          )}
-          title="Clear output"
-        >
+        <Button variant="ghost" size="icon-sm" onClick={props.onClear} title="Clear output">
           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               stroke-linecap="round"
@@ -136,7 +130,7 @@ export const TerminalPanel: Component<TerminalPanelProps> = props => {
               d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
             />
           </svg>
-        </button>
+        </Button>
       </div>
 
       {/* Output area */}
