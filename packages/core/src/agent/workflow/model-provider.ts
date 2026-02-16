@@ -228,19 +228,23 @@ function resolveModelFromSelection(selection: RuntimeSelection): LanguageModelV3
   // OpenAI-compatible providers (eg: OpenCode Zen Kimi/GLM models) stream chat.completion chunks.
   // Routing them through `chat()` keeps parsing aligned with upstream payload format.
   if (selection.providerNpmPackage === "@ai-sdk/openai-compatible") {
-    if (typeof (provider as any).chat === "function") {
-      // eslint-disable-line @typescript-eslint/no-explicit-any
-      return (provider as any).chat(selection.modelId as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const typedProvider = provider as unknown as {
+      chat?: (id: string) => LanguageModelV3;
+      languageModel?: (id: string) => LanguageModelV3;
+    };
+    if (typeof typedProvider.chat === "function") {
+      return typedProvider.chat(selection.modelId);
     }
-    if (typeof provider.languageModel === "function") {
-      return provider.languageModel(selection.modelId as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (typeof typedProvider.languageModel === "function") {
+      return typedProvider.languageModel(selection.modelId);
     }
     return provider(selection.modelId);
   }
 
   if (selection.providerNpmPackage === "@ai-sdk/openai") {
-    if (selection.providerId === "openai" && typeof provider.responses === "function") {
-      return provider.responses(selection.modelId as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const typedProvider = provider as unknown as { responses?: (id: string) => LanguageModelV3 };
+    if (selection.providerId === "openai" && typeof typedProvider.responses === "function") {
+      return typedProvider.responses(selection.modelId);
     }
     return provider(selection.modelId);
   }
@@ -249,18 +253,20 @@ function resolveModelFromSelection(selection: RuntimeSelection): LanguageModelV3
     selection.providerNpmPackage === "@ai-sdk/azure" &&
     typeof provider.responses === "function"
   ) {
-    return provider.responses(selection.modelId as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const typedProvider = provider as unknown as { responses?: (id: string) => LanguageModelV3 };
+    return typedProvider.responses!(selection.modelId);
   }
 
-  if (
-    selection.providerNpmPackage === "@gitlab/gitlab-ai-provider" &&
-    typeof (provider as any).agenticChat === "function" // eslint-disable-line @typescript-eslint/no-explicit-any
-  ) {
-    return (provider as any).agenticChat(selection.modelId as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (selection.providerNpmPackage === "@gitlab/gitlab-ai-provider") {
+    const typedProvider = provider as unknown as { agenticChat?: (id: string) => LanguageModelV3 };
+    if (typeof typedProvider.agenticChat === "function") {
+      return typedProvider.agenticChat(selection.modelId);
+    }
   }
 
-  if (typeof provider.languageModel === "function") {
-    return provider.languageModel(selection.modelId as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const typedProvider2 = provider as unknown as { languageModel?: (id: string) => LanguageModelV3 };
+  if (typeof typedProvider2.languageModel === "function") {
+    return typedProvider2.languageModel(selection.modelId);
   }
 
   return provider(selection.modelId);

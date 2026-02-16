@@ -4,11 +4,24 @@
  * Core ekacode package - Mastra agents, tools, and utilities
  */
 
-// Mastra instance
-export { mastra, memory } from "./memory/mastra";
-
-// Memory
-export { EkacodeMemory, getMemory } from "./memory";
+// Memory System (Phase 1)
+export {
+  executeMemorySearch,
+  executeTaskMutate,
+  executeTaskQuery,
+  memorySearchTool,
+  messageStorage,
+  taskMutateTool,
+  taskQueryTool,
+  taskStorage,
+  type BlockedStatus,
+  type CreateMessageInput,
+  type CreateTaskInput,
+  type ListMessagesOptions,
+  type ListTasksOptions,
+  type SearchResult,
+  type UpdateTaskInput,
+} from "./memory";
 
 // Agents
 export { buildAgentModel, createRoleAgent } from "./agent";
