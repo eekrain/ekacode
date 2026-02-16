@@ -6,7 +6,7 @@
 
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { generateText } from "ai";
-import { COMPRESSION_GUIDANCE, REFLECTOR_SYSTEM_PROMPT } from "../../prompts/reflector";
+import { COMPRESSION_GUIDANCE, REFLECTOR_SYSTEM_PROMPT } from "../../prompts/memory/reflector";
 
 export interface ReflectorInput {
   activeObservations: string;

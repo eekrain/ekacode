@@ -4,11 +4,11 @@
  * Centralized location for all prompt and template definitions.
  */
 
-export * from "./phase-prompts";
-export * from "./reflector";
+export * from "./agent-modes";
+export * from "./auto-compaction";
+export * from "./memory/reflector";
+export * from "./memory/working-memory";
 export * from "./search-docs";
-export * from "./session";
-export * from "./working-memory";
 
 export * from "./hybrid-agent/data-viz";
 export * from "./hybrid-agent/diagram-analysis";

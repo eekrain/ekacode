@@ -27,7 +27,7 @@ import {
 } from "../plugin/hooks";
 import { classifyAgentError } from "./error-classification";
 
-import { MAX_STEPS_PROMPT } from "../prompts/session";
+import { MAX_STEPS_PROMPT } from "../prompts/auto-compaction";
 
 const logger = createLogger("ekacode");
 const DOOM_LOOP_THRESHOLD = 3;
