@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const memoryInputMock = vi.fn();
 const memoryOutputMock = vi.fn();
 const memoryFormatMock = vi.fn();
+const injectSpecContextMock = vi.fn();
 
 type TestableProcessor = {
   streamIteration: (...args: unknown[]) => Promise<unknown>;
@@ -18,6 +19,7 @@ type TestableProcessor = {
 
 vi.mock("ai", () => ({
   streamText: vi.fn(),
+  tool: vi.fn(definition => definition),
 }));
 
 vi.mock("../../src/memory/processors", () => ({
@@ -26,6 +28,10 @@ vi.mock("../../src/memory/processors", () => ({
     output: memoryOutputMock,
     formatForAgentInput: memoryFormatMock,
   },
+}));
+
+vi.mock("../../src/agent/spec-injector", () => ({
+  injectSpecContextForModelMessages: injectSpecContextMock,
 }));
 
 describe("session/processor memory integration", () => {
@@ -47,6 +53,7 @@ describe("session/processor memory integration", () => {
       success: true,
       messagesPersisted: 2,
     });
+    injectSpecContextMock.mockImplementation(async messages => messages);
   });
 
   it("uses memory input processor when thread context is present", async () => {
@@ -128,5 +135,36 @@ describe("session/processor memory integration", () => {
         { role: "assistant", content: "Fix complete" },
       ],
     });
+  });
+
+  it("injects spec context into model messages when thread context is present", async () => {
+    const { AgentProcessor } = await import("../../src/session/processor");
+
+    const processor = new AgentProcessor(
+      {
+        id: "test-agent-spec-injector",
+        type: "build",
+        model: "test-model",
+        systemPrompt: "You are a test agent",
+        tools: {},
+        maxIterations: 2,
+      },
+      () => {}
+    );
+
+    const p = processor as unknown as TestableProcessor;
+    p.streamIteration = vi.fn(async () => ({}));
+    p.processStream = vi.fn(async () => ({ finished: true }));
+
+    const result = await processor.run({
+      task: "Implement task from spec",
+      context: {
+        sessionId: "session-memory-3",
+        resourceId: "local",
+      },
+    });
+
+    expect(result.status).toBe("completed");
+    expect(injectSpecContextMock).toHaveBeenCalledWith(expect.any(Array), "session-memory-3");
   });
 });

@@ -38,6 +38,8 @@ describe("agent/registry", () => {
       expect(buildAgent.tools).toContain("task-query");
       expect(buildAgent.tools).toContain("task-mutate");
       expect(buildAgent.tools).toContain("memory-search");
+      expect(buildAgent.tools).toContain("plan-enter");
+      expect(buildAgent.tools).toContain("plan-exit");
       expect(buildAgent.systemPrompt).toBeTruthy();
       expect(buildAgent.systemPrompt.length).toBeGreaterThan(0);
     });

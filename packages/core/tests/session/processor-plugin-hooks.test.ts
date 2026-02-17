@@ -12,6 +12,7 @@ const testState = vi.hoisted(() => ({
 
 vi.mock("ai", () => ({
   streamText: testState.streamTextMock,
+  tool: vi.fn(definition => definition),
 }));
 
 vi.mock("../../src/agent/workflow/model-provider", () => ({

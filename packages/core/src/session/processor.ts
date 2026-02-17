@@ -36,6 +36,7 @@ import {
 } from "../plugin/hooks";
 import { classifyAgentError } from "./error-classification";
 
+import { injectSpecContextForModelMessages } from "../agent/spec-injector";
 import { MAX_STEPS_PROMPT } from "../prompts/auto-compaction";
 
 const logger = createLogger("ekacode");
@@ -280,18 +281,7 @@ export class AgentProcessor {
           config: modeConfig,
         });
 
-        // Build message list with system prompt, working memory, observations, then user message
-        const messages: Array<{ role: "user" | "assistant" | "system"; content: string }> = [
-          { role: "system", content: this.config.systemPrompt },
-        ];
-
-        // Add working memory if available
-        if (memoryInput.workingMemory) {
-          messages.push({
-            role: "system",
-            content: `<working-memory>\n${memoryInput.workingMemory}\n</working-memory>`,
-          });
-        }
+        const messages = memoryProcessor.formatForAgentInput(memoryInput, this.config.systemPrompt);
 
         // Add observations as system message if available
         if (observationResult.record.active_observations) {
@@ -299,30 +289,18 @@ export class AgentProcessor {
             observationResult.record.active_observations
           );
           if (formattedObservations) {
-            messages.push({
+            const insertAt = messages.findIndex(message => message.role !== "system");
+            messages.splice(insertAt === -1 ? messages.length : insertAt, 0, {
               role: "system",
               content: formattedObservations,
             });
           }
         }
 
-        // Add recent messages (filtered by observation system)
-        for (const msg of memoryInput.recentMessages.slice(-5)) {
-          if (msg.role !== "tool") {
-            messages.push({
-              role: msg.role as "user" | "assistant" | "system",
-              content: msg.injectionText ?? msg.rawContent,
-            });
-          }
-        }
-
-        // Add user message last
-        messages.push({
-          role: "user",
-          content: inputMessage,
-        });
-
-        this.messages = messages as ModelMessage[];
+        this.messages = await injectSpecContextForModelMessages(
+          messages as ModelMessage[],
+          resolvedMemoryContext.threadId
+        );
       } catch (error) {
         logger.warn("Failed to load memory context, falling back to default initialization", {
           module: "agent:processor",

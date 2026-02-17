@@ -24,6 +24,9 @@ import { astQuery, fileRead, grepSearch, searchDocs } from "./search-docs";
 // Memory tools
 import { memorySearchTool, taskMutateTool, taskQueryTool } from "../memory";
 
+// Plan tools
+import { planEnterTool, planExitTool } from "./plan";
+
 // Tool name type (union of all available tool names)
 export type ToolName =
   | "read"
@@ -45,7 +48,9 @@ export type ToolName =
   | "file-read-docs"
   | "memory-search"
   | "task-query"
-  | "task-mutate";
+  | "task-mutate"
+  | "plan-enter"
+  | "plan-exit";
 
 export const toolRegistry = {
   // Filesystem tools
@@ -79,6 +84,10 @@ export const toolRegistry = {
   "memory-search": memorySearchTool,
   "task-query": taskQueryTool,
   "task-mutate": taskMutateTool,
+
+  // Plan tools
+  "plan-enter": planEnterTool,
+  "plan-exit": planExitTool,
 
   getAll(): Record<string, unknown> {
     const { getAll: _getAll, getToolNames: _getToolNames, ...tools } = this;

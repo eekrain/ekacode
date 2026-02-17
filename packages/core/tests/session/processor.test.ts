@@ -12,6 +12,7 @@ import { AgentProcessor } from "../../src/session/processor";
 // Mock the streamText from AI SDK
 vi.mock("ai", () => ({
   streamText: vi.fn(),
+  tool: vi.fn(definition => definition),
 }));
 
 describe("session/processor", () => {
