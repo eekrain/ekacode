@@ -223,4 +223,17 @@ export type {
   ToolDefinitionOutput,
 } from "./plugin/hooks";
 
+// Skill System
+export {
+  SkillDiscovery,
+  SkillInfo,
+  SkillManager,
+  discoverLocalSkills,
+  fetchRemoteSkills,
+  skillInfoToApiResponse,
+  skillTool,
+  skillToolSchema,
+  type SkillApiResponse,
+} from "./skill";
+
 export const ekacodeVersion = "0.0.1";
