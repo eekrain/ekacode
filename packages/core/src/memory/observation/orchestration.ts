@@ -144,6 +144,8 @@ export interface ProcessInputStepArgs {
   tokenCounter: TokenCounter;
   observerAgent: (activeObservations: string, messages: ObservationMessage[]) => Promise<string>;
   reflectorModel?: LanguageModelV3;
+  /** Optional memory config to override defaults */
+  config?: Partial<ObservationalMemoryConfig>;
 }
 
 /**
@@ -333,11 +335,22 @@ export async function processInputStep(args: ProcessInputStepArgs): Promise<{
     tokenCounter,
     observerAgent,
     reflectorModel,
+    config: customConfig,
   } = args;
   const { threadId, resourceId, scope } = context;
 
   // 1. Get or create record
   let record = await getOrCreateObservationalMemory(context);
+
+  // 1b. Apply custom config if provided (for mode-specific thresholds)
+  if (customConfig && Object.keys(customConfig).length > 0) {
+    const currentConfig = (record.config ?? {}) as ObservationalMemoryConfig;
+    const mergedConfig = { ...currentConfig, ...customConfig };
+    record =
+      (await observationalMemoryStorage.updateObservationalMemory(record.id, {
+        config: mergedConfig,
+      })) ?? record;
+  }
 
   // 2. Detect and clear stale flags (crash recovery)
   await observationalMemoryStorage.detectAndClearStaleFlags(record.id);

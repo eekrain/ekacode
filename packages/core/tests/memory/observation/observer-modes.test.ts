@@ -13,7 +13,7 @@ import {
   MODE_EXTRACTION_INSTRUCTIONS,
   buildObserverSystemPrompt,
   getModeExtractionInstructions,
-} from "../../../src/prompts/observer-modes";
+} from "../../../src/prompts/memory/observer/modes";
 
 describe("Mode-Specific Observer", () => {
   describe("AgentMode type", () => {
@@ -142,7 +142,7 @@ describe("Mode-Specific Observer", () => {
 
     it("should build prompt with explore mode", () => {
       const prompt = buildObserverSystemPrompt("explore");
-      expect(prompt).toContain("memory consciousness");
+      expect(prompt).toContain("codebase researcher");
       expect(prompt).toContain(MODE_EXTRACTION_INSTRUCTIONS.explore);
     });
 

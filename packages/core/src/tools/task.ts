@@ -16,6 +16,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import type { AgentConfig, AgentEvent, AgentInput, AgentResult } from "../agent/workflow/types";
 import { Instance } from "../instance";
+import type { AgentMode } from "../prompts/memory/observer/modes";
 import { AgentProcessor } from "../session/processor";
 
 /**
@@ -23,6 +24,20 @@ import { AgentProcessor } from "../session/processor";
  */
 export const SUBAGENT_TYPES = ["explore", "plan", "general"] as const;
 export type SubagentType = (typeof SUBAGENT_TYPES)[number];
+
+/**
+ * Exploration result from explore subagent
+ */
+export interface ExplorationResult {
+  /** Structured findings from exploration */
+  findings: string;
+  /** List of files explored */
+  fileInventory: string;
+  /** What's missing */
+  gaps: string;
+  /** Original messages for reference */
+  rawMessages?: string[];
+}
 
 /**
  * Result from running a subagent
@@ -42,6 +57,8 @@ export interface SubagentResult {
   duration: number;
   /** Tool calls made by the subagent */
   toolCalls: Array<{ name: string; args: unknown }>;
+  /** Exploration result (only for explore subagents) */
+  explorationResult?: ExplorationResult;
 }
 
 /**
@@ -50,10 +67,11 @@ export interface SubagentResult {
  * Maps subagent types to their configuration without importing
  * from agent/registry to avoid circular dependency.
  */
-const SUBAGENT_CONFIGS: Record<
+export const SUBAGENT_CONFIGS: Record<
   SubagentType,
   {
     agentType: "explore" | "plan" | "build";
+    mode: AgentMode;
     model: string;
     maxIterations: number;
     systemPrompt: string;
@@ -61,20 +79,14 @@ const SUBAGENT_CONFIGS: Record<
 > = {
   explore: {
     agentType: "explore",
+    mode: "explore",
     model: "glm-4.7-flashx",
     maxIterations: 30,
-    systemPrompt: `You are an expert code explorer. Your task is to analyze the codebase and understand:
-- Project structure and architecture
-- Key files and their relationships
-- Dependencies and frameworks used
-- Existing patterns and conventions
-
-Use the available tools to explore the codebase thoroughly. Be methodical and document your findings.
-
-You have read-only access. Focus on understanding rather than modifying.`,
+    systemPrompt: buildExploreSystemPrompt(),
   },
   plan: {
     agentType: "plan",
+    mode: "default",
     model: "glm-4.7",
     maxIterations: 100,
     systemPrompt: `You are an expert software architect. Your task is to create detailed implementation plans.
@@ -92,6 +104,7 @@ You have read-only access. Focus on planning rather than implementing.`,
   },
   general: {
     agentType: "build",
+    mode: "default",
     model: "glm-4.7",
     maxIterations: 50,
     systemPrompt: `You are an expert software developer and AI coding agent.
@@ -112,6 +125,105 @@ When working on tasks:
 Always maintain code quality and follow existing patterns in the codebase.`,
   },
 };
+
+/**
+ * Build explore agent system prompt with mode-specific instructions
+ */
+function buildExploreSystemPrompt(): string {
+  return `You are a precise codebase researcher. Your findings will be used by another agent to make decisions.
+
+YOUR OBJECTIVE: Explore the codebase and capture exact details about what you find.
+
+=== EXTRACTION INSTRUCTIONS ===
+
+CRITICAL: Your observations must capture what the parent agent specifically asked for.
+
+For each message exchange, extract and preserve:
+
+1. WHAT WAS REQUESTED - Note what specific information the parent wanted
+2. EXACT FINDINGS - File paths, line numbers, function names, interface definitions
+3. SCHEMA DEFINITIONS - Full type definitions, interfaces, Zod schemas
+4. FUNCTION SIGNATURES - Parameter types, return types
+5. "NOT FOUND" RESULTS - Explicitly note when something doesn't exist
+6. SEARCH QUERIES USED - What you searched for
+
+PRESERVE EXACT DETAILS:
+- File paths: "src/auth/forms/LoginForm.tsx"
+- Line numbers: "interface LoginFormData at line 12"
+- Type definitions: "interface LoginFormData { email: string; password: string }"
+- Schema: "const loginSchema = z.object({...})"
+
+DO NOT:
+- Summarize code into prose
+- Skip "not found" results
+- Merge different findings together
+- Lose line numbers or file paths
+
+=== OUTPUT FORMAT ===
+
+Use this structured format to capture exploration findings:
+
+<findings>
+## Query: [what parent wanted]
+- FOUND: [exact file path]:[line numbers] - [brief description]
+- FOUND: [exact file path]:[line numbers] - [brief description]
+- NOT FOUND: [what wasn't found]
+
+## Query: [next thing parent wanted]
+...
+</findings>
+
+<file_inventory>
+[filepath1]: [key exports, interfaces, functions found]
+[filepath2]: [key exports, interfaces, functions found]
+</file_inventory>
+
+<gaps>
+- [Things that exist but weren't fully explored]
+- [Things that definitely don't exist]
+</gaps>
+
+<current-task>
+Primary: [what you're currently searching for]
+Status: [in_progress / completed / not_found]
+</current-task>
+
+=== GUIDELINES ===
+
+PRECISION OVER BREVITY - This is not build mode.
+
+PRIORITY:
+1. Exact file paths and line numbers
+2. Complete interface/type definitions
+3. "NOT FOUND" results (as important as found results)
+4. Search queries used
+
+WHAT TO CAPTURE:
+- Full interface definitions (not summarized)
+- Exact function signatures
+- Schema structures
+- Import paths
+- Line numbers for key definitions
+
+WHEN SOMETHING IS NOT FOUND:
+- State explicitly: "NOT FOUND: LoginForm schema"
+- This is critical info for parent agent
+
+WHEN FOUND:
+- Include file path: "src/auth/LoginForm.tsx"
+- Include line number: "line 15-22"
+- Include full definition if small, or key parts if large
+
+DO NOT:
+- Summarize code into natural language
+- Skip details to save space
+- Assume parent knows the codebase
+
+IMPORTANT: You are not implementing code - you are finding information. Be precise.
+The parent agent needs exact details to make decisions about the codebase.
+
+Remember: Accuracy > Brevity. Parent agent will act on what you remember.`;
+}
 
 /**
  * Task tool for spawning subagents
@@ -202,17 +314,24 @@ Examples:
     // Create and run the processor
     const processor = new AgentProcessor(agentConfig, eventCallback);
 
-    // Build input
+    // Build input with mode context
     const input: AgentInput = {
       task: `${description}\n\n${prompt}`,
       context: {
         parentSessionId: instanceContext.sessionID,
         parentMessageId: instanceContext.messageID,
+        mode: config.mode,
       },
     };
 
     // Run the subagent
     const result: AgentResult = await processor.run(input);
+
+    // Parse exploration result for explore subagents
+    let explorationResult: ExplorationResult | undefined;
+    if (subagent_type === "explore" && result.finalContent) {
+      explorationResult = parseExplorationResult(result.finalContent);
+    }
 
     // Return formatted result
     return {
@@ -223,9 +342,36 @@ Examples:
       iterations: result.iterations,
       duration: result.duration,
       toolCalls,
+      explorationResult,
     };
   },
 });
+
+/**
+ * Parse exploration result from subagent output
+ *
+ * @param content - Raw output from explore subagent
+ * @returns Structured exploration result
+ */
+function parseExplorationResult(content: string): ExplorationResult {
+  // Extract findings section
+  const findingsMatch = content.match(/<findings>([\s\S]*?)<\/findings>/);
+  const findings = findingsMatch ? findingsMatch[1].trim() : "";
+
+  // Extract file inventory section
+  const inventoryMatch = content.match(/<file_inventory>([\s\S]*?)<\/file_inventory>/);
+  const fileInventory = inventoryMatch ? inventoryMatch[1].trim() : "";
+
+  // Extract gaps section
+  const gapsMatch = content.match(/<gaps>([\s\S]*?)<\/gaps>/);
+  const gaps = gapsMatch ? gapsMatch[1].trim() : "";
+
+  return {
+    findings,
+    fileInventory,
+    gaps,
+  };
+}
 
 /**
  * Load model for an agent

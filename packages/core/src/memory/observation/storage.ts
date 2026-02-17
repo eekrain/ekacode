@@ -24,6 +24,106 @@ export interface ObservationalMemoryConfig {
   maxRecentHours: number;
 }
 
+export type ObservationalMemoryModeConfig = ObservationalMemoryConfig;
+
+export const DEFAULT_MEMORY_CONFIG: ObservationalMemoryModeConfig = {
+  observationThreshold: 30000,
+  reflectionThreshold: 40000,
+  bufferTokens: 6000,
+  bufferActivation: 0.8,
+  blockAfter: 7200,
+  scope: "thread",
+  lastMessages: 10,
+  maxRecentObservations: 50,
+  maxRecentHours: 24,
+};
+
+export const EXPLORER_MEMORY_CONFIG: ObservationalMemoryModeConfig = {
+  observationThreshold: 60000,
+  reflectionThreshold: 80000,
+  bufferTokens: 12000,
+  bufferActivation: 0.8,
+  blockAfter: 14400,
+  scope: "thread",
+  lastMessages: 15,
+  maxRecentObservations: 80,
+  maxRecentHours: 24,
+};
+
+export const BUGFIXING_MEMORY_CONFIG: ObservationalMemoryModeConfig = {
+  observationThreshold: 40000,
+  reflectionThreshold: 60000,
+  bufferTokens: 8000,
+  bufferActivation: 0.8,
+  blockAfter: 9600,
+  scope: "thread",
+  lastMessages: 12,
+  maxRecentObservations: 60,
+  maxRecentHours: 24,
+};
+
+export const REFACTORING_MEMORY_CONFIG: ObservationalMemoryModeConfig = {
+  observationThreshold: 50000,
+  reflectionThreshold: 70000,
+  bufferTokens: 10000,
+  bufferActivation: 0.8,
+  blockAfter: 12000,
+  scope: "thread",
+  lastMessages: 12,
+  maxRecentObservations: 70,
+  maxRecentHours: 24,
+};
+
+export const TESTING_MEMORY_CONFIG: ObservationalMemoryModeConfig = {
+  observationThreshold: 40000,
+  reflectionThreshold: 60000,
+  bufferTokens: 8000,
+  bufferActivation: 0.8,
+  blockAfter: 9600,
+  scope: "thread",
+  lastMessages: 12,
+  maxRecentObservations: 60,
+  maxRecentHours: 24,
+};
+
+export const DEBUGGING_MEMORY_CONFIG: ObservationalMemoryModeConfig = {
+  observationThreshold: 40000,
+  reflectionThreshold: 60000,
+  bufferTokens: 8000,
+  bufferActivation: 0.8,
+  blockAfter: 9600,
+  scope: "thread",
+  lastMessages: 12,
+  maxRecentObservations: 60,
+  maxRecentHours: 24,
+};
+
+export const RESEARCH_MEMORY_CONFIG: ObservationalMemoryModeConfig = {
+  observationThreshold: 60000,
+  reflectionThreshold: 80000,
+  bufferTokens: 12000,
+  bufferActivation: 0.8,
+  blockAfter: 14400,
+  scope: "thread",
+  lastMessages: 15,
+  maxRecentObservations: 80,
+  maxRecentHours: 24,
+};
+
+export const MODE_CONFIGS: Record<string, ObservationalMemoryModeConfig> = {
+  default: DEFAULT_MEMORY_CONFIG,
+  explore: EXPLORER_MEMORY_CONFIG,
+  bug_fixing: BUGFIXING_MEMORY_CONFIG,
+  refactoring: REFACTORING_MEMORY_CONFIG,
+  testing: TESTING_MEMORY_CONFIG,
+  debugging: DEBUGGING_MEMORY_CONFIG,
+  research: RESEARCH_MEMORY_CONFIG,
+};
+
+export function getMemoryConfig(mode: string): ObservationalMemoryModeConfig {
+  return MODE_CONFIGS[mode] ?? DEFAULT_MEMORY_CONFIG;
+}
+
 export interface BufferedObservationChunk {
   content: string;
   messageIds: string[];
@@ -136,6 +236,7 @@ export interface UpdateObservationalMemoryInput {
   lastObservedAt?: number;
   observedMessageIds?: string[];
   generationCount?: number;
+  config?: ObservationalMemoryConfig;
 }
 
 const DEFAULT_CONFIG: ObservationalMemoryConfig = {
@@ -266,9 +367,8 @@ export class ObservationalMemoryStorage {
     if (input.generationCount !== undefined) {
       updateData.generation_count = input.generationCount;
     }
-
-    if (Object.keys(updateData).length === 0) {
-      return this.getObservationalMemoryById(id);
+    if (input.config !== undefined) {
+      updateData.config = input.config;
     }
 
     updateData.updated_at = new Date();

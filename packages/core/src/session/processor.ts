@@ -23,6 +23,7 @@ import {
   createObserverAgent,
   formatObservationsForInjection,
   getAgentMode,
+  getMemoryConfig,
   memoryProcessor,
   messageStorage,
   processInputStep,
@@ -249,6 +250,7 @@ export class AgentProcessor {
         const tokenCounter = new SimpleTokenCounter();
         const observerModel = this.getModel();
         const agentMode = getAgentMode(this.config.type);
+        const modeConfig = getMemoryConfig(agentMode);
         const observerAgent = createObserverAgent(observerModel, agentMode, 30000);
 
         // Get messages from storage for observation
@@ -275,6 +277,7 @@ export class AgentProcessor {
           stepNumber: 0,
           tokenCounter,
           observerAgent,
+          config: modeConfig,
         });
 
         // Build message list with system prompt, working memory, observations, then user message

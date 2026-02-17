@@ -28,6 +28,7 @@ export { executeMemorySearch, memorySearchTool, type SearchResult } from "./sear
 export {
   SimpleTokenCounter,
   calculateObservationThresholds,
+  getMemoryConfig,
   observationalMemoryStorage,
   type BufferedObservationChunk,
   type CreateObservationalMemoryInput,
