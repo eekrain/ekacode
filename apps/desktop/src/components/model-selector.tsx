@@ -7,7 +7,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/utils";
-import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 
 export type CommandCenterMode = "model" | "mcp" | "skills" | "context";
 
@@ -32,9 +32,23 @@ interface ModelSelectorProps {
   selectedModelId?: string;
   mode: CommandCenterMode;
   onModeChange: (mode: CommandCenterMode) => void;
+  workspaceRoot?: string;
+  searchQuery?: string;
   modelSections: ModelSelectorSection[];
   onSearchChange: (query: string) => void;
   onSelect: (modelId: string) => void;
+  fileSearchResults?: Array<{
+    path: string;
+    name: string;
+    score: number;
+    type: "file" | "directory";
+  }>;
+  onFileSelect?: (file: {
+    path: string;
+    name: string;
+    score: number;
+    type: "file" | "directory";
+  }) => void;
 }
 
 interface CommandEntry {
@@ -78,19 +92,6 @@ const MCP_ENTRIES: CommandEntry[] = [
   { id: "mcp:refresh", label: "Refresh MCP Status", description: "Re-check MCP availability" },
 ];
 
-const CONTEXT_ENTRIES: CommandEntry[] = [
-  {
-    id: "context:file",
-    label: "Add File Context",
-    description: "Attach file contents to prompt context",
-  },
-  {
-    id: "context:symbol",
-    label: "Add Symbol Context",
-    description: "Attach selected symbol details",
-  },
-];
-
 const MODE_PILLS: Array<{ mode: CommandCenterMode; label: string }> = [
   { mode: "model", label: "/model" },
   { mode: "mcp", label: "/mcp" },
@@ -98,14 +99,53 @@ const MODE_PILLS: Array<{ mode: CommandCenterMode; label: string }> = [
   { mode: "context", label: "@context" },
 ];
 
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, "/");
+}
+
+function toRelativeContextPath(filePath: string, workspaceRoot?: string): string {
+  const normalizedPath = normalizePath(filePath);
+  const normalizedRoot = workspaceRoot ? normalizePath(workspaceRoot).replace(/\/+$/, "") : "";
+
+  let relativePath = normalizedPath;
+  if (normalizedRoot && normalizedPath.startsWith(`${normalizedRoot}/`)) {
+    relativePath = normalizedPath.slice(normalizedRoot.length + 1);
+  } else {
+    relativePath = normalizedPath.replace(/^\/+/, "");
+  }
+
+  return relativePath;
+}
+
+function middleEllipsisPath(path: string, maxLength = 64): string {
+  if (path.length <= maxLength) {
+    return path;
+  }
+
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length <= 2) {
+    const keep = Math.max(8, maxLength - 3);
+    return `${path.slice(0, keep)}...`;
+  }
+
+  const first = parts[0]!;
+  const tail = parts.slice(-3).join("/");
+  const candidate = `${first}/.../${tail}`;
+  if (candidate.length <= maxLength) {
+    return candidate;
+  }
+  return `.../${tail}`;
+}
+
 export function ModelSelector(props: ModelSelectorProps) {
-  const DEBUG_PREFIX = "[model-selector-debug]";
   const [query, setQuery] = createSignal("");
   const [activeIndex, setActiveIndex] = createSignal(0);
   const [modelScrollTop, setModelScrollTop] = createSignal(0);
   const [modelViewportHeight, setModelViewportHeight] = createSignal(404);
+  const optionRefs = new Map<string, HTMLButtonElement>();
   let searchInputRef: HTMLInputElement | undefined;
   let modelListRef: HTMLDivElement | undefined;
+  let commandListRef: HTMLDivElement | undefined;
 
   const MODEL_ROW_HEIGHT = 40;
   const MODEL_VIEWPORT_FALLBACK_HEIGHT = 404;
@@ -168,8 +208,6 @@ export function ModelSelector(props: ModelSelectorProps) {
         return MCP_ENTRIES;
       case "skills":
         return SKILL_ENTRIES;
-      case "context":
-        return CONTEXT_ENTRIES;
       default:
         return [];
     }
@@ -178,8 +216,17 @@ export function ModelSelector(props: ModelSelectorProps) {
   const visibleEntryIds = createMemo(() =>
     props.mode === "model"
       ? modelEntries().map(entry => entry.id)
-      : commandEntries().map(entry => entry.id)
+      : props.mode === "context"
+        ? (props.fileSearchResults ?? []).map(file => file.path)
+        : commandEntries().map(entry => entry.id)
   );
+
+  createEffect(() => {
+    const externalQuery = props.searchQuery ?? "";
+    if (externalQuery !== query()) {
+      setQuery(externalQuery);
+    }
+  });
 
   createEffect(() => {
     if (!props.open) return;
@@ -206,7 +253,15 @@ export function ModelSelector(props: ModelSelectorProps) {
   });
   createEffect(() => {
     if (!props.open) return;
-    queueMicrotask(() => searchInputRef?.focus());
+    const timer = setTimeout(() => {
+      searchInputRef?.focus();
+      searchInputRef?.select();
+    }, 50);
+    requestAnimationFrame(() => {
+      searchInputRef?.focus();
+      searchInputRef?.select();
+    });
+    onCleanup(() => clearTimeout(timer));
   });
   createEffect(() => {
     if (!props.open || props.mode !== "model") return;
@@ -233,13 +288,17 @@ export function ModelSelector(props: ModelSelectorProps) {
       setModelScrollTop(nextTop);
     }
   });
+  createEffect(() => {
+    if (!props.open || props.mode === "model") return;
+    const activeId = visibleEntryIds()[activeIndex()];
+    if (!activeId || !commandListRef) return;
+    const activeOption = optionRefs.get(activeId);
+    if (!activeOption) return;
+    activeOption.scrollIntoView?.({ block: "nearest" });
+  });
 
   const handlePick = (modelId: string) => {
     if (props.mode !== "model") return;
-    console.log(`${DEBUG_PREFIX} model-selector:pick`, {
-      modelId,
-      selectedModelId: props.selectedModelId,
-    });
     props.onSelect(modelId);
     setQuery("");
     props.onOpenChange(false);
@@ -273,6 +332,15 @@ export function ModelSelector(props: ModelSelectorProps) {
           handlePick(id);
           return;
         }
+        if (props.mode === "context") {
+          const file = props.fileSearchResults?.find(entry => entry.path === id);
+          if (file) {
+            props.onFileSelect?.(file);
+            setQuery("");
+            props.onOpenChange(false);
+          }
+          return;
+        }
         handleCommandPick();
         break;
       }
@@ -287,6 +355,9 @@ export function ModelSelector(props: ModelSelectorProps) {
   };
 
   const isActive = (id: string) => visibleEntryIds()[activeIndex()] === id;
+  const setOptionRef = (id: string) => (element: HTMLButtonElement) => {
+    optionRefs.set(id, element);
+  };
 
   return (
     <CommandDialog
@@ -300,9 +371,11 @@ export function ModelSelector(props: ModelSelectorProps) {
         <div class="mb-1.5 flex items-center justify-between">
           <div>
             <p class="text-popover-foreground text-[13px] font-semibold tracking-tight">
-              Selecting model
+              {props.mode === "context" ? "Adding context" : "Selecting model"}
             </p>
-            <p class="text-muted-foreground text-[10px]">Command Center</p>
+            <p class="text-muted-foreground text-[10px]">
+              {props.mode === "context" ? "Search files to add context" : "Command Center"}
+            </p>
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-1">
@@ -339,18 +412,25 @@ export function ModelSelector(props: ModelSelectorProps) {
                 ? "Search MCP commands..."
                 : props.mode === "skills"
                   ? "Search skills..."
-                  : "Search context commands..."
+                  : "Search files and directories to add context..."
           }
           class="text-popover-foreground"
         />
       </div>
 
       <CommandList
+        ref={commandListRef}
         aria-label="Model selector"
-        class="bg-background/35 [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50 h-[420px] !max-h-none overflow-hidden px-1.5 py-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2"
+        class="bg-background/35 [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50 h-[420px] !max-h-none overflow-y-auto overflow-x-hidden px-1.5 py-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2"
       >
         <Show
-          when={props.mode === "model" ? modelEntries().length > 0 : commandEntries().length > 0}
+          when={
+            props.mode === "model"
+              ? modelEntries().length > 0
+              : props.mode === "context"
+                ? true
+                : commandEntries().length > 0
+          }
           fallback={<CommandEmpty class="text-muted-foreground">No results found.</CommandEmpty>}
         >
           <Show when={props.mode === "model"}>
@@ -432,24 +512,64 @@ export function ModelSelector(props: ModelSelectorProps) {
               }
               class="[&_[cmdk-group-heading]]:border-border/80 [&_[cmdk-group-heading]]:bg-muted/60 [&_[cmdk-group-heading]]:text-foreground [&_[cmdk-group-heading]]:rounded-md [&_[cmdk-group-heading]]:border"
             >
-              <For each={commandEntries()}>
-                {entry => (
-                  <CommandItem
-                    value={entry.id}
-                    class={cn(
-                      "text-popover-foreground hover:border-border/90 hover:bg-muted/70 h-9 rounded-md border border-transparent px-2.5 transition-all duration-200",
-                      isActive(entry.id) &&
-                        "border-primary/45 bg-accent/70 shadow-[0_0_0_1px_color-mix(in_oklch,var(--color-primary)_45%,transparent),0_8px_24px_color-mix(in_oklch,var(--color-primary)_18%,transparent)]"
-                    )}
-                    onPick={handleCommandPick}
-                  >
-                    <span class="truncate">{entry.label}</span>
-                    <span class="text-muted-foreground ml-auto text-[11px]">
-                      {entry.description}
-                    </span>
-                  </CommandItem>
-                )}
-              </For>
+              <Show when={props.mode === "context" && (props.fileSearchResults?.length ?? 0) > 0}>
+                <For each={props.fileSearchResults}>
+                  {file =>
+                    (() => {
+                      const relativePath = toRelativeContextPath(file.path, props.workspaceRoot);
+                      const displayPath =
+                        file.type === "directory" && !relativePath.endsWith("/")
+                          ? `${relativePath}/`
+                          : relativePath;
+                      const compactPath = middleEllipsisPath(displayPath);
+
+                      return (
+                        <CommandItem
+                          ref={setOptionRef(file.path)}
+                          value={file.path}
+                          class={cn(
+                            "text-popover-foreground hover:border-border/90 hover:bg-muted/70 min-h-10 rounded-md border border-transparent px-2.5 py-1.5 transition-all duration-200",
+                            isActive(file.path) &&
+                              "border-primary/45 bg-accent/70 shadow-[0_0_0_1px_color-mix(in_oklch,var(--color-primary)_45%,transparent),0_8px_24px_color-mix(in_oklch,var(--color-primary)_18%,transparent)]"
+                          )}
+                          onPick={() => props.onFileSelect?.(file)}
+                          title={file.path}
+                        >
+                          <div class="w-full min-w-0">
+                            <span class="block truncate text-sm">{compactPath}</span>
+                          </div>
+                        </CommandItem>
+                      );
+                    })()
+                  }
+                </For>
+              </Show>
+              <Show when={props.mode === "context" && (props.fileSearchResults?.length ?? 0) === 0}>
+                <CommandEmpty class="text-muted-foreground">
+                  Type to search files and add context.
+                </CommandEmpty>
+              </Show>
+              <Show when={props.mode !== "context"}>
+                <For each={commandEntries()}>
+                  {entry => (
+                    <CommandItem
+                      ref={setOptionRef(entry.id)}
+                      value={entry.id}
+                      class={cn(
+                        "text-popover-foreground hover:border-border/90 hover:bg-muted/70 h-9 rounded-md border border-transparent px-2.5 transition-all duration-200",
+                        isActive(entry.id) &&
+                          "border-primary/45 bg-accent/70 shadow-[0_0_0_1px_color-mix(in_oklch,var(--color-primary)_45%,transparent),0_8px_24px_color-mix(in_oklch,var(--color-primary)_18%,transparent)]"
+                      )}
+                      onPick={handleCommandPick}
+                    >
+                      <span class="truncate">{entry.label}</span>
+                      <span class="text-muted-foreground ml-auto text-[11px]">
+                        {entry.description}
+                      </span>
+                    </CommandItem>
+                  )}
+                </For>
+              </Show>
             </CommandGroup>
           </Show>
         </Show>

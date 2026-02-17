@@ -86,4 +86,69 @@ describe("ModelSelector command center", () => {
 
     expect(document.body.textContent).toContain("Z.AI");
   });
+
+  it("renders directory context results with trailing slash", () => {
+    const onFileSelect = vi.fn();
+
+    dispose = render(
+      () => (
+        <ModelSelector
+          open={true}
+          onOpenChange={vi.fn()}
+          mode="context"
+          onModeChange={vi.fn()}
+          modelSections={[]}
+          onSearchChange={vi.fn()}
+          onSelect={vi.fn()}
+          fileSearchResults={[
+            { path: "/workspace/src", name: "src", score: 5, type: "directory" },
+            { path: "/workspace/src/index.ts", name: "index.ts", score: 4, type: "file" },
+          ]}
+          workspaceRoot="/workspace"
+          onFileSelect={onFileSelect}
+        />
+      ),
+      container
+    );
+
+    expect(document.body.textContent).toContain("src/");
+    const options = document.body.querySelectorAll('[role="option"]');
+    expect(options.length).toBeGreaterThan(1);
+  });
+
+  it("scrolls active context result into view when navigating with arrow keys", () => {
+    const scrollIntoView = vi.fn();
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    dispose = render(
+      () => (
+        <ModelSelector
+          open={true}
+          onOpenChange={vi.fn()}
+          mode="context"
+          onModeChange={vi.fn()}
+          modelSections={[]}
+          onSearchChange={vi.fn()}
+          onSelect={vi.fn()}
+          fileSearchResults={Array.from({ length: 30 }, (_, index) => ({
+            path: `/workspace/src/file-${index}.ts`,
+            name: `file-${index}.ts`,
+            score: 30 - index,
+            type: "file" as const,
+          }))}
+          workspaceRoot="/workspace"
+          onFileSelect={vi.fn()}
+        />
+      ),
+      container
+    );
+
+    const input = document.body.querySelector('input[aria-label="Search models"]');
+    expect(input).toBeTruthy();
+    input?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    expect(scrollIntoView).toHaveBeenCalled();
+
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
 });

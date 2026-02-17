@@ -11,6 +11,9 @@ export type { ChatMessage, UseMessagesResult } from "./use-messages";
 export { useChat } from "./use-chat";
 export type { UseChatOptions, UseChatResult } from "./use-chat";
 
+export { useFileSearch } from "./use-file-search";
+export type { FileSearchResult } from "./use-file-search";
+
 export { toTimeline } from "./timeline-projection";
 export { useStreamDebugger } from "./use-stream-debugger";
 

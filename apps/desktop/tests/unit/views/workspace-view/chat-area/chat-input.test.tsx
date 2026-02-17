@@ -411,4 +411,90 @@ describe("ChatInput", () => {
 
     expect(getModelSections).toHaveBeenCalled();
   });
+
+  it("autofocuses context search and shows file results without legacy context commands", async () => {
+    const getFileSearchResults = vi.fn(async (query: string) => {
+      if (!query.trim()) return [];
+      return [
+        {
+          path: `src/${query}.ts`,
+          name: `${query}.ts`,
+          score: 1,
+          type: "file" as const,
+        },
+      ];
+    });
+
+    dispose = render(
+      () => (
+        <ChatInput
+          getFileSearchResults={getFileSearchResults}
+          modelOptions={[
+            { id: "zai/glm-4.7", providerId: "zai", name: "GLM 4.7", connected: true },
+          ]}
+        />
+      ),
+      container
+    );
+
+    const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
+    textarea.value = "@observer";
+    textarea.dispatchEvent(new InputEvent("input", { bubbles: true }));
+
+    await new Promise(resolve => setTimeout(resolve, 80));
+
+    const searchInput = document.body.querySelector(
+      'input[aria-label="Search models"]'
+    ) as HTMLInputElement;
+    expect(searchInput).toBeTruthy();
+    expect(document.activeElement).toBe(searchInput);
+
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    expect(document.body.textContent).toContain("Adding context");
+    expect(document.body.textContent).toContain("observer.ts");
+    expect(document.body.textContent).not.toContain("Add File Context");
+    expect(document.body.textContent).not.toContain("Add Symbol Context");
+    expect(getFileSearchResults).toHaveBeenCalled();
+  });
+
+  it("inserts selected directory mention into input", async () => {
+    const onValueChange = vi.fn();
+    const getFileSearchResults = vi.fn(async () => [
+      {
+        path: "/workspace/src/components",
+        name: "components",
+        score: 10,
+        type: "directory" as const,
+      },
+    ]);
+
+    dispose = render(
+      () => (
+        <ChatInput
+          onValueChange={onValueChange}
+          getFileSearchResults={getFileSearchResults}
+          modelOptions={[
+            { id: "zai/glm-4.7", providerId: "zai", name: "GLM 4.7", connected: true },
+          ]}
+        />
+      ),
+      container
+    );
+
+    const textarea = container.querySelector("textarea") as HTMLTextAreaElement;
+    textarea.value = "@comp";
+    textarea.dispatchEvent(new InputEvent("input", { bubbles: true }));
+
+    await new Promise(resolve => setTimeout(resolve, 80));
+
+    const option = Array.from(document.body.querySelectorAll('[role="option"]')).find(node =>
+      (node.textContent ?? "").includes("components")
+    ) as HTMLButtonElement | undefined;
+    expect(option).toBeTruthy();
+
+    option?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(onValueChange).toHaveBeenCalledWith("@/workspace/src/components ");
+  });
 });

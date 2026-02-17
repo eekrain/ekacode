@@ -48,6 +48,7 @@ import commandRouter from "./routes/command";
 import diffRouter from "./routes/diff";
 import eventRouter from "./routes/event";
 import eventsRouter from "./routes/events";
+import filesRouter from "./routes/files";
 import healthRouter from "./routes/health";
 import lspRouter from "./routes/lsp";
 import mcpRouter from "./routes/mcp";
@@ -184,6 +185,9 @@ app.route("/", vcsRouter);
 // Mount diff and todo routes
 app.route("/", diffRouter);
 app.route("/", todoRouter);
+
+// Mount files routes
+app.route("/", filesRouter);
 
 let currentPort = SERVER_PORT;
 let serverInstance: CloseableServer | null = null;

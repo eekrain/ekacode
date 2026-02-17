@@ -2,7 +2,7 @@ import { cn } from "@/utils";
 import * as DialogPrimitive from "@kobalte/core/dialog";
 import { createPresence } from "@solid-primitives/presence";
 import type { Component, ComponentProps, JSX, ParentComponent } from "solid-js";
-import { Show, createEffect, splitProps } from "solid-js";
+import { Show, splitProps } from "solid-js";
 
 export const CommandRoot: ParentComponent<ComponentProps<"div">> = props => {
   const [local, others] = splitProps(props, ["class", "children"]);
@@ -23,20 +23,10 @@ export const CommandDialog: ParentComponent<{
   contentClass?: string;
   children: JSX.Element;
 }> = props => {
-  const DEBUG_PREFIX = "[command-dialog-debug]";
   const [local] = splitProps(props, ["open", "onOpenChange", "children", "contentClass"]);
   const presence = createPresence(() => (local.open ? true : undefined), {
     transitionDuration: 220,
     initialEnter: true,
-  });
-  createEffect(() => {
-    console.log(`${DEBUG_PREFIX} lifecycle`, {
-      open: local.open,
-      isMounted: presence.isMounted(),
-      isVisible: presence.isVisible(),
-      isEntering: presence.isEntering(),
-      isExiting: presence.isExiting(),
-    });
   });
 
   return (

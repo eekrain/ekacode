@@ -53,10 +53,13 @@ export interface ChatInputProps {
   isResolvingPermission?: boolean;
   placeholder?: string;
   class?: string;
+  workspace?: string;
+  getFileSearchResults?: (
+    query: string
+  ) => Promise<Array<{ path: string; name: string; score: number; type: "file" | "directory" }>>;
 }
 
 export const ChatInput: Component<ChatInputProps> = props => {
-  const DEBUG_PREFIX = "[model-selector-debug]";
   const merged = mergeProps(
     {
       value: "",
@@ -77,6 +80,10 @@ export const ChatInput: Component<ChatInputProps> = props => {
   const [isModelSelectorOpen, setIsModelSelectorOpen] = createSignal(false);
   const [commandMode, setCommandMode] = createSignal<CommandCenterMode>("model");
   const [modelSearch, setModelSearch] = createSignal("");
+  const [fileSearchResults, setFileSearchResults] = createSignal<
+    Array<{ path: string; name: string; score: number; type: "file" | "directory" }>
+  >([]);
+  let fileSearchRequestSeq = 0;
   let textareaRef: HTMLTextAreaElement | undefined;
   const fallbackFilteredModels = createMemo(() => {
     const query = modelSearch().trim().toLowerCase();
@@ -120,6 +127,29 @@ export const ChatInput: Component<ChatInputProps> = props => {
     return merged.getModelSections
       ? merged.getModelSections(modelSearch())
       : fallbackModelSections();
+  });
+
+  createEffect(() => {
+    if (commandMode() !== "context" || !isModelSelectorOpen() || !merged.getFileSearchResults) {
+      setFileSearchResults([]);
+      return;
+    }
+
+    const searchQuery = modelSearch();
+    const requestId = ++fileSearchRequestSeq;
+
+    merged
+      .getFileSearchResults(searchQuery)
+      .then(results => {
+        if (requestId === fileSearchRequestSeq) {
+          setFileSearchResults(results);
+        }
+      })
+      .catch(() => {
+        if (requestId === fileSearchRequestSeq) {
+          setFileSearchResults([]);
+        }
+      });
   });
 
   const autoResize = () => {
@@ -167,9 +197,10 @@ export const ChatInput: Component<ChatInputProps> = props => {
       setIsModelSelectorOpen(true);
       return;
     }
-    if (/(^|\s)@[\w/-]*$/.test(value)) {
+    if (/(^|\s)@([^\s]*)$/.test(value)) {
       setCommandMode("context");
-      setModelSearch(value.split("@").pop()?.trim() ?? "");
+      const searchQuery = value.split("@").pop()?.trim() ?? "";
+      setModelSearch(searchQuery);
       setIsModelSelectorOpen(true);
     }
   };
@@ -199,10 +230,6 @@ export const ChatInput: Component<ChatInputProps> = props => {
   };
 
   const handleModelPick = (modelId: string) => {
-    console.log(`${DEBUG_PREFIX} chat-input:onModelPick`, {
-      modelId,
-      selectedModel: merged.selectedModel,
-    });
     merged.onModelChange?.(modelId);
     setIsModelSelectorOpen(false);
     setModelSearch("");
@@ -366,6 +393,8 @@ export const ChatInput: Component<ChatInputProps> = props => {
                 type="button"
                 onClick={() => {
                   setCommandMode("model");
+                  setModelSearch("");
+                  setFileSearchResults([]);
                   setIsModelSelectorOpen(open => !open);
                 }}
                 class="bg-background border-border hover:bg-muted rounded border px-2 py-1 text-xs"
@@ -379,10 +408,23 @@ export const ChatInput: Component<ChatInputProps> = props => {
                 onOpenChange={setIsModelSelectorOpen}
                 mode={commandMode()}
                 onModeChange={setCommandMode}
+                workspaceRoot={merged.workspace}
+                searchQuery={modelSearch()}
                 selectedModelId={merged.selectedModel}
                 modelSections={modelSections()}
                 onSearchChange={setModelSearch}
                 onSelect={handleModelPick}
+                fileSearchResults={fileSearchResults()}
+                onFileSelect={file => {
+                  const value = inputValue();
+                  const atIndex = value.lastIndexOf("@");
+                  const newValue = value.slice(0, atIndex) + `@${file.path} `;
+                  setInputValue(newValue);
+                  merged.onValueChange?.(newValue);
+                  setIsModelSelectorOpen(false);
+                  setModelSearch("");
+                  setFileSearchResults([]);
+                }}
               />
             </div>
           </Show>

@@ -3,7 +3,7 @@ import { cn } from "@/utils";
 import { createEffect, createMemo, createSignal, onMount, Show } from "solid-js";
 
 import { ResizeableHandle } from "@/components/ui/resizeable-handle";
-import { useSessionTurns } from "@/core/chat/hooks";
+import { useFileSearch, useSessionTurns } from "@/core/chat/hooks";
 import type { AgentMode } from "@/core/chat/types";
 import { usePermissions } from "@/core/permissions/hooks/use-permissions";
 import { useChatContext } from "@/state/contexts/chat-provider";
@@ -35,6 +35,9 @@ function WorkspaceViewContent() {
   });
   const [permissionState] = usePermissionStore();
   const [questionState, questionActions] = useQuestionStore();
+
+  // File search for @ mentions
+  const fileSearch = useFileSearch(() => ctx.workspace());
 
   // Panel sizes
   const [panelSizes, setPanelSizes] = createSignal<number[]>([0.2, 0.5, 0.3]);
@@ -365,6 +368,10 @@ function WorkspaceViewContent() {
                 onPermissionApproveAlways={(id, patterns) => handleApprovePermission(id, patterns)}
                 onPermissionDeny={handleDenyPermission}
                 placeholder="Send a message..."
+                workspace={ctx.workspace()}
+                getFileSearchResults={query =>
+                  fileSearch.search(query).then(() => fileSearch.results())
+                }
               />
             </div>
           </Resizable.Panel>

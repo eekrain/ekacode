@@ -569,6 +569,48 @@ export class EkacodeApiClient {
     }
   }
 
+  /**
+   * Search files in project index
+   *
+   * @param directory - Workspace directory path
+   * @param query - Search query
+   * @param limit - Max results (default 20)
+   */
+  async searchFiles(params: { directory: string; query: string; limit?: number }): Promise<{
+    files: Array<{ path: string; name: string; score: number; type: "file" | "directory" }>;
+    query: string;
+    directory: string;
+    count: number;
+  }> {
+    logger.debug("Searching files", params);
+
+    try {
+      const searchParams = new URLSearchParams({
+        directory: params.directory,
+        query: params.query,
+      });
+      if (params.limit) {
+        searchParams.set("limit", params.limit.toString());
+      }
+
+      const response = await fetch(`${this.config.baseUrl}/api/files/search?${searchParams}`, {
+        method: "GET",
+        headers: this.commonHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to search files: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      logger.debug("Files searched", { query: params.query, count: result.count });
+      return result;
+    } catch (error) {
+      logger.error("Failed to search files", error as Error, params);
+      throw error;
+    }
+  }
+
   // ============================================================
   // Health API
   // ============================================================
