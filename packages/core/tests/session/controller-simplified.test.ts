@@ -191,6 +191,17 @@ describe("session/controller (simplified)", () => {
 
       expect(controller.hasIncompleteWork()).toBe(false);
     });
+
+    it("should return true when session is running", () => {
+      const controller = new SessionController({
+        sessionId: "test-session",
+        sessionConfig: mockConfig,
+        checkpointDir: mockCheckpointDir,
+      });
+
+      (controller as unknown as { currentPhase: string }).currentPhase = "running";
+      expect(controller.hasIncompleteWork()).toBe(true);
+    });
   });
 
   describe("abort", () => {

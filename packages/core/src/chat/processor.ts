@@ -97,6 +97,37 @@ export interface ProcessorConfig {
   _onSessionStatus?: (status: "idle" | "busy") => void | Promise<void>;
 }
 
+function safeNumber(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function normalizeUsage(usage: unknown): {
+  cost: number;
+  tokens: {
+    input: number;
+    output: number;
+    reasoning: number;
+    cache: {
+      read: number;
+      write: number;
+    };
+  };
+} {
+  const data = usage && typeof usage === "object" ? (usage as Record<string, unknown>) : {};
+  return {
+    cost: safeNumber(data.cost ?? data.totalCost),
+    tokens: {
+      input: safeNumber(data.inputTokens ?? data.promptTokens ?? data.input),
+      output: safeNumber(data.outputTokens ?? data.completionTokens ?? data.output),
+      reasoning: safeNumber(data.reasoningTokens ?? data.reasoning),
+      cache: {
+        read: safeNumber(data.cacheReadInputTokens ?? data.cachedInputTokens ?? data.cacheRead),
+        write: safeNumber(data.cacheWriteInputTokens ?? data.cacheWrite),
+      },
+    },
+  };
+}
+
 /**
  * Process an AI SDK stream and emit part events
  *
@@ -234,7 +265,7 @@ export async function processStream(
         const startedAt = part.state.status === "running" ? part.state.time.start : Date.now();
 
         const result = event.result;
-        if (typeof result === "object" && "error" in result) {
+        if (result && typeof result === "object" && "error" in result) {
           // Error state
           part.state = {
             status: "error",
@@ -250,7 +281,10 @@ export async function processStream(
           part.state = {
             status: "completed",
             input: part.state.input,
-            output: typeof result === "string" ? result : JSON.stringify(result),
+            output:
+              typeof result === "string"
+                ? result
+                : (JSON.stringify(result) ?? String(result ?? "null")),
             title: part.tool,
             metadata: {},
             time: {
@@ -277,22 +311,15 @@ export async function processStream(
       }
 
       case "step-finish": {
+        const usage = normalizeUsage(event.usage);
         const part: StepFinishPart = {
           id: uuidv7(),
           sessionID: context.sessionID,
           messageID: context.messageID,
           type: "step-finish",
           reason: event.reason,
-          tokens: {
-            input: 0,
-            output: 0,
-            reasoning: 0,
-            cache: {
-              read: 0,
-              write: 0,
-            },
-          },
-          cost: 0,
+          tokens: usage.tokens,
+          cost: usage.cost,
           snapshot: undefined,
         };
         await onPartCreated?.(part);

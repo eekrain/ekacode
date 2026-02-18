@@ -102,6 +102,24 @@ describe("session/manager", () => {
       const active = mockManager.getActiveSessions();
       expect(active.length).toBe(0);
     });
+
+    it("should include running sessions in active sessions", async () => {
+      const config: SessionConfig = {
+        resourceId: "local",
+        task: "Test task",
+        workspace: "/test/workspace",
+      };
+
+      const sessionId = await mockManager.createSession(config);
+      const session = await mockManager.getSession(sessionId);
+      expect(session).toBeDefined();
+
+      (session as unknown as { currentPhase: string }).currentPhase = "running";
+
+      const active = mockManager.getActiveSessions();
+      expect(active.length).toBe(1);
+      expect(active[0]?.sessionId).toBe(sessionId);
+    });
   });
 
   describe("getSessionCount", () => {

@@ -267,4 +267,44 @@ describe("session/processor memory integration", () => {
       })
     );
   });
+
+  it("does not reorder result messages when deriving final assistant content", async () => {
+    const { AgentProcessor } = await import("../../src/session/processor");
+
+    const processor = new AgentProcessor(
+      {
+        id: "test-agent-message-order",
+        type: "build",
+        model: "test-model",
+        systemPrompt: "You are a test agent",
+        tools: {},
+        maxIterations: 2,
+      },
+      () => {}
+    );
+
+    memoryFormatMock.mockReturnValue([
+      { role: "system", content: "You are a test agent" },
+      { role: "user", content: "Keep order stable" },
+    ]);
+
+    const p = processor as unknown as TestableProcessor;
+    p.streamIteration = vi.fn(async () => ({}));
+    p.processStream = vi.fn(async () => {
+      p.messages.push({ role: "assistant", content: "Final answer" });
+      return { finished: true };
+    });
+
+    const result = await processor.run({
+      task: "Keep order stable",
+      context: {
+        sessionId: "session-memory-6",
+        resourceId: "local",
+      },
+    });
+
+    expect(result.status).toBe("completed");
+    expect(result.finalContent).toBe("Final answer");
+    expect(result.messages.map(message => message.role)).toEqual(["system", "user", "assistant"]);
+  });
 });

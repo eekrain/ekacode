@@ -182,7 +182,7 @@ export class SessionController {
    * Check if session has incomplete work
    */
   hasIncompleteWork(): boolean {
-    return false;
+    return this.currentPhase === "running";
   }
 
   /**

@@ -1160,7 +1160,7 @@ export class AgentProcessor {
    * Get the last assistant message from the history
    */
   private getLastAssistantMessage(): string {
-    const lastMessage = this.messages
+    const lastMessage = [...this.messages]
       .reverse()
       .find(m => m && typeof m === "object" && "role" in m && m.role === "assistant");
     return lastMessage && typeof lastMessage === "object" && "content" in lastMessage
