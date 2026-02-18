@@ -10,7 +10,7 @@
  */
 
 import { getDb, observationalMemory, type ObservationalMemory } from "@ekacode/server/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, lt, or } from "drizzle-orm";
 
 export interface ObservationalMemoryConfig {
   observationThreshold: number;
@@ -256,6 +256,18 @@ const DEFAULT_CONFIG: ObservationalMemoryConfig = {
 export class ObservationalMemoryStorage {
   static asyncBufferingOps: Map<string, Promise<void>> = new Map();
 
+  private hasActiveAsyncBufferingOp(recordId: string): boolean {
+    if (ObservationalMemoryStorage.asyncBufferingOps.has(recordId)) {
+      return true;
+    }
+    for (const key of ObservationalMemoryStorage.asyncBufferingOps.keys()) {
+      if (key.endsWith(`-${recordId}`)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private getLookupKey(
     scope: "thread" | "resource",
     resourceId?: string,
@@ -401,19 +413,11 @@ export class ObservationalMemoryStorage {
       return { success: false };
     }
 
-    const isExpired = !existing.lock_expires_at || existing.lock_expires_at < now;
     const isSameOwner = existing.lock_owner_id === ownerId;
+    const operationId =
+      isSameOwner && existing.lock_operation_id ? existing.lock_operation_id : crypto.randomUUID();
 
-    if (!isExpired && !isSameOwner) {
-      return { success: false };
-    }
-
-    let operationId = existing.lock_operation_id;
-    if (!operationId || isExpired) {
-      operationId = crypto.randomUUID();
-    }
-
-    await db
+    const [updated] = await db
       .update(observationalMemory)
       .set({
         lock_owner_id: ownerId,
@@ -422,7 +426,21 @@ export class ObservationalMemoryStorage {
         last_heartbeat_at: now,
         updated_at: now,
       })
-      .where(eq(observationalMemory.id, id));
+      .where(
+        and(
+          eq(observationalMemory.id, id),
+          or(
+            isNull(observationalMemory.lock_expires_at),
+            lt(observationalMemory.lock_expires_at, now),
+            eq(observationalMemory.lock_owner_id, ownerId)
+          )
+        )
+      )
+      .returning({ id: observationalMemory.id });
+
+    if (!updated) {
+      return { success: false };
+    }
 
     return { success: true, operationId };
   }
@@ -548,7 +566,7 @@ export class ObservationalMemoryStorage {
     const now = new Date();
     const db = await getDb();
 
-    if (record.is_buffering_observation && !ObservationalMemoryStorage.asyncBufferingOps.has(id)) {
+    if (record.is_buffering_observation && !this.hasActiveAsyncBufferingOp(id)) {
       await db
         .update(observationalMemory)
         .set({
@@ -559,7 +577,7 @@ export class ObservationalMemoryStorage {
         .where(eq(observationalMemory.id, id));
     }
 
-    if (record.is_buffering_reflection && !ObservationalMemoryStorage.asyncBufferingOps.has(id)) {
+    if (record.is_buffering_reflection && !this.hasActiveAsyncBufferingOp(id)) {
       await db
         .update(observationalMemory)
         .set({
@@ -570,7 +588,7 @@ export class ObservationalMemoryStorage {
     }
 
     if (record.lock_expires_at && record.lock_expires_at < now) {
-      const isActive = ObservationalMemoryStorage.asyncBufferingOps.has(id);
+      const isActive = this.hasActiveAsyncBufferingOp(id);
       if (!isActive) {
         await db
           .update(observationalMemory)

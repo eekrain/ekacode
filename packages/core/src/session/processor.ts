@@ -254,11 +254,16 @@ export class AgentProcessor {
         const modeConfig = getMemoryConfig(agentMode);
         const observerAgent = createObserverAgent(observerModel, agentMode, 30000);
 
+        const requestedScope = this.getString(input.context?.memoryScope);
+        const observationScope: "thread" | "resource" =
+          requestedScope === "resource" ? "resource" : "thread";
+
         // Get messages from storage for observation
-        const messagesForObservation = await messageStorage.listMessages({
-          threadId: resolvedMemoryContext.threadId,
-          limit: 50,
-        });
+        const messagesForObservation = await messageStorage.listMessages(
+          observationScope === "resource"
+            ? { resourceId: resolvedMemoryContext.resourceId, limit: 50 }
+            : { threadId: resolvedMemoryContext.threadId, limit: 50 }
+        );
 
         const observationMessages = messagesForObservation.map(msg => ({
           id: msg.id,
@@ -273,11 +278,12 @@ export class AgentProcessor {
           context: {
             threadId: resolvedMemoryContext.threadId,
             resourceId: resolvedMemoryContext.resourceId,
-            scope: "thread",
+            scope: observationScope,
           },
           stepNumber: 0,
           tokenCounter,
           observerAgent,
+          reflectorModel: observerModel,
           config: modeConfig,
         });
 

@@ -296,6 +296,92 @@ describe("Observational Memory Orchestration", () => {
       expect(result.didObserve).toBe(false);
       expect(observerAgent).not.toHaveBeenCalled();
     });
+
+    it("should activate buffered observations on step 0 when pending tokens exceed activation threshold", async () => {
+      const { processInputStep } = await import("../../../../src/memory/observation/orchestration");
+      const threadId = uuidv7();
+
+      const created = await storage.createObservationalMemory({
+        threadId,
+        scope: "thread",
+        createdAt: Date.now(),
+        config: {
+          observationThreshold: 1000,
+          reflectionThreshold: 2000,
+          bufferTokens: 200,
+          bufferActivation: 0.8,
+          blockAfter: 7200,
+          scope: "thread",
+          lastMessages: 10,
+          maxRecentObservations: 50,
+          maxRecentHours: 24,
+        },
+      });
+
+      await storage.updateBufferedObservations(created.id, [
+        {
+          content: "Buffered observation from async pass",
+          messageIds: ["msg-1"],
+          messageTokens: 900,
+          createdAt: new Date(),
+        },
+      ]);
+
+      const messages = [{ id: "msg-1", role: "user" as const, content: "A".repeat(120) }];
+      const tokenCounter = {
+        countMessages: () => 900,
+        countString: () => 900,
+      };
+      const observerAgent = vi.fn().mockResolvedValue("Observation");
+
+      const result = await processInputStep({
+        messages,
+        context: { threadId, scope: "thread" },
+        stepNumber: 0,
+        tokenCounter,
+        observerAgent,
+      });
+
+      expect(result.record.active_observations ?? "").toContain(
+        "Buffered observation from async pass"
+      );
+      expect(result.record.buffered_observation_chunks ?? []).toHaveLength(0);
+    });
+
+    it("should run synchronous observation at step 0 when threshold is exceeded", async () => {
+      const { processInputStep } = await import("../../../../src/memory/observation/orchestration");
+      const threadId = uuidv7();
+      const messages = [{ id: "msg-sync-1", role: "user" as const, content: "A".repeat(1000) }];
+      const tokenCounter = {
+        countMessages: () => 2000,
+        countString: () => 2000,
+      };
+      const observerAgent = vi.fn().mockResolvedValue("Synchronous observation content");
+
+      const result = await processInputStep({
+        messages,
+        context: { threadId, scope: "thread" },
+        stepNumber: 0,
+        tokenCounter,
+        observerAgent,
+        config: {
+          observationThreshold: 1000,
+          reflectionThreshold: 5000,
+          bufferTokens: 200,
+          bufferActivation: 0.8,
+          blockAfter: 7200,
+          scope: "thread",
+          lastMessages: 10,
+          maxRecentObservations: 50,
+          maxRecentHours: 24,
+        },
+      });
+
+      expect(observerAgent).toHaveBeenCalledTimes(1);
+      expect(result.didObserve).toBe(true);
+      expect(result.record.active_observations ?? "").toContain("Synchronous observation content");
+      expect(result.record.observed_message_ids ?? []).toContain("msg-sync-1");
+    });
   });
 
   describe("calculateObservationThresholds", () => {

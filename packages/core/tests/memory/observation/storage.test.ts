@@ -364,6 +364,39 @@ describe("ObservationalMemoryStorage", () => {
       const locked = await storage.getObservationalMemory("thread", undefined, threadId);
       expect(locked?.lock_owner_id).toBe("instance-1");
     });
+
+    it("should allow only one winner when two instances race to acquire an expired lock", async () => {
+      const threadId = uuidv7();
+      const now = Date.now();
+
+      const record = await storage.createObservationalMemory({
+        threadId,
+        scope: "thread",
+        createdAt: now,
+      });
+
+      const { getDb, observationalMemory } = await import("@ekacode/server/db");
+      const { eq } = await import("drizzle-orm");
+      const db = await getDb();
+
+      await db
+        .update(observationalMemory)
+        .set({
+          lock_owner_id: "stale-owner",
+          lock_operation_id: "stale-operation",
+          lock_expires_at: new Date(Date.now() - 60_000),
+          updated_at: new Date(),
+        })
+        .where(eq(observationalMemory.id, record.id));
+
+      const [a, b] = await Promise.all([
+        storage.acquireLock(record.id, "instance-A"),
+        storage.acquireLock(record.id, "instance-B"),
+      ]);
+
+      const successCount = [a, b].filter(result => result.success).length;
+      expect(successCount).toBe(1);
+    });
   });
 
   describe("async buffering", () => {
@@ -498,6 +531,29 @@ describe("ObservationalMemoryStorage", () => {
 
       // Cleanup
       ObservationalMemoryStorageClass.asyncBufferingOps.delete(record.id);
+    });
+
+    it("should not clear flag when active operation uses orchestration lock key", async () => {
+      const threadId = uuidv7();
+      const now = Date.now();
+
+      const record = await storage.createObservationalMemory({
+        threadId,
+        scope: "thread",
+        createdAt: now,
+      });
+
+      await storage.setBufferingObservationFlag(record.id, true, 5000);
+
+      const lockKey = `async-observation-${record.id}`;
+      ObservationalMemoryStorageClass.asyncBufferingOps.set(lockKey, Promise.resolve());
+
+      await storage.detectAndClearStaleFlags(record.id);
+
+      const updated = await storage.getObservationalMemory("thread", undefined, threadId);
+      expect(updated?.is_buffering_observation).toBe(1);
+
+      ObservationalMemoryStorageClass.asyncBufferingOps.delete(lockKey);
     });
   });
 

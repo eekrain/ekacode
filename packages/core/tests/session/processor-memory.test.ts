@@ -187,4 +187,84 @@ describe("session/processor memory integration", () => {
     expect(result.status).toBe("completed");
     expect(injectSpecContextMock).toHaveBeenCalledWith(expect.any(Array), "session-memory-3");
   });
+
+  it("passes reflector model into processInputStep for reflection integration", async () => {
+    const { AgentProcessor } = await import("../../src/session/processor");
+
+    const processor = new AgentProcessor(
+      {
+        id: "test-agent-reflector-model",
+        type: "build",
+        model: "test-model",
+        systemPrompt: "You are a test agent",
+        tools: {},
+        maxIterations: 2,
+      },
+      () => {}
+    );
+
+    const p = processor as unknown as TestableProcessor;
+    p.streamIteration = vi.fn(async () => ({}));
+    p.processStream = vi.fn(async () => ({ finished: true }));
+
+    const result = await processor.run({
+      task: "Summarize memory",
+      context: {
+        sessionId: "session-memory-4",
+        resourceId: "local",
+      },
+    });
+
+    expect(result.status).toBe("completed");
+    expect(processInputStepMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reflectorModel: expect.any(Object),
+      })
+    );
+  });
+
+  it("supports resource-scope observation integration when memoryScope is resource", async () => {
+    const { AgentProcessor } = await import("../../src/session/processor");
+
+    const processor = new AgentProcessor(
+      {
+        id: "test-agent-resource-scope",
+        type: "build",
+        model: "test-model",
+        systemPrompt: "You are a test agent",
+        tools: {},
+        maxIterations: 2,
+      },
+      () => {}
+    );
+
+    const p = processor as unknown as TestableProcessor;
+    p.streamIteration = vi.fn(async () => ({}));
+    p.processStream = vi.fn(async () => ({ finished: true }));
+
+    const result = await processor.run({
+      task: "Use project-level memory",
+      context: {
+        sessionId: "session-memory-5",
+        resourceId: "resource-abc",
+        memoryScope: "resource",
+      },
+    });
+
+    expect(result.status).toBe("completed");
+    expect(listMessagesMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceId: "resource-abc",
+        limit: 50,
+      })
+    );
+    expect(processInputStepMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: expect.objectContaining({
+          scope: "resource",
+          resourceId: "resource-abc",
+        }),
+      })
+    );
+  });
 });

@@ -33,11 +33,12 @@ export interface ObserverOutput {
 export async function callObserverAgent(
   input: ObserverInput,
   model: LanguageModelV3,
-  timeoutMs: number = 30000
+  timeoutMs: number = 30000,
+  overrideSystemPrompt?: string
 ): Promise<ObserverOutput> {
   const { existingObservations, messages } = input;
 
-  const systemPrompt = OBSERVER_SYSTEM_PROMPT;
+  const systemPrompt = overrideSystemPrompt ?? OBSERVER_SYSTEM_PROMPT;
 
   const userPrompt = buildUserPrompt(existingObservations, messages);
 
@@ -56,7 +57,8 @@ export async function callObserverAgent(
   const text = result.text;
   const output = parseObserverOutput(text);
 
-  const tokenCount = (result.usage as { total?: number })?.total ?? 0;
+  const usage = (result.usage ?? {}) as { total?: number; totalTokens?: number };
+  const tokenCount = usage.totalTokens ?? usage.total ?? 0;
 
   return {
     observations: output.observations,

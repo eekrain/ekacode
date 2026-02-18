@@ -75,7 +75,7 @@ export function createObserverAgent(
   mode: AgentMode = "default",
   timeoutMs: number = 30000
 ): (existingObservations: string, messages: ObservationMessage[]) => Promise<string> {
-  buildObserverPromptForMode(mode);
+  const systemPrompt = buildObserverPromptForMode(mode);
 
   return async (existingObservations: string, messages: ObservationMessage[]): Promise<string> => {
     const input: ObserverInput = {
@@ -83,7 +83,7 @@ export function createObserverAgent(
       messages,
     };
 
-    const result: ObserverOutput = await callObserverAgent(input, model, timeoutMs);
+    const result: ObserverOutput = await callObserverAgent(input, model, timeoutMs, systemPrompt);
     return result.observations;
   };
 }
@@ -377,9 +377,22 @@ export async function processInputStep(args: ProcessInputStepArgs): Promise<{
 
   // 4. Try to activate buffered observations (step 0 only)
   if (stepNumber === 0 && isAsyncObservationEnabled()) {
+    const currentObservationTokens = record.active_observations
+      ? tokenCounter.countString(record.active_observations)
+      : 0;
+    const pendingTokens = record.last_buffered_at_tokens ?? 0;
+    const { totalPendingTokens } = calculateObservationThresholds(
+      messages,
+      pendingTokens,
+      otherThreadTokens,
+      currentObservationTokens,
+      record,
+      tokenCounter
+    );
+
     const activated = await observationalMemoryStorage.tryActivateBufferedObservations(
       record,
-      0 // Will calculate fresh
+      totalPendingTokens
     );
 
     if (activated) {
@@ -448,7 +461,7 @@ export async function processInputStep(args: ProcessInputStepArgs): Promise<{
     }
 
     // 7. Threshold reached: observe synchronously
-    if (stepNumber > 0 && totalPendingTokens >= threshold && unobservedMessages.length > 0) {
+    if (totalPendingTokens >= threshold && unobservedMessages.length > 0) {
       await handleThresholdReached(unobservedMessages, record, observerAgent, tokenCounter);
       didObserve = true;
 
