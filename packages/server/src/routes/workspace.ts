@@ -45,18 +45,28 @@ app.use("*", sessionBridge);
  *   "inContext": true
  * }
  */
-app.get("/api/workspace", c => {
+app.get("/api/workspace", async c => {
   const requestId = c.get("requestId");
   const session = c.get("session");
 
   try {
-    const workspace = {
+    const buildWorkspace = () => ({
       directory: Instance.directory,
       project: Instance.project,
       vcs: Instance.vcs,
       inContext: Instance.inContext,
       sessionId: session?.sessionId,
-    };
+    });
+
+    const workspace = Instance.inContext
+      ? buildWorkspace()
+      : await Instance.provide({
+          directory: process.cwd(),
+          sessionID: session?.sessionId,
+          async fn() {
+            return buildWorkspace();
+          },
+        });
 
     logger.debug("Workspace info retrieved", {
       module: "workspace",

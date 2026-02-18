@@ -16,10 +16,19 @@ const filesRouter = new Hono();
 filesRouter.get("/api/files/search", async c => {
   const directory = c.req.query("directory");
   const query = c.req.query("query") || "";
-  const limit = parseInt(c.req.query("limit") || "20");
+  const rawLimit = c.req.query("limit");
+  const normalizedLimit = rawLimit?.trim();
+  const limit = normalizedLimit === undefined ? 20 : Number.parseInt(normalizedLimit, 10);
 
   if (!directory) {
     return c.json({ error: "directory parameter required" }, 400);
+  }
+
+  if (
+    normalizedLimit !== undefined &&
+    (!/^\d+$/.test(normalizedLimit) || !Number.isFinite(limit) || limit < 1 || limit > 1000)
+  ) {
+    return c.json({ error: "invalid limit parameter" }, 400);
   }
 
   // Lazily bootstrap file indexing on first search for this directory.

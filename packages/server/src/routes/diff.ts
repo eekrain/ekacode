@@ -6,6 +6,7 @@
 
 import { Hono } from "hono";
 import type { Env } from "../index";
+import { parseLimitOffset } from "./_shared/pagination";
 
 const diffRouter = new Hono<Env>();
 
@@ -15,12 +16,21 @@ const diffRouter = new Hono<Env>();
 diffRouter.get("/api/chat/:sessionId/diff", async c => {
   const sessionId = c.req.param("sessionId");
 
-  // TODO: Implement actual diff retrieval from session data
-  // For now, return empty result
+  if (!sessionId) {
+    return c.json({ error: "Session ID required" }, 400);
+  }
+
+  const pagination = parseLimitOffset(c.req.query());
+
+  if (!pagination.ok) {
+    return c.json({ error: pagination.reason }, 400);
+  }
+
   return c.json({
     sessionID: sessionId,
     diffs: [],
     hasMore: false,
+    total: 0,
   });
 });
 

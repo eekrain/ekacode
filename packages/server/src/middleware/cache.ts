@@ -149,13 +149,6 @@ export function createCacheMiddleware(options: CacheOptions = {}) {
         path: c.req.path,
         requestId: c.get("requestId"),
       });
-    }
-    if (cached) {
-      logger.debug("Serving from cache", {
-        module: "cache",
-        path: c.req.path,
-        requestId: c.get("requestId"),
-      });
 
       // Return cached response
       c.header("X-Cache", "HIT");

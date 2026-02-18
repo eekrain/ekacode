@@ -6,6 +6,7 @@
 
 import { Hono } from "hono";
 import type { Env } from "../index";
+import { resolveDirectory } from "./_shared/directory-resolver";
 
 const mcpRouter = new Hono<Env>();
 
@@ -13,12 +14,27 @@ const mcpRouter = new Hono<Env>();
  * Get MCP server status
  */
 mcpRouter.get("/api/mcp/status", async c => {
-  const directory = c.req.query("directory") || c.get("instanceContext")?.directory;
+  const directory = c.req.query("directory")?.trim();
 
-  // TODO: Implement actual MCP status checking
+  if (directory === "") {
+    return c.json({ error: "Directory parameter required" }, 400);
+  }
+
+  const resolution = resolveDirectory(c, { allowFallbackCwd: true });
+
+  if (!resolution.ok) {
+    return c.json({ error: resolution.reason }, 400);
+  }
+
   return c.json({
+    directory: resolution.directory,
     servers: [],
-    directory,
+    summary: {
+      total: 0,
+      connected: 0,
+      degraded: 0,
+      offline: 0,
+    },
   });
 });
 

@@ -5,8 +5,10 @@
  * GET /api/projects - List all projects
  */
 
+import { detectProjectFromPath } from "@ekacode/core/server";
 import { Hono } from "hono";
 import type { Env } from "../index";
+import { resolveDirectory } from "./_shared/directory-resolver";
 
 const projectRouter = new Hono<Env>();
 
@@ -14,18 +16,26 @@ const projectRouter = new Hono<Env>();
  * Get current project info for a directory
  */
 projectRouter.get("/api/project", async c => {
-  const directory = c.req.query("directory") || c.get("instanceContext")?.directory;
+  const directory = c.req.query("directory")?.trim();
 
-  if (!directory) {
+  if (directory === "") {
     return c.json({ error: "Directory parameter required" }, 400);
   }
 
-  // TODO: Implement actual project detection
-  // For now, return a placeholder response
+  const resolution = resolveDirectory(c, { allowFallbackCwd: true });
+
+  if (!resolution.ok) {
+    return c.json({ error: resolution.reason }, 400);
+  }
+
+  const project = await detectProjectFromPath(resolution.directory);
+
   return c.json({
-    id: "project-default",
-    name: "Project",
-    path: directory,
+    id: project.root,
+    name: project.name,
+    path: project.root,
+    detectedBy: project.packageJson ? "packageJson" : "directory",
+    packageJson: project.packageJson,
   });
 });
 
@@ -33,10 +43,20 @@ projectRouter.get("/api/project", async c => {
  * List all projects
  */
 projectRouter.get("/api/projects", async c => {
-  // TODO: Implement actual project listing
-  // For now, return empty list
+  const cwd = process.cwd();
+
+  const project = await detectProjectFromPath(cwd);
+
   return c.json({
-    projects: [],
+    projects: [
+      {
+        id: project.root,
+        name: project.name,
+        path: project.root,
+        source: "current",
+        lastSeen: Date.now(),
+      },
+    ],
   });
 });
 

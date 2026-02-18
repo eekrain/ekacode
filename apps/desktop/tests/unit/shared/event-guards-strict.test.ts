@@ -38,6 +38,7 @@ describe("Strict SSE Payload Guards", () => {
         "question.asked",
         "question.replied",
         "question.rejected",
+        "task.updated",
       ];
 
       for (const type of knownTypes) {

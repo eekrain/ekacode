@@ -7,6 +7,7 @@
 
 export type { InstanceContext } from "./instance/context";
 export { Instance } from "./instance/index.ts";
+export { detectProject as detectProjectFromPath, getVCSInfo as getVcsInfo } from "./workspace";
 
 export {
   PermissionDeniedError,

@@ -155,6 +155,19 @@ describe("workspace endpoint", () => {
   });
 
   describe("directory parameter handling", () => {
+    it("should fall back to process cwd when directory is not provided", async () => {
+      const workspaceRouter = (await import("../../src/routes/workspace")).default;
+
+      const response = await workspaceRouter.request("http://localhost/api/workspace", {
+        method: "GET",
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.directory).toBe(process.cwd());
+      expect(data.inContext).toBe(true);
+    });
+
     it("should decode URL-encoded directory paths", async () => {
       const workspaceRouter = (await import("../../src/routes/workspace")).default;
 

@@ -266,6 +266,35 @@ describe("TaskStorage", () => {
     });
   });
 
+  describe("listTasksBySession", () => {
+    it("returns tasks only for requested session without global clipping", async () => {
+      const now = Date.now();
+      const targetSession = "session-target";
+      const targetTask = uuidv7();
+
+      for (let i = 0; i < 120; i++) {
+        await taskStorage.createTask({
+          id: uuidv7(),
+          title: `bulk-${i}`,
+          createdAt: now + i,
+          updatedAt: now + i,
+        });
+      }
+
+      await taskStorage.createTask({
+        id: targetTask,
+        title: "session-task",
+        sessionId: targetSession,
+        createdAt: now + 500,
+        updatedAt: now + 500,
+      });
+
+      const sessionTasks = await taskStorage.listTasksBySession(targetSession);
+      expect(sessionTasks).toHaveLength(1);
+      expect(sessionTasks[0].id).toBe(targetTask);
+    });
+  });
+
   describe("addDependency", () => {
     it("should add a blocking dependency", async () => {
       const now = Date.now();
