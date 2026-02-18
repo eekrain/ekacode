@@ -22,7 +22,7 @@ export class SkillManager {
     let result = Array.from(this.skills.values());
 
     if (options.namePattern) {
-      const regex = new RegExp(options.namePattern.replace(/\*/g, ".*").replace(/\?/g, "."));
+      const regex = wildcardPatternToRegex(options.namePattern);
       result = result.filter(s => regex.test(s.name));
     }
 
@@ -42,4 +42,10 @@ export class SkillManager {
   get count(): number {
     return this.skills.size;
   }
+}
+
+function wildcardPatternToRegex(pattern: string): RegExp {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  const regexPattern = escaped.replace(/\*/g, ".*").replace(/\?/g, ".");
+  return new RegExp(`^${regexPattern}$`);
 }

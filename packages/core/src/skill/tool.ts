@@ -1,9 +1,11 @@
 import { tool, zodSchema } from "ai";
 import { glob } from "glob";
 import * as path from "path";
+import { pathToFileURL } from "url";
 import { z } from "zod";
 import { createDefaultRules, evaluatePermission } from "../security/permission-rules";
-import { SkillDiscovery, fetchRemoteSkills } from "./index";
+import { SkillDiscovery } from "./discovery";
+import { fetchRemoteSkills } from "./remote";
 import { SkillManager } from "./skill";
 
 export const skillToolSchema = z.object({
@@ -94,14 +96,25 @@ export const skillTool = tool({
       };
     }
 
-    const skillDir = path.dirname(skill.location);
     let skillFiles: string[] = [];
+    let locationSection = "";
 
-    try {
-      const files = await glob("**/*", { cwd: skillDir, nodir: true });
-      skillFiles = files.slice(0, 10).map(f => path.join(skillDir, f));
-    } catch {
-      // Ignore glob errors
+    const remoteUrl = toRemoteSkillBaseUrl(skill.location);
+    if (remoteUrl) {
+      locationSection = `Base URL for this skill: ${remoteUrl}
+Relative paths in this skill (e.g., files listed in index.json) are relative to this URL.`;
+    } else {
+      const skillDir = path.dirname(skill.location);
+
+      try {
+        const files = await glob("**/*", { cwd: skillDir, nodir: true });
+        skillFiles = files.slice(0, 10).map(f => path.join(skillDir, f));
+      } catch {
+        // Ignore glob errors
+      }
+
+      locationSection = `Base directory for this skill: ${pathToFileURL(skillDir).href}
+Relative paths in this skill (e.g., scripts/, reference/) are relative to this base directory.`;
     }
 
     const userContextSection = query ? `\n## User Query Context\n\n${query}\n` : "";
@@ -111,8 +124,7 @@ export const skillTool = tool({
 
 ${skill.content}
 ${userContextSection}
-Base directory for this skill: file://${skillDir}
-Relative paths in this skill (e.g., scripts/, reference/) are relative to this base directory.
+${locationSection}
 Note: file list is sampled.
 
 <skill_files>
@@ -123,3 +135,15 @@ ${skillFiles.map(f => `<file>${f}</file>`).join("\n")}
     return { content: formattedContent, skillFiles };
   },
 });
+
+function toRemoteSkillBaseUrl(location: string): string | undefined {
+  try {
+    const parsed = new URL(location);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return undefined;
+    }
+    return new URL(".", parsed).href;
+  } catch {
+    return undefined;
+  }
+}

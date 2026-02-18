@@ -238,27 +238,38 @@ export const LSPClient = {
         logger.info("waiting for diagnostics", { path: absolutePath });
 
         await new Promise<void>(resolve => {
-          let resolved = false;
+          let done = false;
 
-          const checkDiagnostics = () => {
-            if (diagnostics.has(absolutePath)) {
-              resolved = true;
+          const finish = (hasDiagnostics: boolean) => {
+            if (done) return;
+            done = true;
+            clearInterval(interval);
+            clearTimeout(timeout);
+
+            if (hasDiagnostics) {
               setTimeout(() => {
                 logger.info("got diagnostics", { path: absolutePath });
                 resolve();
               }, DIAGNOSTICS_DEBOUNCE_MS);
+              return;
             }
+
+            logger.info("diagnostics timeout, continuing", { path: absolutePath });
+            resolve();
           };
 
-          checkDiagnostics();
+          const interval = setInterval(() => {
+            if (diagnostics.has(absolutePath)) {
+              finish(true);
+            }
+          }, 50);
 
-          if (!resolved) {
-            setTimeout(() => {
-              if (!resolved) {
-                logger.info("diagnostics timeout, continuing", { path: absolutePath });
-                resolve();
-              }
-            }, DIAGNOSTICS_WAIT_MS);
+          const timeout = setTimeout(() => {
+            finish(false);
+          }, DIAGNOSTICS_WAIT_MS);
+
+          if (diagnostics.has(absolutePath)) {
+            finish(true);
           }
         });
       },

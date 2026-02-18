@@ -36,5 +36,23 @@ describe("skill tool", () => {
 
       expect(result.error).toBe("Skill 'non-existent' not found");
     });
+
+    it("should format remote skill locations as URLs", async () => {
+      const remoteSkill: SkillInfo = {
+        name: "remote-skill",
+        description: "Remote",
+        location: "https://example.com/skills/remote/SKILL.md",
+        content: "# Remote Skill",
+      };
+
+      const mockContext = { getSkill: () => remoteSkill };
+      const result = await skillTool.execute({ name: "remote-skill" }, mockContext);
+
+      expect(result.error).toBeUndefined();
+      expect(result.content).toContain(
+        "Base URL for this skill: https://example.com/skills/remote/"
+      );
+      expect(result.content).not.toContain("file://https:");
+    });
   });
 });

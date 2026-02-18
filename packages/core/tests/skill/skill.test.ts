@@ -42,6 +42,29 @@ describe("SkillManager", () => {
       const filtered = manager.listSkills({ namePattern: "test*" });
       expect(filtered).toHaveLength(1);
     });
+
+    it("should treat regex metacharacters as literal characters", () => {
+      const manager = new SkillManager([
+        ...mockSkills,
+        { name: "a+b", description: "Desc", location: "/path", content: "Content" },
+      ]);
+
+      const filtered = manager.listSkills({ namePattern: "a+b" });
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0]?.name).toBe("a+b");
+    });
+
+    it("should not throw on unmatched character classes in pattern", () => {
+      const manager = new SkillManager([
+        ...mockSkills,
+        { name: "name[", description: "Desc", location: "/path", content: "Content" },
+      ]);
+
+      expect(() => manager.listSkills({ namePattern: "name[" })).not.toThrow();
+      const filtered = manager.listSkills({ namePattern: "name[" });
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0]?.name).toBe("name[");
+    });
   });
 
   describe("addSkill", () => {

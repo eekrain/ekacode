@@ -4,6 +4,7 @@ export * from "./server";
 export * from "./types";
 
 import { createLogger } from "@ekacode/shared/logger";
+import path from "node:path";
 import { LSPClient, type LSPClientInstance } from "./client";
 import { LSPServerRegistry, type LSPServerDefinition } from "./server";
 import type { LSPDiagnostic } from "./types";
@@ -181,7 +182,19 @@ export const LSP = {
     logger.info("all LSP clients shut down");
   },
 
-  hasActiveClient(_filePath: string): boolean {
+  hasActiveClient(filePath: string): boolean {
+    const normalizedFilePath = path.resolve(filePath);
+
+    for (const [, activeClient] of activeClients) {
+      const rootPath = path.resolve(activeClient.rootPath);
+      if (
+        normalizedFilePath === rootPath ||
+        normalizedFilePath.startsWith(`${rootPath}${path.sep}`)
+      ) {
+        return true;
+      }
+    }
+
     return false;
   },
 };
