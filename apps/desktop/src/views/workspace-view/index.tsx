@@ -3,7 +3,7 @@ import { cn } from "@/utils";
 import { createEffect, createMemo, createSignal, onMount, Show } from "solid-js";
 
 import { ResizeableHandle } from "@/components/ui/resizeable-handle";
-import { useFileSearch, useSessionTurns } from "@/core/chat/hooks";
+import { useFileSearch, useSessionTurns, useTasks } from "@/core/chat/hooks";
 import type { AgentMode } from "@/core/chat/types";
 import { usePermissions } from "@/core/permissions/hooks/use-permissions";
 import { useChatContext } from "@/state/contexts/chat-provider";
@@ -43,7 +43,7 @@ function WorkspaceViewContent() {
   const [panelSizes, setPanelSizes] = createSignal<number[]>([0.2, 0.5, 0.3]);
 
   // Right panel state (still local for now)
-  const [activeTopTab, setActiveTopTab] = createSignal<"files" | "diff">("files");
+  const [activeTopTab, setActiveTopTab] = createSignal<"files" | "diff" | "tasks">("files");
   const [openFiles, setOpenFiles] = createSignal<FileTab[]>([
     {
       id: "file-1",
@@ -54,6 +54,7 @@ function WorkspaceViewContent() {
     },
   ]);
   const [diffChanges, setDiffChanges] = createSignal<DiffChange[]>([]);
+  const { tasks, startListening } = useTasks(ctx.activeSessionId);
   const [terminalOutput, setTerminalOutput] = createSignal<TerminalOutput[]>([
     {
       timestamp: new Date(),
@@ -115,6 +116,7 @@ function WorkspaceViewContent() {
         console.error("Failed to parse panel sizes:", error);
       }
     }
+    startListening();
     setIsLoading(false);
   });
 
@@ -383,6 +385,7 @@ function WorkspaceViewContent() {
           <ContextPanel
             openFiles={openFiles()}
             diffChanges={diffChanges()}
+            tasks={tasks()}
             terminalOutput={terminalOutput()}
             activeTopTab={activeTopTab}
             onActiveTopTabChange={tab => setActiveTopTab(tab)}

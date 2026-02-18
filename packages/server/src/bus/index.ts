@@ -181,6 +181,21 @@ export const SessionStatus = defineBusEvent(
   })
 );
 
+export const TaskUpdated = defineBusEvent(
+  "task.updated",
+  z.object({
+    sessionId: z.string(),
+    tasks: z.array(
+      z.object({
+        id: z.string(),
+        title: z.string(),
+        status: z.string(),
+        priority: z.number(),
+      })
+    ),
+  })
+);
+
 export const PermissionAsked = defineBusEvent(
   "permission.asked",
   z.object({

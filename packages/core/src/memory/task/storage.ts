@@ -14,6 +14,27 @@ import {
 } from "@ekacode/server/db";
 import { and, eq, inArray, not, sql } from "drizzle-orm";
 
+async function publishTaskUpdate(sessionId: string | null) {
+  if (!sessionId) return;
+
+  try {
+    const { publish, TaskUpdated } = await import("@ekacode/server/bus");
+    const sessionTasks = await taskStorage.listTasksBySession(sessionId);
+
+    await publish(TaskUpdated, {
+      sessionId,
+      tasks: sessionTasks.map(t => ({
+        id: t.id,
+        title: t.title,
+        status: t.status,
+        priority: t.priority,
+      })),
+    });
+  } catch {
+    // Bus may not be available in all contexts (e.g., tests without bus setup)
+  }
+}
+
 export interface CreateTaskInput {
   id: string;
   title: string;
@@ -80,6 +101,10 @@ export class TaskStorage {
       })
       .returning();
 
+    if (input.sessionId) {
+      await publishTaskUpdate(input.sessionId);
+    }
+
     return task;
   }
 
@@ -111,12 +136,22 @@ export class TaskStorage {
     }
 
     const [updated] = await db.update(tasks).set(updateData).where(eq(tasks.id, id)).returning();
+
+    if (updated) {
+      await publishTaskUpdate(updated.session_id);
+    }
+
     return updated ?? null;
   }
 
   async deleteTask(id: string): Promise<void> {
     const db = await getDb();
+    const task = await this.getTask(id);
     await db.delete(tasks).where(eq(tasks.id, id));
+
+    if (task?.session_id) {
+      await publishTaskUpdate(task.session_id);
+    }
   }
 
   async listTasks(options?: ListTasksOptions): Promise<Task[]> {
@@ -163,6 +198,54 @@ export class TaskStorage {
       .orderBy(tasks.created_at)
       .limit(options?.limit ?? 100)
       .all();
+  }
+
+  async listTasksBySession(sessionId: string, options?: ListTasksOptions): Promise<Task[]> {
+    const db = await getDb();
+    if (options?.status && options?.titlePrefix) {
+      const query = db
+        .select()
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.session_id, sessionId),
+            eq(tasks.status, options.status),
+            sql`${tasks.title} LIKE ${options.titlePrefix + "%"}`
+          )
+        )
+        .orderBy(tasks.created_at);
+      return options.limit !== undefined ? query.limit(options.limit).all() : query.all();
+    }
+
+    if (options?.status) {
+      const query = db
+        .select()
+        .from(tasks)
+        .where(and(eq(tasks.session_id, sessionId), eq(tasks.status, options.status)))
+        .orderBy(tasks.created_at);
+      return options.limit !== undefined ? query.limit(options.limit).all() : query.all();
+    }
+
+    if (options?.titlePrefix) {
+      const query = db
+        .select()
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.session_id, sessionId),
+            sql`${tasks.title} LIKE ${options.titlePrefix + "%"}`
+          )
+        )
+        .orderBy(tasks.created_at);
+      return options.limit !== undefined ? query.limit(options.limit).all() : query.all();
+    }
+
+    const query = db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.session_id, sessionId))
+      .orderBy(tasks.created_at);
+    return options?.limit !== undefined ? query.limit(options.limit).all() : query.all();
   }
 
   async addDependency(input: {

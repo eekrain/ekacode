@@ -154,6 +154,17 @@ export interface QuestionRejectedPayload {
   reason?: string;
 }
 
+// Task events
+export interface TaskUpdatedPayload {
+  sessionId: string;
+  tasks: Array<{
+    id: string;
+    title: string;
+    status: string;
+    priority: number;
+  }>;
+}
+
 // ============================================================================
 // EventMap Type
 // ============================================================================
@@ -180,6 +191,8 @@ export type EventMap = {
   "question.asked": QuestionAskedPayload;
   "question.replied": QuestionRepliedPayload;
   "question.rejected": QuestionRejectedPayload;
+
+  "task.updated": TaskUpdatedPayload;
 };
 
 /**

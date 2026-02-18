@@ -75,3 +75,5 @@ export interface TerminalOutput {
   type: "info" | "warn" | "error" | "success";
   content: string;
 }
+
+export type { Task, TaskList } from "./task";

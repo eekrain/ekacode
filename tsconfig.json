@@ -20,7 +20,9 @@
     "paths": {
       "@ekacode/core/chat": ["./packages/core/src/chat"],
       "@ekacode/core/server": ["./packages/core/src/server"],
-      "@ekacode/core/tools": ["./packages/core/src/tools"]
+      "@ekacode/core/tools": ["./packages/core/src/tools"],
+      "@ekacode/server/bus": ["./packages/server/src/bus"],
+      "@ekacode/server/db": ["./packages/server/db"]
     }
   }
 }

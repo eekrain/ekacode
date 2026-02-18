@@ -24,3 +24,5 @@ export { buildChatTurns, computeDuration, deriveStatusFromPart } from "./turn-pr
 export type { TurnProjectionOptions } from "./turn-projection";
 
 export { useStatusThrottledValue } from "./use-status-throttled-value";
+
+export { useTasks } from "./use-tasks";

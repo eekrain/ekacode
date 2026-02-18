@@ -58,11 +58,12 @@ import providerRouter from "./routes/provider";
 import rulesRouter from "./routes/rules";
 import sessionDataRouter from "./routes/session-data";
 import sessionsRouter from "./routes/sessions";
-import todoRouter from "./routes/todo";
+import tasksRouter from "./routes/tasks";
 import vcsRouter from "./routes/vcs";
 import workspaceRouter from "./routes/workspace";
 import { getServerToken, getSessionManager } from "./runtime";
 export { getServerToken, getSessionManager } from "./runtime";
+export { app };
 
 let permissionBusBound = false;
 
@@ -166,6 +167,7 @@ app.route("/", rulesRouter);
 
 // Mount sessions routes
 app.route("/", sessionsRouter);
+app.route("/", tasksRouter);
 
 // Mount session data routes (historical messages)
 app.route("/", sessionDataRouter);
@@ -182,9 +184,8 @@ app.route("/", mcpRouter);
 app.route("/", lspRouter);
 app.route("/", vcsRouter);
 
-// Mount diff and todo routes
+// Mount diff routes
 app.route("/", diffRouter);
-app.route("/", todoRouter);
 
 // Mount files routes
 app.route("/", filesRouter);

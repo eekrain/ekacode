@@ -1,9 +1,11 @@
 import type { DiffChange, FileTab as FileTabType, TerminalOutput } from "@/core/chat/types";
+import { Task } from "@/core/chat/types/task";
 import { cn } from "@/utils";
 import Resizable from "@corvu/resizable";
 import { Accessor, Component, mergeProps, Show } from "solid-js";
 import { DiffView } from "./diff-view";
 import { FileContext } from "./file-context";
+import { TaskList } from "./task-list";
 import { TerminalPanel } from "./terminal-panel";
 
 interface ContextPanelProps {
@@ -11,12 +13,14 @@ interface ContextPanelProps {
   openFiles?: FileTabType[];
   /** Diff changes */
   diffChanges?: DiffChange[];
+  /** Tasks for the session */
+  tasks?: Task[];
   /** Terminal output */
   terminalOutput?: TerminalOutput[];
-  /** Active tab type (files/diff) - as signal or value */
-  activeTopTab?: Accessor<"files" | "diff"> | "files" | "diff";
+  /** Active tab type (files/diff/tasks) - as signal or value */
+  activeTopTab?: Accessor<"files" | "diff" | "tasks"> | "files" | "diff" | "tasks";
   /** On active top tab change */
-  onActiveTopTabChange?: (tab: "files" | "diff") => void;
+  onActiveTopTabChange?: (tab: "files" | "diff" | "tasks") => void;
   /** Tab click handler */
   onTabClick?: (tab: FileTabType) => void;
   /** Tab close handler */
@@ -49,20 +53,21 @@ export const ContextPanel: Component<ContextPanelProps> = props => {
     {
       openFiles: [],
       diffChanges: [],
+      tasks: [],
       terminalOutput: [],
-      activeTopTab: "files" as "files" | "diff",
+      activeTopTab: "files" as "files" | "diff" | "tasks",
     },
     props
   );
 
   // Get active tab value (handle both signal and value)
-  const getActiveTab = (): "files" | "diff" => {
+  const getActiveTab = (): "files" | "diff" | "tasks" => {
     const val = merged.activeTopTab;
     return typeof val === "function" ? val() : val;
   };
 
   // Handle tab change
-  const handleTabChange = (tab: "files" | "diff") => {
+  const handleTabChange = (tab: "files" | "diff" | "tasks") => {
     props.onActiveTopTabChange?.(tab);
   };
 
@@ -112,6 +117,20 @@ export const ContextPanel: Component<ContextPanelProps> = props => {
             >
               Diffs
             </button>
+            <button
+              onClick={() => handleTabChange("tasks")}
+              class={cn(
+                "rounded-t-lg px-3 py-1.5 text-sm transition-colors duration-150",
+                getActiveTab() === "tasks"
+                  ? ["text-foreground font-medium", "bg-card/40 border-primary border-b-2"]
+                  : [
+                      "text-muted-foreground hover:text-foreground",
+                      "hover:bg-card/30 border-b-2 border-transparent",
+                    ]
+              )}
+            >
+              Tasks
+            </button>
 
             {/* Spacer */}
             <div class="flex-1" />
@@ -121,7 +140,9 @@ export const ContextPanel: Component<ContextPanelProps> = props => {
               when={
                 getActiveTab() === "files"
                   ? merged.openFiles.length > 0
-                  : merged.diffChanges.length > 0
+                  : getActiveTab() === "diff"
+                    ? merged.diffChanges.length > 0
+                    : merged.tasks.filter(t => t.status !== "closed").length > 0
               }
             >
               <span
@@ -132,7 +153,9 @@ export const ContextPanel: Component<ContextPanelProps> = props => {
               >
                 {getActiveTab() === "files"
                   ? merged.openFiles.length
-                  : merged.diffChanges.filter(c => c.status === "pending").length}
+                  : getActiveTab() === "diff"
+                    ? merged.diffChanges.filter(c => c.status === "pending").length
+                    : merged.tasks.filter(t => t.status !== "closed").length}
               </span>
             </Show>
           </div>
@@ -154,6 +177,10 @@ export const ContextPanel: Component<ContextPanelProps> = props => {
               onAcceptAll={props.onAcceptAllDiffs}
               onRejectAll={props.onRejectAllDiffs}
             />
+          </Show>
+
+          <Show when={getActiveTab() === "tasks"}>
+            <TaskList tasks={merged.tasks} />
           </Show>
         </div>
 
