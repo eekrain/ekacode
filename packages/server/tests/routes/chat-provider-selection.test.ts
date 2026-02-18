@@ -175,4 +175,26 @@ describe("chat provider selection", () => {
     const payload = await response.json();
     expect(payload.message).toContain("Streaming is required");
   }, 15000);
+
+  it("accepts explicit openai selection when only environment credential is configured", async () => {
+    process.env.OPENAI_API_KEY = "env-openai-token";
+    const chatRouter = (await import("../../src/routes/chat")).default;
+
+    const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        message: "hello",
+        providerId: "openai",
+        modelId: "openai/gpt-4o-mini",
+        stream: false,
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.message).toContain("Streaming is required");
+  }, 15000);
 });

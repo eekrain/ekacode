@@ -89,7 +89,12 @@ export async function buildProviderCatalog(input: {
 }): Promise<ProviderCatalogItem[]> {
   const providerMeta = new Map<
     string,
-    { name: string; modelCount: number; authMethods: ProviderAuthMethodDescriptor[] }
+    {
+      name: string;
+      modelCount: number;
+      authMethods: ProviderAuthMethodDescriptor[];
+      envVars: Set<string>;
+    }
   >();
 
   for (const provider of input.providers) {
@@ -97,6 +102,7 @@ export async function buildProviderCatalog(input: {
       name: provider.name,
       modelCount: 0,
       authMethods: [{ type: provider.auth?.kind ?? "token", label: "API Token" }],
+      envVars: new Set(provider.env ?? []),
     });
   }
 
@@ -104,6 +110,9 @@ export async function buildProviderCatalog(input: {
     const existing = providerMeta.get(model.providerId);
     if (existing) {
       existing.modelCount += 1;
+      for (const envVar of model.providerEnvVars ?? []) {
+        existing.envVars.add(envVar);
+      }
       if (!existing.name && model.providerName) {
         existing.name = model.providerName;
       }
@@ -114,6 +123,7 @@ export async function buildProviderCatalog(input: {
       name: model.providerName || titleCaseProviderId(model.providerId),
       modelCount: 1,
       authMethods: [{ type: "token", label: "API Token" }],
+      envVars: new Set(model.providerEnvVars ?? []),
     });
   }
 
@@ -129,12 +139,18 @@ export async function buildProviderCatalog(input: {
   const catalog = providerIds.map(providerId => {
     const meta = providerMeta.get(providerId)!;
     const methods = authMethodsByProvider[providerId] ?? meta.authMethods;
+    const hasEnvironmentCredential = Array.from(meta.envVars).some(envName => {
+      const value = process.env[envName];
+      return typeof value === "string" && value.trim().length > 0;
+    });
+    const connected =
+      authStateByProvider.get(providerId)?.status === "connected" || hasEnvironmentCredential;
     return {
       id: providerId,
       name: meta.name,
       aliases: providerAliases(providerId, meta.name),
       authMethods: methods,
-      connected: authStateByProvider.get(providerId)?.status === "connected",
+      connected,
       modelCount: meta.modelCount,
       popular: POPULAR_PROVIDER_IDS.has(providerId),
       supported: true,

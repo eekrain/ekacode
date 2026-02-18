@@ -21,7 +21,11 @@ import type { Env } from "../index";
 import { createSessionMessage, sessionBridge } from "../middleware/session-bridge";
 import { resolveOAuthAccessToken } from "../provider/auth/oauth";
 import { normalizeProviderError } from "../provider/errors";
-import { getProviderRuntime, resolveChatSelection } from "../provider/runtime";
+import {
+  getProviderRuntime,
+  providerCredentialEnvVar,
+  resolveChatSelection,
+} from "../provider/runtime";
 import { getSessionManager } from "../runtime";
 import { getSessionMessages } from "../state/session-message-store";
 
@@ -1096,11 +1100,16 @@ app.post("/api/chat", async c => {
   }
 
   const authState = await providerRuntime.authService.getState(selectedProviderId);
+  const providerEnvVarName = providerCredentialEnvVar(selectedProviderId);
+  const providerEnvToken =
+    providerEnvVarName && typeof process.env[providerEnvVarName] === "string"
+      ? process.env[providerEnvVarName]!.trim()
+      : "";
   const envTokenFromProvider =
     selectedModel.providerEnvVars
       ?.map(envName => process.env[envName])
       .find((value): value is string => typeof value === "string" && value.trim().length > 0) ??
-    null;
+    (providerEnvToken.length > 0 ? providerEnvToken : null);
   const storedCredential = await providerRuntime.authService.getCredential(selectedProviderId);
   if (
     selection.explicit &&
@@ -1115,12 +1124,21 @@ app.post("/api/chat", async c => {
   }
 
   const hybridVisionProviderId = hybridVisionModel?.providerId;
+  const hybridProviderEnvVarName = hybridVisionProviderId
+    ? providerCredentialEnvVar(hybridVisionProviderId)
+    : null;
+  const hybridProviderEnvToken =
+    hybridProviderEnvVarName && typeof process.env[hybridProviderEnvVarName] === "string"
+      ? process.env[hybridProviderEnvVarName]!.trim()
+      : "";
   const hybridVisionAuthState = hybridVisionProviderId
     ? await providerRuntime.authService.getState(hybridVisionProviderId)
     : null;
-  const hybridVisionEnvToken = hybridVisionModel?.providerEnvVars
-    ?.map(envName => process.env[envName])
-    .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+  const hybridVisionEnvToken =
+    hybridVisionModel?.providerEnvVars
+      ?.map(envName => process.env[envName])
+      .find((value): value is string => typeof value === "string" && value.trim().length > 0) ??
+    (hybridProviderEnvToken.length > 0 ? hybridProviderEnvToken : undefined);
   const hybridVisionCredential = hybridVisionProviderId
     ? await providerRuntime.authService.getCredential(hybridVisionProviderId)
     : null;

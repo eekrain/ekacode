@@ -74,14 +74,30 @@ providerRouter.get("/api/providers", async c => {
  * Get auth state for providers
  */
 providerRouter.get("/api/providers/auth", async c => {
+  const providers = listProviderDescriptors();
+  const providerById = new Map(providers.map(provider => [provider.id, provider] as const));
   const models = await providerRuntime.modelCatalogService.list();
-  const providerIds = Array.from(
-    collectKnownProviderIds({ providers: listProviderDescriptors(), models })
-  );
+  const providerIds = Array.from(collectKnownProviderIds({ providers, models }));
   const authStates = await Promise.all(
     providerIds.map(async providerId => {
       const state = await providerRuntime.authService.getState(providerId);
-      return [providerId, providerAuthStateSchema.parse(state)] as const;
+      const descriptorEnvVars = providerById.get(providerId)?.env ?? [];
+      const modelEnvVars = new Set(
+        models
+          .filter(model => model.providerId === providerId)
+          .flatMap(model => model.providerEnvVars ?? [])
+      );
+      const hasEnvironmentCredential = [...descriptorEnvVars, ...modelEnvVars].some(envName => {
+        const value = process.env[envName];
+        return typeof value === "string" && value.trim().length > 0;
+      });
+      const normalizedState = hasEnvironmentCredential
+        ? {
+            ...state,
+            status: "connected" as const,
+          }
+        : state;
+      return [providerId, providerAuthStateSchema.parse(normalizedState)] as const;
     })
   );
 

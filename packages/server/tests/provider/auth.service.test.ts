@@ -125,4 +125,30 @@ describe("provider auth service", () => {
     expect(credential.oauth.accessToken).toBe("persist-access");
     expect(credential.oauth.refreshToken).toBe("persist-refresh");
   });
+
+  it("reports error state when persisted oauth payload is malformed", async () => {
+    const base = await mkdtemp(join(tmpdir(), "ekacode-provider-auth-"));
+    tempDirs.push(base);
+
+    const storage = createProviderCredentialStorage({ baseDir: base });
+    await storage.set({
+      providerId: "openai",
+      profileId: "default",
+      kind: "oauth",
+      secret: "not-json",
+      updatedAt: "2026-02-14T11:00:00.000Z",
+    });
+
+    const auth = createProviderAuthService({
+      storage,
+      profileId: "default",
+    });
+
+    const credential = await auth.getCredential("openai");
+    const state = await auth.getState("openai");
+
+    expect(credential).toBeNull();
+    expect(state.status).toBe("error");
+    expect(state.method).toBe("oauth");
+  });
 });

@@ -115,10 +115,12 @@ export function createProviderAuthService(
     async getState(providerId) {
       const record = await options.storage.get({ providerId, profileId: options.profileId });
       const credential = await loadCredential(providerId);
+      const hasInvalidPersistedOAuth = record?.kind === "oauth" && !credential;
+      const status = hasInvalidPersistedOAuth ? "error" : record ? "connected" : "disconnected";
 
       return {
         providerId,
-        status: record ? "connected" : "disconnected",
+        status,
         method: record?.kind ?? "token",
         accountLabel: credential?.kind === "oauth" ? (credential.oauth.accountLabel ?? null) : null,
         updatedAt: record?.updatedAt ?? new Date().toISOString(),
