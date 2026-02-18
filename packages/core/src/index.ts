@@ -240,4 +240,8 @@ export {
   type SkillApiResponse,
 } from "./skill";
 
+// LSP
+export { LSP, LSPServerRegistry } from "./lsp";
+export type { LSPDiagnostic, LSPRange, LSPServerInfo, LSPStatus } from "./lsp";
+
 export const ekacodeVersion = "0.0.1";

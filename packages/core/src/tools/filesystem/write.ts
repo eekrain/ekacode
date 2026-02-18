@@ -8,6 +8,7 @@ import { createTwoFilesPatch } from "diff";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
+import { LSP } from "../../lsp";
 import { PermissionManager } from "../../security/permission-manager";
 import { getContextOrThrow } from "../base/context";
 import { validatePathOperation } from "../base/safety";
@@ -35,6 +36,22 @@ export const writeTool = tool({
       filePath: z.string(),
       diff: z.string(),
       created: z.boolean(),
+      diagnostics: z
+        .record(
+          z.string(),
+          z.array(
+            z.object({
+              severity: z.number(),
+              message: z.string(),
+              range: z.object({
+                start: z.object({ line: z.number(), character: z.number() }),
+                end: z.object({ line: z.number(), character: z.number() }),
+              }),
+              source: z.string().optional(),
+            })
+          )
+        )
+        .optional(),
     })
   ),
 
@@ -77,11 +94,15 @@ export const writeTool = tool({
       size: content.length,
     });
 
+    await LSP.touchFile(absolutePath, true);
+    const diagnostics = LSP.getDiagnostics();
+
     return {
       success: true,
       filePath: relativePath,
       diff,
       created: !exists,
+      diagnostics,
     };
   },
 });

@@ -15,9 +15,23 @@ const lspRouter = new Hono<Env>();
 lspRouter.get("/api/lsp/status", async c => {
   const directory = c.req.query("directory") || c.get("instanceContext")?.directory;
 
-  // TODO: Implement actual LSP status checking
+  let servers: Array<{ id: string; name: string; root: string; status: string }> = [];
+
+  try {
+    const { LSP } = await import("@ekacode/core");
+    const status = LSP.getStatus();
+    servers = status.map((s: { id: string; name: string; root: string; status: string }) => ({
+      id: s.id,
+      name: s.name,
+      root: s.root,
+      status: s.status,
+    }));
+  } catch {
+    // Core LSP not available, return empty servers
+  }
+
   return c.json({
-    servers: [],
+    servers,
     directory,
   });
 });

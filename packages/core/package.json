@@ -49,6 +49,8 @@
     "ts-morph": "^27.0.2",
     "turndown": "^7.2.2",
     "uuid": "^13.0.0",
+    "vscode-jsonrpc": "^8.2.1",
+    "vscode-languageserver-types": "^3.17.5",
     "xstate": "^5.18.0",
     "zod": "^4.3.6"
   },

@@ -6,6 +6,7 @@ import { createLogger } from "@ekacode/shared/logger";
 import { tool, zodSchema } from "ai";
 import fs from "node:fs/promises";
 import { z } from "zod";
+import { LSP } from "../../lsp";
 import { PermissionManager } from "../../security/permission-manager";
 import { getContextOrThrow } from "../base/context";
 import { validatePathOperation } from "../base/safety";
@@ -35,6 +36,22 @@ export const editTool = tool({
       success: z.boolean(),
       filePath: z.string(),
       replacements: z.number(),
+      diagnostics: z
+        .record(
+          z.string(),
+          z.array(
+            z.object({
+              severity: z.number(),
+              message: z.string(),
+              range: z.object({
+                start: z.object({ line: z.number(), character: z.number() }),
+                end: z.object({ line: z.number(), character: z.number() }),
+              }),
+              source: z.string().optional(),
+            })
+          )
+        )
+        .optional(),
     })
   ),
 
@@ -90,10 +107,14 @@ export const editTool = tool({
       replaceAll,
     });
 
+    await LSP.touchFile(absolutePath, true);
+    const diagnostics = LSP.getDiagnostics();
+
     return {
       success: true,
       filePath: relativePath,
       replacements,
+      diagnostics,
     };
   },
 });
