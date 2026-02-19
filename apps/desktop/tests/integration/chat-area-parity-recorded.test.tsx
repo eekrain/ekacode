@@ -5,7 +5,7 @@ import {
   usePartStore,
   useSessionStore,
 } from "@/core/state/providers/store-provider";
-import { MessageTimeline } from "@/views/workspace-view/chat-area";
+import { MessageTimeline } from "@/views/workspace-view/chat-area/timeline/message-timeline";
 import type { EventOrderingFixture } from "@ekacode/shared";
 import { Show, createSignal } from "solid-js";
 import { render } from "solid-js/web";

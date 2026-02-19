@@ -1,7 +1,7 @@
 import { ChatProvider, useChatContext } from "@/core/state/contexts/chat-provider";
 import { AppProvider } from "@/core/state/providers/app-provider";
 import { useWorkspace, WorkspaceProvider } from "@/core/state/providers/workspace-provider";
-import HomeView from "@renderer/views/home-view/home-view";
+import HomeView from "@/views/home-view/home-view";
 import { createMemo, Show } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -167,12 +167,13 @@ describe("Integration: Home + Workspace Provider Flow", () => {
     const dispose = render(() => <HomeView />, container);
     await flushAll();
 
-    const projectButton = Array.from(container.querySelectorAll("button")).find(button =>
-      button.textContent?.includes("Project Alpha")
+    const projectCard = Array.from(container.querySelectorAll("div.cursor-pointer")).find(
+      el =>
+        el.textContent?.includes("Project Alpha") && el.textContent?.includes("/tmp/project-alpha")
     );
-    expect(projectButton).toBeTruthy();
+    expect(projectCard).toBeTruthy();
 
-    projectButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    projectCard!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await flushAll();
 
     expect(mockedNavigate).toHaveBeenCalledWith("/workspace/project-123");

@@ -1,4 +1,4 @@
-import { ChatInput } from "@/views/workspace-view/chat-area/chat-input";
+import { ChatInput } from "@/views/workspace-view/chat-area/input/chat-input";
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

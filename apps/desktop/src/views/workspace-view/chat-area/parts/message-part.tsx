@@ -1,6 +1,6 @@
-import { getPartComponent } from "@/views/workspace-view/chat-area/part-registry";
-import { registerDefaultPartComponents } from "@/views/workspace-view/chat-area/register-parts";
 import { Show, type Component } from "solid-js";
+import { getPartComponent } from "./part-registry";
+import { registerDefaultPartComponents } from "./register-parts";
 
 export interface MessagePartProps {
   part: Record<string, unknown>;

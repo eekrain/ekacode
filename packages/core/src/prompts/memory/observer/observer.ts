@@ -22,7 +22,6 @@ export {
 } from "./modes";
 
 export {
-  AgentMode,
   BUGFIXING_COMPRESSION_GUIDANCE,
   BUGFIXING_CONTEXT_INSTRUCTIONS,
   BUGFIXING_EXTRACTION_INSTRUCTIONS,
@@ -56,5 +55,6 @@ export {
   TESTING_OUTPUT_FORMAT,
   TESTING_TASK_CONTEXT,
 } from "./modes";
+export type { AgentMode } from "./modes";
 
 export const OBSERVER_SYSTEM_PROMPT = buildObserverSystemPrompt("default");

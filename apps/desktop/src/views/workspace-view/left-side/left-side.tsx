@@ -1,56 +1,31 @@
+import { useWorkspace } from "@/state/providers";
 import { cn } from "@/utils";
 import Resizable from "@corvu/resizable";
-import { Component, mergeProps } from "solid-js";
+import { Component } from "solid-js";
 import { SessionList } from "./session-list";
 
-/**
- * Base session interface that both types implement
- */
-interface BaseSession {
-  id?: string;
-  sessionId?: string;
-  title: string;
-  lastUpdated?: Date;
-  lastAccessed?: string;
-  status: "active" | "archived";
-  isPinned?: boolean;
-}
-
 interface SessionSidebarProps {
-  /** All sessions to display */
-  sessions: BaseSession[];
-  /** Currently active session ID */
-  activeSessionId?: string;
-  /** Session click handler */
-  onSessionClick?: (session: BaseSession) => void;
-  /** New session handler */
-  onNewSession?: () => void;
-  /** Session context menu handler */
-  onSessionContextMenu?: (session: BaseSession, e: MouseEvent) => void;
-  /** Pin toggle handler */
-  onTogglePin?: (session: BaseSession) => void;
-  /** Loading state */
-  isLoading?: boolean;
-  /** Additional CSS classes */
   class?: string;
 }
 
 /**
  * SessionSidebar - Left panel containing the session manager
  *
- * Design Features:
- * - Header with "Sessions" title
- * - "New Session" button with + icon
- * - Search/filter functionality (placeholder for future)
- * - SessionList integration
+ * Consumes workspace context internally for session data.
+ * Props only for UI customization.
  */
 export const LeftSide: Component<SessionSidebarProps> = props => {
-  const merged = mergeProps(
-    {
-      activeSessionId: "",
-    },
-    props
-  );
+  const ctx = useWorkspace();
+
+  const handleSessionClick = (session: { sessionId?: string }) => {
+    if (session.sessionId) {
+      ctx.setActiveSessionId(session.sessionId);
+    }
+  };
+
+  const handleNewSession = async () => {
+    await ctx.createSession();
+  };
 
   return (
     <Resizable.Panel
@@ -69,7 +44,7 @@ export const LeftSide: Component<SessionSidebarProps> = props => {
       >
         <h2 class="text-foreground truncate text-sm font-semibold">Sessions</h2>
         <button
-          onClick={props.onNewSession}
+          onClick={handleNewSession}
           class={cn(
             "shrink-0 rounded-lg p-2 transition-all duration-200",
             "bg-card/20 hover:bg-card/40",
@@ -140,11 +115,9 @@ export const LeftSide: Component<SessionSidebarProps> = props => {
       {/* Session List */}
       <div class="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-2 py-2">
         <SessionList
-          sessions={props.sessions}
-          activeSessionId={merged.activeSessionId}
-          onSessionClick={props.onSessionClick}
-          onSessionContextMenu={props.onSessionContextMenu}
-          onTogglePin={props.onTogglePin}
+          sessions={ctx.sessions()}
+          activeSessionId={ctx.activeSessionId() ?? ""}
+          onSessionClick={handleSessionClick}
         />
       </div>
 

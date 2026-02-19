@@ -1,7 +1,4 @@
-import {
-  formatRetryCountdown,
-  readRetrySecondsLeft,
-} from "@/views/workspace-view/chat-area/retry-timing";
+import { formatRetryCountdown, readRetrySecondsLeft } from "@/utils/retry-timing";
 import { describe, expect, it, vi } from "vitest";
 
 describe("retry-timing", () => {

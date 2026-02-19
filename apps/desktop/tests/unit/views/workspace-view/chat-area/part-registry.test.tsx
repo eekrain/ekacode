@@ -3,7 +3,7 @@ import {
   getPartComponent,
   hasPartComponent,
   registerPartComponent,
-} from "@/views/workspace-view/chat-area/part-registry";
+} from "@/views/workspace-view/chat-area/parts/part-registry";
 import { beforeEach, describe, expect, it } from "vitest";
 
 describe("PartRegistry", () => {

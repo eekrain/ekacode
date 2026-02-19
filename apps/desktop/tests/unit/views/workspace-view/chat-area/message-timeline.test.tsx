@@ -5,7 +5,7 @@
  */
 
 import { buildChatTurns, type ChatTurn } from "@/core/chat/hooks/turn-projection";
-import { MessageTimeline } from "@/views/workspace-view/chat-area";
+import { MessageTimeline } from "@/views/workspace-view/chat-area/timeline/message-timeline";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {

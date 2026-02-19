@@ -1,4 +1,4 @@
-import { sanitizeMarkdownHtml } from "@/components/shared/markdown-sanitizer";
+import { sanitizeMarkdownHtml } from "@/components/ui/markdown-sanitizer";
 import { describe, expect, it } from "vitest";
 
 describe("markdown-sanitizer", () => {

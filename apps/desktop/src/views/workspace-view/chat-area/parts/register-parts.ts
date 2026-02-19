@@ -6,12 +6,12 @@
  */
 
 import { registerPartComponent } from "./part-registry";
-import { PermissionPart } from "./parts/permission-part";
-import { QuestionPart } from "./parts/question-part";
-import { ReasoningPart } from "./parts/reasoning-part";
-import { RetryPart } from "./parts/retry-part";
-import { TextPart } from "./parts/text-part";
-import { ToolPart } from "./parts/tool-part";
+import { PermissionPart } from "./permission-part";
+import { QuestionPart } from "./question-part";
+import { ReasoningPart } from "./reasoning-part";
+import { RetryPart } from "./retry-part";
+import { TextPart } from "./text-part";
+import { ToolPart } from "./tool-part";
 
 let registered = false;
 

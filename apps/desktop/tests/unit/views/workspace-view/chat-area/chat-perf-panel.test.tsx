@@ -2,7 +2,7 @@ import {
   recordChatPerfCounter,
   resetChatPerfTelemetry,
 } from "@/core/chat/services/chat-perf-telemetry";
-import { ChatPerfPanel } from "@/views/workspace-view/chat-area/chat-perf-panel";
+import { ChatPerfPanel } from "@/views/workspace-view/chat-area/perf/chat-perf-panel";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 

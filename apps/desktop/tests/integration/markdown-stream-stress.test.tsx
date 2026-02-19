@@ -1,4 +1,4 @@
-import { Markdown } from "@/components/shared/markdown";
+import { Markdown } from "@/components/ui/markdown";
 import {
   getMarkdownPerfSnapshot,
   resetMarkdownPerfTelemetry,

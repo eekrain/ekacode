@@ -1,4 +1,4 @@
-import { Markdown } from "@/components/shared/markdown";
+import { Markdown } from "@/components/ui/markdown";
 import {
   getMarkdownPerfSnapshot,
   resetMarkdownPerfTelemetry,
@@ -12,10 +12,6 @@ import { createRecordedTextDeltaSequence } from "../fixtures/performance-fixture
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolveDone => setTimeout(resolveDone, ms));
-}
-
-function shouldRunBenchmark(): boolean {
-  return process.env.PERF_BENCH === "1";
 }
 
 function buildScenario(): string {
@@ -47,51 +43,47 @@ describe("Benchmark: markdown renderer report", () => {
     resetMarkdownPerfTelemetry();
   });
 
-  it.skipIf(!shouldRunBenchmark())(
-    "emits benchmark metrics report for fixture replay",
-    async () => {
-      const markdown = buildScenario();
-      const [text, setText] = createSignal("");
-      const [isStreaming, setIsStreaming] = createSignal(true);
+  it("emits benchmark metrics report for fixture replay", async () => {
+    const markdown = buildScenario();
+    const [text, setText] = createSignal("");
+    const [isStreaming, setIsStreaming] = createSignal(true);
 
-      dispose = render(
-        () => (
-          <Markdown
-            text={text()}
-            isStreaming={isStreaming()}
-            streamCadenceMs={35}
-            deferHighlightUntilComplete={true}
-            streamLiteEnabled={true}
-          />
-        ),
-        container
-      );
+    dispose = render(
+      () => (
+        <Markdown
+          text={text()}
+          isStreaming={isStreaming()}
+          streamCadenceMs={35}
+          deferHighlightUntilComplete={true}
+          streamLiteEnabled={true}
+        />
+      ),
+      container
+    );
 
-      const chunk = 42;
-      for (let i = 0; i < markdown.length; i += chunk) {
-        setText(markdown.slice(0, i + chunk));
-        await sleep(16);
-      }
+    const chunk = 42;
+    for (let i = 0; i < markdown.length; i += chunk) {
+      setText(markdown.slice(0, i + chunk));
+      await sleep(16);
+    }
 
-      setIsStreaming(false);
-      await sleep(220);
+    setIsStreaming(false);
+    await sleep(220);
 
-      const report = {
-        generatedAt: new Date().toISOString(),
-        fixture: "chat-stream.from-log.json",
-        snapshot: getMarkdownPerfSnapshot(),
-      };
+    const report = {
+      generatedAt: new Date().toISOString(),
+      fixture: "chat-stream.from-log.json",
+      snapshot: getMarkdownPerfSnapshot(),
+    };
 
-      const outputDir = resolve(process.cwd(), "tests/fixtures/recorded/perf-reports");
-      mkdirSync(outputDir, { recursive: true });
-      const outputPath = resolve(outputDir, "markdown-benchmark.latest.json");
-      writeFileSync(outputPath, JSON.stringify(report, null, 2), "utf8");
+    const outputDir = resolve(process.cwd(), "tests/fixtures/recorded/perf-reports");
+    mkdirSync(outputDir, { recursive: true });
+    const outputPath = resolve(outputDir, "markdown-benchmark.latest.json");
+    writeFileSync(outputPath, JSON.stringify(report, null, 2), "utf8");
 
-      expect(report.snapshot.counters.commits).toBeGreaterThan(3);
-      expect(report.snapshot.counters.liteCommits).toBeGreaterThan(0);
-      expect(report.snapshot.counters.finalizationBatches).toBeGreaterThan(1);
-      expect(report.snapshot.counters.finalizationMaxBatchMs).toBeLessThan(120);
-    },
-    20000
-  );
+    expect(report.snapshot.counters.commits).toBeGreaterThan(3);
+    expect(report.snapshot.counters.liteCommits).toBeGreaterThan(0);
+    expect(report.snapshot.counters.finalizationBatches).toBeGreaterThan(1);
+    expect(report.snapshot.counters.finalizationMaxBatchMs).toBeLessThan(120);
+  }, 20000);
 });

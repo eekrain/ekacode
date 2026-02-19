@@ -1,75 +1,21 @@
-import type { DiffChange, FileTab as FileTabType, TerminalOutput } from "@/core/chat/types";
-import { Task } from "@/core/chat/types/task";
+import { useTasks } from "@/core/chat/hooks";
+import { useWorkspace } from "@/state/providers";
 import { cn } from "@/utils";
 import Resizable from "@corvu/resizable";
-import { Accessor, Component, mergeProps, Show } from "solid-js";
-import { DiffView } from "./diff-view";
-import { FileContext } from "./file-context";
-import { TaskList } from "./task-list";
-import { TerminalPanel } from "./terminal-panel";
+import { Component, Show, createSignal } from "solid-js";
+import { DiffView } from "./diff/diff-view";
+import { FileContext } from "./files/file-context";
+import { TaskList } from "./tasks/task-list";
+import { TerminalPanel } from "./terminal/terminal-panel";
 
 interface ContextPanelProps {
-  /** Open file tabs */
-  openFiles?: FileTabType[];
-  /** Diff changes */
-  diffChanges?: DiffChange[];
-  /** Tasks for the session */
-  tasks?: Task[];
-  /** Terminal output */
-  terminalOutput?: TerminalOutput[];
-  /** Active tab type (files/diff/tasks) - as signal or value */
-  activeTopTab?: Accessor<"files" | "diff" | "tasks"> | "files" | "diff" | "tasks";
-  /** On active top tab change */
-  onActiveTopTabChange?: (tab: "files" | "diff" | "tasks") => void;
-  /** Tab click handler */
-  onTabClick?: (tab: FileTabType) => void;
-  /** Tab close handler */
-  onTabClose?: (tab: FileTabType) => void;
-  /** Accept diff change */
-  onAcceptDiff?: (change: DiffChange) => void;
-  /** Reject diff change */
-  onRejectDiff?: (change: DiffChange) => void;
-  /** Accept all diffs */
-  onAcceptAllDiffs?: () => void;
-  /** Reject all diffs */
-  onRejectAllDiffs?: () => void;
-  /** Clear terminal */
-  onClearTerminal?: () => void;
-  /** Additional CSS classes */
   class?: string;
 }
 
-/**
- * ContextPanel - Right panel split vertically into FileContext (top) and TerminalPanel (bottom)
- *
- * Design Features:
- * - 60/40 vertical split
- * - Tab selector for top section (Files / Diffs)
- * - Resizable divider (future enhancement)
- * - Consistent styling with rest of workspace
- */
 export const ContextPanel: Component<ContextPanelProps> = props => {
-  const merged = mergeProps(
-    {
-      openFiles: [],
-      diffChanges: [],
-      tasks: [],
-      terminalOutput: [],
-      activeTopTab: "files" as "files" | "diff" | "tasks",
-    },
-    props
-  );
-
-  // Get active tab value (handle both signal and value)
-  const getActiveTab = (): "files" | "diff" | "tasks" => {
-    const val = merged.activeTopTab;
-    return typeof val === "function" ? val() : val;
-  };
-
-  // Handle tab change
-  const handleTabChange = (tab: "files" | "diff" | "tasks") => {
-    props.onActiveTopTabChange?.(tab);
-  };
+  const [activeTopTab, setActiveTopTab] = createSignal<"files" | "diff" | "tasks">("files");
+  const ctx = useWorkspace();
+  const { tasks } = useTasks(ctx.activeSessionId);
 
   return (
     <Resizable.Panel
@@ -90,10 +36,10 @@ export const ContextPanel: Component<ContextPanelProps> = props => {
             )}
           >
             <button
-              onClick={() => handleTabChange("files")}
+              onClick={() => setActiveTopTab("files")}
               class={cn(
                 "rounded-t-lg px-3 py-1.5 text-sm transition-colors duration-150",
-                getActiveTab() === "files"
+                activeTopTab() === "files"
                   ? ["text-foreground font-medium", "bg-card/40 border-primary border-b-2"]
                   : [
                       "text-muted-foreground hover:text-foreground",
@@ -104,10 +50,10 @@ export const ContextPanel: Component<ContextPanelProps> = props => {
               Files
             </button>
             <button
-              onClick={() => handleTabChange("diff")}
+              onClick={() => setActiveTopTab("diff")}
               class={cn(
                 "rounded-t-lg px-3 py-1.5 text-sm transition-colors duration-150",
-                getActiveTab() === "diff"
+                activeTopTab() === "diff"
                   ? ["text-foreground font-medium", "bg-card/40 border-primary border-b-2"]
                   : [
                       "text-muted-foreground hover:text-foreground",
@@ -118,10 +64,10 @@ export const ContextPanel: Component<ContextPanelProps> = props => {
               Diffs
             </button>
             <button
-              onClick={() => handleTabChange("tasks")}
+              onClick={() => setActiveTopTab("tasks")}
               class={cn(
                 "rounded-t-lg px-3 py-1.5 text-sm transition-colors duration-150",
-                getActiveTab() === "tasks"
+                activeTopTab() === "tasks"
                   ? ["text-foreground font-medium", "bg-card/40 border-primary border-b-2"]
                   : [
                       "text-muted-foreground hover:text-foreground",
@@ -131,62 +77,25 @@ export const ContextPanel: Component<ContextPanelProps> = props => {
             >
               Tasks
             </button>
-
-            {/* Spacer */}
-            <div class="flex-1" />
-
-            {/* Count badge */}
-            <Show
-              when={
-                getActiveTab() === "files"
-                  ? merged.openFiles.length > 0
-                  : getActiveTab() === "diff"
-                    ? merged.diffChanges.length > 0
-                    : merged.tasks.filter(t => t.status !== "closed").length > 0
-              }
-            >
-              <span
-                class={cn(
-                  "rounded-full px-2 py-0.5 text-xs",
-                  "bg-primary/10 text-primary/70 font-medium"
-                )}
-              >
-                {getActiveTab() === "files"
-                  ? merged.openFiles.length
-                  : getActiveTab() === "diff"
-                    ? merged.diffChanges.filter(c => c.status === "pending").length
-                    : merged.tasks.filter(t => t.status !== "closed").length}
-              </span>
-            </Show>
           </div>
 
           {/* Content */}
-          <Show when={getActiveTab() === "files"}>
-            <FileContext
-              openFiles={merged.openFiles}
-              onTabClick={props.onTabClick}
-              onTabClose={props.onTabClose}
-            />
+          <Show when={activeTopTab() === "files"}>
+            <FileContext />
           </Show>
 
-          <Show when={getActiveTab() === "diff"}>
-            <DiffView
-              changes={merged.diffChanges}
-              onAccept={props.onAcceptDiff}
-              onReject={props.onRejectDiff}
-              onAcceptAll={props.onAcceptAllDiffs}
-              onRejectAll={props.onRejectAllDiffs}
-            />
+          <Show when={activeTopTab() === "diff"}>
+            <DiffView />
           </Show>
 
-          <Show when={getActiveTab() === "tasks"}>
-            <TaskList tasks={merged.tasks} />
+          <Show when={activeTopTab() === "tasks"}>
+            <TaskList tasks={tasks()} />
           </Show>
         </div>
 
         {/* Bottom section - Terminal */}
         <div class="h-[40%]">
-          <TerminalPanel output={merged.terminalOutput} onClear={props.onClearTerminal} />
+          <TerminalPanel />
         </div>
       </div>
     </Resizable.Panel>

@@ -2,7 +2,7 @@ import { createSignal, type JSX } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { VirtualizedList } from "@/components/shared/virtualized-list";
+import { VirtualizedList } from "@/components/ui/virtualized-list";
 
 function mount(ui: () => JSX.Element) {
   const container = document.createElement("div");

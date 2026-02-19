@@ -6,8 +6,8 @@
  */
 
 import { cn } from "@/utils";
-import { BasicTool } from "@/views/workspace-view/chat-area/basic-tool";
-import { getToolRenderer } from "@/views/workspace-view/chat-area/tool-registry";
+import { BasicTool } from "@/views/workspace-view/chat-area/tools/basic-tool";
+import { getToolRenderer } from "@/views/workspace-view/chat-area/tools/tool-registry";
 import { type Component, type JSX } from "solid-js";
 
 export interface ToolPartProps {

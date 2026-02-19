@@ -26,7 +26,7 @@ describe("Markdown singleton/highlighter behavior", () => {
   });
 
   it("does not initialize shiki for plain text markdown", async () => {
-    const { Markdown } = await import("@/components/shared/markdown");
+    const { Markdown } = await import("@/components/ui/markdown");
 
     dispose = render(
       () => (
@@ -48,7 +48,7 @@ describe("Markdown singleton/highlighter behavior", () => {
   });
 
   it("initializes shiki only once for concurrent code-block markdown", async () => {
-    const { Markdown } = await import("@/components/shared/markdown");
+    const { Markdown } = await import("@/components/ui/markdown");
     const code = "```ts\nconst a = 1;\n```";
 
     dispose = render(

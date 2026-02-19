@@ -1,37 +1,43 @@
 import type { FileTab as FileTabType } from "@/core/chat/types";
 import { cn } from "@/utils";
-import { Component, For, mergeProps, Show } from "solid-js";
+import { Component, For, Show, createSignal } from "solid-js";
 import { FileTab } from "./file-tab";
 
 interface FileContextProps {
-  /** Open file tabs */
-  openFiles?: FileTabType[];
-  /** Tab click handler */
-  onTabClick?: (tab: FileTabType) => void;
-  /** Tab close handler */
-  onTabClose?: (tab: FileTabType) => void;
-  /** Additional CSS classes */
   class?: string;
 }
 
-/**
- * FileContext - Top section of right panel showing open files
- *
- * Design Features:
- * - Tab bar with file list
- * - Active file highlighting
- * - File close buttons
- * - Modified indicators
- */
 export const FileContext: Component<FileContextProps> = props => {
-  const merged = mergeProps(
+  const [openFiles, setOpenFiles] = createSignal<FileTabType[]>([
     {
-      openFiles: [],
+      id: "file-1",
+      path: "/src/App.tsx",
+      name: "App.tsx",
+      isModified: false,
+      isActive: true,
     },
-    props
-  );
+  ]);
 
-  const activeTab = () => merged.openFiles.find(t => t.isActive);
+  const activeTab = () => openFiles().find(t => t.isActive);
+
+  const handleTabClick = (tab: FileTabType) => {
+    setOpenFiles(prev =>
+      prev.map(t => ({
+        ...t,
+        isActive: t.id === tab.id,
+      }))
+    );
+  };
+
+  const handleTabClose = (tab: FileTabType) => {
+    setOpenFiles(prev => {
+      const filtered = prev.filter(t => t.id !== tab.id);
+      if (tab.isActive && filtered.length > 0) {
+        filtered[filtered.length - 1].isActive = true;
+      }
+      return filtered;
+    });
+  };
 
   return (
     <div class={cn("flex h-[60%] flex-col", "border-border/30 border-b", props.class)}>
@@ -52,18 +58,18 @@ export const FileContext: Component<FileContextProps> = props => {
         <div class="bg-border/30 mx-1 h-4 w-px flex-shrink-0" />
 
         {/* Tabs */}
-        <For each={merged.openFiles}>
+        <For each={openFiles()}>
           {tab => (
             <FileTab
               tab={tab}
-              onClick={() => props.onTabClick?.(tab)}
-              onClose={() => props.onTabClose?.(tab)}
+              onClick={() => handleTabClick(tab)}
+              onClose={() => handleTabClose(tab)}
             />
           )}
         </For>
 
         {/* Empty state hint */}
-        <Show when={merged.openFiles.length === 0}>
+        <Show when={openFiles().length === 0}>
           <span class="text-muted-foreground/40 px-3 py-1 text-xs italic">No files open</span>
         </Show>
       </div>

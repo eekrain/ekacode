@@ -4,7 +4,7 @@ import {
   hasToolRenderer,
   registerToolRenderer,
   type ToolRendererProps,
-} from "@/views/workspace-view/chat-area/tool-registry";
+} from "@/views/workspace-view/chat-area/tools/tool-registry";
 import { beforeEach, describe, expect, it } from "vitest";
 
 describe("ToolRegistry", () => {

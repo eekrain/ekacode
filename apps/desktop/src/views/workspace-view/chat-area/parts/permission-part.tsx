@@ -7,8 +7,8 @@
 
 import type { PermissionRequest, PermissionStatus } from "@/core/state/stores/permission-store";
 import { cn } from "@/utils";
-import { BasicTool } from "@/views/workspace-view/chat-area/basic-tool";
-import type { PartProps } from "@/views/workspace-view/chat-area/part-registry";
+import type { PartProps } from "@/views/workspace-view/chat-area/parts/part-registry";
+import { BasicTool } from "@/views/workspace-view/chat-area/tools/basic-tool";
 import { For, Show, type Component } from "solid-js";
 
 /**

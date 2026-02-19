@@ -1,39 +1,37 @@
 import type { DiffChange } from "@/core/chat/types";
 import { cn } from "@/utils";
-import { Component, For, mergeProps, Show } from "solid-js";
+import { Component, For, Show, createSignal } from "solid-js";
 
 interface DiffViewProps {
-  /** Diff changes to display */
-  changes?: DiffChange[];
-  /** Accept change handler */
-  onAccept?: (change: DiffChange) => void;
-  /** Reject change handler */
-  onReject?: (change: DiffChange) => void;
-  /** Accept all handler */
-  onAcceptAll?: () => void;
-  /** Reject all handler */
-  onRejectAll?: () => void;
-  /** Additional CSS classes */
   class?: string;
 }
 
-/**
- * DiffView - Simplified diff viewer with accept/reject actions
- *
- * Design Features:
- * - Green highlights for additions
- * - Red highlights for removals
- * - Yellow for modifications
- * - Per-change accept/reject buttons
- * - Accept all / Reject all actions
- */
 export const DiffView: Component<DiffViewProps> = props => {
-  const merged = mergeProps(
-    {
-      changes: [],
-    },
-    props
-  );
+  const [changes, setChanges] = createSignal<DiffChange[]>([]);
+
+  const handleAccept = (change: DiffChange) => {
+    setChanges(prev =>
+      prev.map(c => (c.id === change.id ? { ...c, status: "accepted" as const } : c))
+    );
+  };
+
+  const handleReject = (change: DiffChange) => {
+    setChanges(prev =>
+      prev.map(c => (c.id === change.id ? { ...c, status: "rejected" as const } : c))
+    );
+  };
+
+  const handleAcceptAll = () => {
+    setChanges(prev =>
+      prev.map(c => (c.status === "pending" ? { ...c, status: "accepted" as const } : c))
+    );
+  };
+
+  const handleRejectAll = () => {
+    setChanges(prev =>
+      prev.map(c => (c.status === "pending" ? { ...c, status: "rejected" as const } : c))
+    );
+  };
 
   const changeConfig = (change: DiffChange) => {
     switch (change.type) {
@@ -72,7 +70,7 @@ export const DiffView: Component<DiffViewProps> = props => {
     }
   };
 
-  const pendingChanges = () => merged.changes.filter(c => c.status === "pending");
+  const pendingChanges = () => changes().filter(c => c.status === "pending");
 
   return (
     <div class={cn("flex h-full flex-col", props.class)}>
@@ -89,7 +87,7 @@ export const DiffView: Component<DiffViewProps> = props => {
           </span>
           <div class="flex items-center gap-1">
             <button
-              onClick={props.onAcceptAll}
+              onClick={handleAcceptAll}
               class={cn(
                 "rounded px-2 py-1 text-xs",
                 "bg-green-500/10 text-green-600 dark:text-green-400",
@@ -99,7 +97,7 @@ export const DiffView: Component<DiffViewProps> = props => {
               Accept All
             </button>
             <button
-              onClick={props.onRejectAll}
+              onClick={handleRejectAll}
               class={cn(
                 "rounded px-2 py-1 text-xs",
                 "bg-red-500/10 text-red-600 dark:text-red-400",
@@ -114,7 +112,7 @@ export const DiffView: Component<DiffViewProps> = props => {
 
       {/* Diff list */}
       <div class="scrollbar-thin flex-1 space-y-2 overflow-auto p-2">
-        <For each={merged.changes}>
+        <For each={changes()}>
           {change => {
             const config = changeConfig(change);
             const isPending = change.status === "pending";
@@ -146,7 +144,7 @@ export const DiffView: Component<DiffViewProps> = props => {
                   <Show when={isPending}>
                     <div class="flex items-center gap-1">
                       <button
-                        onClick={() => props.onAccept?.(change)}
+                        onClick={() => handleAccept(change)}
                         class={cn(
                           "rounded p-1 transition-colors duration-150",
                           "bg-green-500/10 text-green-600 dark:text-green-400",
@@ -159,7 +157,7 @@ export const DiffView: Component<DiffViewProps> = props => {
                         </svg>
                       </button>
                       <button
-                        onClick={() => props.onReject?.(change)}
+                        onClick={() => handleReject(change)}
                         class={cn(
                           "rounded p-1 transition-colors duration-150",
                           "bg-red-500/10 text-red-600 dark:text-red-400",
@@ -227,7 +225,7 @@ export const DiffView: Component<DiffViewProps> = props => {
         </For>
 
         {/* Empty state */}
-        <Show when={merged.changes.length === 0}>
+        <Show when={changes().length === 0}>
           <div class="flex h-full flex-col items-center justify-center py-8 text-center">
             <svg
               class="text-muted-foreground/20 mb-3 h-12 w-12"

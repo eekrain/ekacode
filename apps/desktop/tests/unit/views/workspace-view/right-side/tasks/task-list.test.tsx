@@ -1,4 +1,4 @@
-import { TaskList } from "@/views/workspace-view/right-side/task-list";
+import { TaskList } from "@/views/workspace-view/right-side/tasks/task-list";
 import { render } from "solid-js/web";
 import { describe, expect, it } from "vitest";
 

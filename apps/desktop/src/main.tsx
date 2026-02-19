@@ -1,6 +1,6 @@
 /* @refresh reload */
 import App from "@/routes";
-import { registerDefaultPartComponents } from "@/views/workspace-view/chat-area/register-parts";
+import { registerDefaultPartComponents } from "@/views/workspace-view/chat-area/parts/register-parts";
 import { render } from "solid-js/web";
 import "./assets/main.css";
 

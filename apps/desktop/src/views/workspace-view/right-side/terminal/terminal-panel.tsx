@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 
 import { cn } from "@/utils";
-import { Component, For, Show, createSignal, mergeProps } from "solid-js";
+import { Component, For, Show, createSignal } from "solid-js";
 
 interface TerminalTab {
   id: string;
@@ -16,46 +16,30 @@ interface TerminalOutput {
 }
 
 interface TerminalPanelProps {
-  /** Current active tab */
-  activeTab?: string;
-  /** Terminal output lines */
-  output?: TerminalOutput[];
-  /** Tab change handler */
-  onTabChange?: (tabId: string) => void;
-  /** Clear output handler */
-  onClear?: () => void;
-  /** Additional CSS classes */
   class?: string;
 }
 
-/**
- * TerminalPanel - Bottom section of right panel with terminal/console
- *
- * Design Features:
- * - Tab bar (Terminal / Console)
- * - Styled output with color coding by type
- * - Monospace font for code
- * - Clear button
- * - Auto-scroll to bottom
- * - Placeholder for xterm.js integration
- */
 export const TerminalPanel: Component<TerminalPanelProps> = props => {
-  const merged = mergeProps(
+  const [output, setOutput] = createSignal<TerminalOutput[]>([
     {
-      activeTab: "terminal",
-      output: [],
+      timestamp: new Date(),
+      type: "info",
+      content: "Terminal initialized",
     },
-    props
-  );
+  ]);
 
   const tabs: TerminalTab[] = [
     { id: "terminal", label: "Terminal", type: "terminal" },
     { id: "console", label: "Console", type: "console" },
   ];
 
-  const [activeTabId, setActiveTabId] = createSignal(merged.activeTab);
+  const [activeTabId, setActiveTabId] = createSignal("terminal");
 
   const activeTab = () => tabs.find(t => t.id === activeTabId()) || tabs[0];
+
+  const handleClear = () => {
+    setOutput([]);
+  };
 
   const outputConfig = (type: TerminalOutput["type"]) => {
     switch (type) {
@@ -102,7 +86,6 @@ export const TerminalPanel: Component<TerminalPanelProps> = props => {
               <button
                 onClick={() => {
                   setActiveTabId(tab.id);
-                  props.onTabChange?.(tab.id);
                 }}
                 class={cn(
                   "rounded-t-lg px-3 py-1.5 text-sm transition-colors duration-150",
@@ -121,7 +104,7 @@ export const TerminalPanel: Component<TerminalPanelProps> = props => {
         </div>
 
         {/* Clear button */}
-        <Button variant="ghost" size="icon-sm" onClick={props.onClear} title="Clear output">
+        <Button variant="ghost" size="icon-sm" onClick={handleClear} title="Clear output">
           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               stroke-linecap="round"
@@ -136,7 +119,7 @@ export const TerminalPanel: Component<TerminalPanelProps> = props => {
       {/* Output area */}
       <div class="scrollbar-thin flex-1 overflow-auto p-3 font-mono text-xs">
         <Show
-          when={merged.output.length > 0}
+          when={output().length > 0}
           fallback={
             <div class="flex h-full flex-col items-center justify-center text-center">
               <svg
@@ -161,7 +144,7 @@ export const TerminalPanel: Component<TerminalPanelProps> = props => {
           }
         >
           <div class="space-y-1">
-            <For each={merged.output}>
+            <For each={output()}>
               {line => {
                 const config = outputConfig(line.type);
                 return (

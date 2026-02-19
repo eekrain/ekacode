@@ -31,7 +31,7 @@ describe("Markdown streaming behavior", () => {
   it("coalesces frequent streaming updates by cadence", async () => {
     const markedModule = await import("marked");
     const parseSpy = vi.spyOn(markedModule.marked, "parse");
-    const { Markdown } = await import("@/components/shared/markdown");
+    const { Markdown } = await import("@/components/ui/markdown");
     const [text, setText] = createSignal("start");
 
     dispose = render(
@@ -57,7 +57,7 @@ describe("Markdown streaming behavior", () => {
   });
 
   it("defers shiki while streaming and enables on completion", async () => {
-    const { Markdown } = await import("@/components/shared/markdown");
+    const { Markdown } = await import("@/components/ui/markdown");
     const [streaming, setStreaming] = createSignal(true);
     const codeMd = "```ts\nconst answer = 42\n```";
 
@@ -73,7 +73,7 @@ describe("Markdown streaming behavior", () => {
   });
 
   it("pauses updates while scrolling and flushes when scrolling stops", async () => {
-    const { Markdown } = await import("@/components/shared/markdown");
+    const { Markdown } = await import("@/components/ui/markdown");
     const [text, setText] = createSignal("a");
     const [scrollActive, setScrollActive] = createSignal(true);
 
@@ -105,7 +105,7 @@ describe("Markdown streaming behavior", () => {
   it("defers unstable code fence parsing until completion", async () => {
     const markedModule = await import("marked");
     const parseSpy = vi.spyOn(markedModule.marked, "parse");
-    const { Markdown } = await import("@/components/shared/markdown");
+    const { Markdown } = await import("@/components/ui/markdown");
     const [text, setText] = createSignal("Hello");
     const [streaming, setStreaming] = createSignal(true);
 
@@ -132,7 +132,7 @@ describe("Markdown streaming behavior", () => {
   it("uses streaming lite mode for large unstable text and full parse on completion", async () => {
     const markedModule = await import("marked");
     const parseSpy = vi.spyOn(markedModule.marked, "parse");
-    const { Markdown } = await import("@/components/shared/markdown");
+    const { Markdown } = await import("@/components/ui/markdown");
     const [text, setText] = createSignal("x".repeat(260));
     const [streaming, setStreaming] = createSignal(true);
 
@@ -163,7 +163,7 @@ describe("Markdown streaming behavior", () => {
   });
 
   it("applies slower cadence while scrolling and faster cadence when idle", async () => {
-    const { Markdown } = await import("@/components/shared/markdown");
+    const { Markdown } = await import("@/components/ui/markdown");
     const [text, setText] = createSignal("start");
     const [streaming] = createSignal(true);
     const [scrolling, setScrolling] = createSignal(true);

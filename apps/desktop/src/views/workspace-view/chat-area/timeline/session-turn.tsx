@@ -8,11 +8,8 @@
 import type { ChatTurn } from "@/core/chat/hooks/turn-projection";
 import { useStatusThrottledValue } from "@/core/chat/hooks/use-status-throttled-value";
 import { cn } from "@/utils";
-import { Part } from "@/views/workspace-view/chat-area/message-part";
-import {
-  formatRetryCountdown,
-  readRetrySecondsLeft,
-} from "@/views/workspace-view/chat-area/retry-timing";
+import { formatRetryCountdown, readRetrySecondsLeft } from "@/utils/retry-timing";
+import { Part } from "@/views/workspace-view/chat-area/parts/message-part";
 import {
   For,
   Show,

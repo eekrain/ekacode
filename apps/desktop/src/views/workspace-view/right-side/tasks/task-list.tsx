@@ -8,12 +8,6 @@ interface TaskListProps {
   class?: string;
 }
 
-/**
- * TaskList - Displays a list of tasks in the right panel
- *
- * Shows only when there are open tasks (status !== "closed")
- * Similar to OpenCode's sidebar todo display
- */
 export const TaskList: Component<TaskListProps> = props => {
   const openTasks = () => props.tasks.filter(t => t.status !== "closed");
 
@@ -30,7 +24,6 @@ export const TaskList: Component<TaskListProps> = props => {
               )}
               onClick={() => props.onTaskClick?.(task)}
             >
-              {/* Status indicator */}
               <div
                 class={cn(
                   "h-2 w-2 shrink-0 rounded-full",
@@ -40,14 +33,12 @@ export const TaskList: Component<TaskListProps> = props => {
                 )}
               />
 
-              {/* Priority badge */}
               <Show when={task.priority <= 1}>
                 <span class="rounded bg-red-500/20 px-1.5 py-0.5 text-xs text-red-400">
                   P{task.priority}
                 </span>
               </Show>
 
-              {/* Title */}
               <span class="flex-1 truncate text-sm">{task.title}</span>
             </div>
           )}

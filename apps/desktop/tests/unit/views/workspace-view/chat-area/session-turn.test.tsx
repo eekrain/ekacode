@@ -1,5 +1,5 @@
 import { buildChatTurns, type ChatTurn } from "@/core/chat/hooks/turn-projection";
-import { SessionTurn } from "@/views/workspace-view/chat-area";
+import { SessionTurn } from "@/views/workspace-view/chat-area/timeline/session-turn";
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

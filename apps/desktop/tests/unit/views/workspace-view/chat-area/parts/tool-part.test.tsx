@@ -3,7 +3,7 @@ import {
   clearToolRegistry,
   registerToolRenderer,
   type ToolRendererProps,
-} from "@/views/workspace-view/chat-area/tool-registry";
+} from "@/views/workspace-view/chat-area/tools/tool-registry";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 

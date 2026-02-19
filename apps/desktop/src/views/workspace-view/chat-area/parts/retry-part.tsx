@@ -1,8 +1,5 @@
 import { cn } from "@/utils";
-import {
-  formatRetryCountdown,
-  readRetrySecondsLeft,
-} from "@/views/workspace-view/chat-area/retry-timing";
+import { formatRetryCountdown, readRetrySecondsLeft } from "@/utils/retry-timing";
 import { createEffect, createSignal, onCleanup, Show, type Component } from "solid-js";
 
 export interface RetryPartProps {

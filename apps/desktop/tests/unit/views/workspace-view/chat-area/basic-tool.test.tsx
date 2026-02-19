@@ -1,4 +1,4 @@
-import { BasicTool, type BasicToolProps } from "@/views/workspace-view/chat-area/basic-tool";
+import { BasicTool, type BasicToolProps } from "@/views/workspace-view/chat-area/tools/basic-tool";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 

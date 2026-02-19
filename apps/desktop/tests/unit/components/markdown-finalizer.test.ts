@@ -1,7 +1,4 @@
-import {
-  finalizeMarkdownInChunks,
-  splitMarkdownBlocks,
-} from "@/components/shared/markdown-finalizer";
+import { finalizeMarkdownInChunks, splitMarkdownBlocks } from "@/components/ui/markdown-finalizer";
 import { describe, expect, it } from "vitest";
 
 describe("markdown-finalizer", () => {

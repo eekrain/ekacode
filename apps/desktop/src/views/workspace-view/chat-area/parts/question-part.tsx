@@ -11,8 +11,8 @@ import type {
   QuestionRequest,
 } from "@/core/state/stores/question-store";
 import { cn } from "@/utils";
-import { BasicTool } from "@/views/workspace-view/chat-area/basic-tool";
-import type { PartProps } from "@/views/workspace-view/chat-area/part-registry";
+import type { PartProps } from "@/views/workspace-view/chat-area/parts/part-registry";
+import { BasicTool } from "@/views/workspace-view/chat-area/tools/basic-tool";
 import { createMemo, createSignal, For, Show, type Component } from "solid-js";
 
 /**
