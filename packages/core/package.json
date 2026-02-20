@@ -45,6 +45,7 @@
     "diff": "^8.0.3",
     "glob": "^13.0.0",
     "jsdom": "^27.4.0",
+    "simple-git": "^3.31.1",
     "tree-sitter": "^0.25.0",
     "tree-sitter-bash": "^0.25.1",
     "ts-morph": "^27.0.2",

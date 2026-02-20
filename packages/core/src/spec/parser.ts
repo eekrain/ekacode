@@ -27,12 +27,7 @@ export type ParsedTaskInput = Omit<ParsedTask, "dependencies"> & {
  * Parse tasks.md file
  */
 export async function parseTasksMd(tasksFilePath: string): Promise<ParsedTask[]> {
-  let content: string;
-  try {
-    content = await fs.readFile(tasksFilePath, "utf-8");
-  } catch {
-    return [];
-  }
+  const content = await fs.readFile(tasksFilePath, "utf-8");
 
   const taskBlocks = content.split(/^#{2,3}\s+(T-\d+)\s*[—–-]\s+(.+)$/m);
 

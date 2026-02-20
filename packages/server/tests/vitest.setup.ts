@@ -6,15 +6,9 @@ const testHome = path.resolve(process.cwd(), ".ekacode-test");
 process.env.EKACODE_HOME = testHome;
 process.env.EKACODE_CREDENTIAL_KEY = Buffer.alloc(32, 7).toString("base64");
 
-const paths = resolveAppPaths({
-  mode: "dev",
-  cwd: process.cwd(),
-  env: process.env,
-});
+const paths = resolveAppPaths();
 
 fs.mkdirSync(paths.config, { recursive: true });
 fs.mkdirSync(paths.state, { recursive: true });
 fs.mkdirSync(paths.db, { recursive: true });
 fs.mkdirSync(paths.logs, { recursive: true });
-fs.mkdirSync(paths.cache, { recursive: true });
-fs.mkdirSync(paths.repoCache, { recursive: true });

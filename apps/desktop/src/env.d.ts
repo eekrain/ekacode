@@ -27,7 +27,14 @@ declare global {
         showItemInFolder: (fullPath: string) => Promise<void>;
       };
       workspace: {
-        clone: (options: { url: string; branch: string }) => Promise<string>;
+        clone: (options: { url: string; branch: string; targetDir: string }) => Promise<string>;
+        listBranches: (repoPath: string) => Promise<string[]>;
+        createWorktree: (options: {
+          repoPath: string;
+          worktreeName: string;
+          branch: string;
+        }) => Promise<string>;
+        getWorkspacesDir: () => Promise<string>;
       };
       app: {
         getVersion: () => Promise<string>;

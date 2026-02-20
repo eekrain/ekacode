@@ -9,15 +9,11 @@
  * - App information (version, platform)
  * - Permission responses
  * - File watcher stubs (Phase 5)
- * - Workspace operations (clone)
  */
 
 import { PermissionManager } from "@ekacode/core";
 import { createLogger } from "@ekacode/shared/logger";
-import { app, dialog, ipcMain, shell } from "electron";
-import { execSync } from "node:child_process";
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { dialog, ipcMain, shell } from "electron";
 
 const logger = createLogger("desktop:ipc");
 
@@ -322,99 +318,6 @@ export function setupIPCHandlers(serverConfig: ServerConfig): void {
       channel: "fs:watch-stop",
     });
     // TODO: Implement chokidar stop in Phase 5
-  });
-
-  /**
-   * Clone git repository
-   * Clones a repository to a temporary workspace directory
-   */
-  ipcMain.handle("workspace:clone", async (_event, options: { url: string; branch: string }) => {
-    logger.info("Clone repository requested", {
-      module: "desktop:ipc",
-      channel: "workspace:clone",
-      url: options.url,
-      branch: options.branch,
-    });
-
-    // Validate URL
-    const allowedHosts = ["github.com", "gitlab.com", "bitbucket.org"];
-    try {
-      const url = new URL(options.url);
-      if (!allowedHosts.includes(url.hostname)) {
-        throw new Error(
-          `URL hostname not allowed: ${url.hostname}. Only ${allowedHosts.join(", ")} are supported.`
-        );
-      }
-    } catch (error) {
-      logger.error("Invalid URL format", error instanceof Error ? error : undefined, {
-        module: "desktop:ipc",
-        url: options.url,
-      });
-      throw new Error("Invalid URL format");
-    }
-
-    // Create workspace directory in user data
-    const workspaceDir = join(app.getPath("home"), "ekacode-workspaces");
-    mkdirSync(workspaceDir, { recursive: true });
-
-    // Extract repo name from URL
-    const urlParts = options.url.replace(/\.git$/, "").split(/[/\\]/);
-    const repoName = urlParts[urlParts.length - 1] || "repository";
-    const clonePath = join(workspaceDir, repoName);
-
-    logger.info("Cloning repository", {
-      module: "desktop:ipc",
-      to: clonePath,
-    });
-
-    try {
-      // Check if directory already exists
-      const args = [
-        "clone",
-        "--depth",
-        "1",
-        "--single-branch",
-        "--branch",
-        options.branch || "main",
-        options.url,
-        clonePath,
-      ];
-
-      execSync("git " + args.join(" "), {
-        encoding: "utf-8",
-        stdio: "pipe",
-        timeout: 60000, // 60 seconds
-      });
-
-      logger.info("Repository cloned successfully", {
-        module: "desktop:ipc",
-        path: clonePath,
-      });
-
-      return clonePath;
-    } catch (error) {
-      const stderr = (error as { stderr?: string }).stderr || "";
-      logger.error("Failed to clone repository", error instanceof Error ? error : undefined, {
-        module: "desktop:ipc",
-        stderr,
-      });
-
-      // Parse common git errors
-      if (stderr.includes("Repository not found") || stderr.includes("could not read")) {
-        throw new Error("Repository not found or access denied");
-      }
-      if (stderr.includes("Could not resolve host")) {
-        throw new Error("Could not resolve repository host. Check your internet connection.");
-      }
-      if (stderr.includes("Permission denied")) {
-        throw new Error("Permission denied. You may need to authenticate.");
-      }
-      if (stderr.includes("branch.*not found")) {
-        throw new Error(`Branch '${options.branch}' not found`);
-      }
-
-      throw new Error(stderr.split("\n")[0] || "Failed to clone repository");
-    }
   });
 
   logger.info("IPC handlers registered", { module: "desktop:ipc" });

@@ -20,7 +20,7 @@ import * as schema from "./schema";
  * Get database URL from environment or use default local file
  */
 export function getDatabaseUrl(): string {
-  return resolveAppPaths().ekacodeDbUrl;
+  return resolveAppPaths().sakticodeDbUrl;
 }
 
 /**

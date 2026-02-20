@@ -365,6 +365,34 @@
   background: oklch(from var(--border) l c h / 0.6);
 }
 
+/* Custom scrollbar for popover */
+.scrollbar-popover::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-popover::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-popover::-webkit-scrollbar-thumb {
+  background: oklch(from var(--border) l c h / 0.3);
+  border-radius: 10px;
+  transition: background 0.15s ease;
+}
+.scrollbar-popover::-webkit-scrollbar-thumb:hover {
+  background: oklch(from var(--border) l c h / 0.5);
+}
+.scrollbar-popover::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox scrollbar support */
+.scrollbar-popover {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(from var(--border) l c h / 0.3) transparent;
+}
+.scrollbar-popover:hover {
+  scrollbar-color: oklch(from var(--border) l c h / 0.5) transparent;
+}
+
 /* Panel resize handle hover glow */
 .resize-handle:hover {
   background: oklch(from var(--primary) l c h / 0.5);
@@ -1060,16 +1088,517 @@
   filter: blur(1px);
 }
 
+/* ============================================================
+   POPOVER ANIMATIONS
+   ============================================================ */
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes popoverFadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-2px) scale(0.97);
+  }
+}
+
+.popover-content-motion {
+  animation: popoverFadeIn 0.18s cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+.popover-content-motion[data-closed],
+.popover-content-motion[data-exiting] {
+  animation: popoverFadeOut 0.12s cubic-bezier(0.2, 0, 0.2, 1) forwards;
+}
+
+/* Prevent scrollbar from causing layout shifts */
+.popover-content-motion[data-expanded] {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+/* Smooth scrollbar appearance */
+.popover-content-motion .scrollbar-popover {
+  scrollbar-width: thin;
+  opacity: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .model-selector-aurora {
     animation: none;
   }
-
   .command-dialog-overlay-motion,
   .dialog-overlay-motion,
+  .dialog-overlay-motion,
   .command-dialog-content-motion,
-  .dialog-content-motion,
-  .provider-modal-content-motion {
+  .provider-modal-content-motion,
+  .popover-content-motion {
     transition-duration: 1ms;
+    animation: none;
   }
+}
+
+/* ============================================================
+    WORKSPACE DASHBOARD - Custom Styles
+    ============================================================ */
+
+/* Workspace cards */
+.workspace-card {
+  @apply bg-card border-border rounded-xl border;
+  @apply shadow-sm;
+  @apply transition-all duration-200;
+}
+
+.workspace-card:hover {
+  @apply -translate-y-0.5 shadow-md;
+  @apply border-primary;
+}
+
+.workspace-card:focus-within {
+  @apply ring-ring ring-offset-background ring-2 ring-offset-2;
+}
+
+/* Status indicators */
+.status-dot {
+  @apply h-2 w-2 rounded-full;
+}
+
+.status-dot-ahead {
+  @apply bg-green-500;
+}
+
+.status-dot-behind {
+  @apply bg-yellow-500;
+}
+
+.status-dot-clean {
+  @apply bg-blue-500;
+}
+
+.status-text-ahead {
+  @apply text-green-600 dark:text-green-400;
+}
+
+.status-text-behind {
+  @apply text-yellow-600 dark:text-yellow-400;
+}
+
+.status-text-clean {
+  @apply text-blue-600 dark:text-blue-400;
+}
+
+/* Keyboard shortcuts badge */
+.keyboard-shortcut {
+  @apply bg-muted/50 text-muted-foreground;
+  @apply text-xs font-medium;
+  @apply px-2 py-1;
+  @apply rounded;
+}
+
+/* Empty states */
+.empty-state {
+  @apply flex flex-col items-center justify-center;
+  @apply py-16 text-center;
+}
+
+.empty-icon {
+  @apply text-muted-foreground/50;
+  @apply mb-4 text-4xl;
+}
+
+/* Search bar */
+.search-bar {
+  @apply bg-muted/50 border-border border;
+  @apply rounded-lg;
+  @apply focus-within:ring-ring focus-within:ring-2;
+  @apply focus-within:ring-offset-background focus-within:ring-offset-2;
+  @apply transition-all duration-200;
+}
+
+.search-bar:focus-within {
+  @apply bg-background border-primary;
+  @apply ring-offset-background ring-offset-2;
+}
+
+/* Archived items */
+.archived-item {
+  @apply bg-card border-border rounded-lg border;
+  @apply transition-all duration-200;
+}
+
+.archived-item:hover {
+  @apply -translate-x-0.5 shadow-sm;
+  @apply border-muted-foreground/30;
+}
+
+.archived-item:focus-within {
+  @apply ring-ring ring-offset-background ring-2 ring-offset-2;
+}
+
+/* Column headers */
+.column-header {
+  @apply flex items-center justify-between;
+  @apply h-8;
+}
+
+.column-title {
+  @apply text-foreground text-xs font-bold;
+  @apply uppercase tracking-widest;
+}
+
+/* Dashboard Layout */
+.workspace-dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 1.5rem;
+  gap: 1.5rem;
+}
+
+.dashboard-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dashboard-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.search-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  max-width: 400px;
+}
+
+.search-bar-container:focus-within {
+  background: var(--background);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--foreground);
+  font-size: 0.875rem;
+}
+
+.search-input::placeholder {
+  color: var(--muted-foreground);
+}
+
+.search-clear {
+  background: none;
+  border: none;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 1.25rem;
+  padding: 0 0.25rem;
+}
+
+.search-clear:hover {
+  color: var(--foreground);
+}
+
+/* Dashboard Columns */
+.dashboard-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  flex: 1;
+  overflow: hidden;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+}
+
+.column-count {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  background: var(--muted);
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+}
+
+/* Workspace List */
+.workspace-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Workspace Card */
+.workspace-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.workspace-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px var(--shadow);
+  border-color: var(--primary);
+}
+
+.workspace-card:focus-within,
+.workspace-card[data-focused="true"] {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.workspace-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.workspace-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.workspace-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0;
+}
+
+.workspace-path {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.workspace-git-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.git-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.git-branch {
+  font-weight: 500;
+}
+
+.workspace-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+/* Buttons */
+.button-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.button-primary:hover {
+  opacity: 0.9;
+}
+
+.button-outline {
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.button-outline:hover {
+  background: var(--muted);
+  border-color: var(--muted-foreground);
+}
+
+/* Status Dots */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+}
+
+.status-dot-ahead {
+  background: #22c55e;
+}
+
+.status-dot-behind {
+  background: #eab308;
+}
+
+.status-dot-clean {
+  background: #3b82f6;
+}
+
+.status-text-ahead {
+  color: #22c55e;
+}
+
+.status-text-behind {
+  color: #eab308;
+}
+
+.status-text-clean {
+  color: #3b82f6;
+}
+
+/* Keyboard Shortcut */
+.keyboard-shortcut {
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+  opacity: 0.5;
+}
+
+.empty-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+  margin: 0;
+}
+
+.empty-subtitle {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  margin: 0.25rem 0 0;
+}
+
+/* Archived Item */
+.archived-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.archived-item:hover {
+  border-color: var(--muted-foreground);
+}
+
+.archived-item-status {
+  font-size: 1rem;
+}
+
+.status-merged {
+  color: #22c55e;
+}
+
+.status-not-merged {
+  color: #ef4444;
+}
+
+.archived-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.archived-item-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.archived-item-date {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.button-small {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+/* Keyboard Shortcuts Footer */
+.keyboard-shortcuts-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.keyboard-hint kbd {
+  background: var(--muted);
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.keyboard-divider {
+  opacity: 0.5;
 }

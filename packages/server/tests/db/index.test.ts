@@ -35,7 +35,7 @@ describe("database client", () => {
       const { getDatabaseUrl } = await import("../../db/index");
       const url = getDatabaseUrl();
 
-      const expected = resolveAppPaths().ekacodeDbUrl;
+      const expected = resolveAppPaths().sakticodeDbUrl;
       expect(url).toBe(expected);
     });
   });

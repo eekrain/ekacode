@@ -78,11 +78,7 @@ export function getProviderRuntime(): ProviderRuntime {
     return runtime;
   }
 
-  const appPaths = resolveAppPaths({
-    mode: "dev",
-    cwd: process.cwd(),
-    env: process.env,
-  });
+  const appPaths = resolveAppPaths();
 
   const credentialBaseDir = join(appPaths.state, "provider-credentials");
   mkdirSync(credentialBaseDir, { recursive: true, mode: 0o700 });

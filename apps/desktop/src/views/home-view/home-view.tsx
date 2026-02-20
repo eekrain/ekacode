@@ -1,8 +1,9 @@
-import type { RecentProject, WorkspaceState } from "@/core/chat/types";
+import type { ArchivedWorkspace, RecentProject, WorkspaceState } from "@/core/chat/types";
 import { useNavigate } from "@solidjs/router";
 import { createSignal, onMount } from "solid-js";
 import { CloneDialog } from "./components/clone-dialog";
-import { WelcomeScreen } from "./components/welcome-screen";
+import { NewWorkspaceDialog } from "./components/new-workspace-dialog";
+import { WorkspaceDashboard } from "./components/workspace-dashboard";
 
 // Simple ID generator
 function generateId(): string {
@@ -12,8 +13,10 @@ function generateId(): string {
 export default function HomeView() {
   const navigate = useNavigate();
   const [recentProjects, setRecentProjects] = createSignal<RecentProject[]>([]);
+  const [archivedProjects, setArchivedProjects] = createSignal<ArchivedWorkspace[]>([]);
   const [_isDark, _setIsDark] = createSignal(false);
   const [isCloneOpen, setIsCloneOpen] = createSignal(false);
+  const [isNewWorkspaceOpen, setIsNewWorkspaceOpen] = createSignal(false);
 
   onMount(() => {
     // Load recent projects from localStorage
@@ -62,7 +65,7 @@ export default function HomeView() {
     };
 
     // Update recent projects list (most recent first)
-    const updated = [project, ...recentProjects().filter(p => p.id !== projectId)].slice(0, 10); // Keep only 10 most recent
+    const updated = [project, ...recentProjects().filter(p => p.id !== projectId)].slice(0, 10);
 
     setRecentProjects(updated);
     localStorage.setItem("ekacode:recent-projects", JSON.stringify(updated));
@@ -70,7 +73,7 @@ export default function HomeView() {
     return projectId;
   };
 
-  const handleOpenFolder = async () => {
+  const _handleOpenFolder = async () => {
     const selectedPath = await window.ekacodeAPI.dialog.openDirectory();
     if (selectedPath) {
       const projectId = addRecentProject(selectedPath);
@@ -88,13 +91,17 @@ export default function HomeView() {
     }
   };
 
-  const handleCloneFromUrl = () => {
+  const _handleCloneFromUrl = () => {
     setIsCloneOpen(true);
   };
 
   const handleClone = async (url: string, branch: string) => {
     try {
-      const clonedPath = await window.ekacodeAPI.workspace.clone({ url, branch });
+      const clonedPath = await window.ekacodeAPI.workspace.clone({
+        url,
+        branch,
+        targetDir: "",
+      });
 
       // Add to recent projects
       const projectId = addRecentProject(clonedPath);
@@ -145,36 +152,106 @@ export default function HomeView() {
     navigate(`/workspace/${project.id}`);
   };
 
-  const handleRemoveProject = (project: RecentProject) => {
+  const _handleRemoveProject = (project: RecentProject) => {
     const updated = recentProjects().filter(p => p.id !== project.id);
     setRecentProjects(updated);
     localStorage.setItem("ekacode:recent-projects", JSON.stringify(updated));
   };
 
-  const handleOpenSettings = () => {
+  const _handleOpenSettings = () => {
     navigate("/settings");
   };
 
-  const handleOpenDocs = async () => {
+  const _handleOpenDocs = async () => {
     // Open documentation in external browser
     await window.ekacodeAPI.shell.openExternal("https://docs.ekacode.dev");
   };
 
+  const handleArchiveWorkspace = (project: RecentProject) => {
+    const archived: ArchivedWorkspace = {
+      id: project.id,
+      name: project.name,
+      path: project.path,
+      archivedAt: new Date(),
+      isMerged: false,
+      baseBranch: project.gitStatus?.baseBranch || "main",
+      repoPath: project.path,
+    };
+    const updated = [...archivedProjects(), archived];
+    setArchivedProjects(updated);
+    localStorage.setItem("ekacode:archived-projects", JSON.stringify(updated));
+
+    const filtered = recentProjects().filter(p => p.id !== project.id);
+    setRecentProjects(filtered);
+    localStorage.setItem("ekacode:recent-projects", JSON.stringify(filtered));
+  };
+
+  const handleRestoreWorkspace = (workspace: ArchivedWorkspace) => {
+    const recent: RecentProject = {
+      id: workspace.id,
+      name: workspace.name,
+      path: workspace.path,
+      lastOpened: new Date(),
+    };
+    const updated = [recent, ...recentProjects()];
+    setRecentProjects(updated);
+    localStorage.setItem("ekacode:recent-projects", JSON.stringify(updated));
+
+    const filtered = archivedProjects().filter(w => w.id !== workspace.id);
+    setArchivedProjects(filtered);
+    localStorage.setItem("ekacode:archived-projects", JSON.stringify(filtered));
+  };
+
+  const handleNewWorkspace = () => {
+    setIsNewWorkspaceOpen(true);
+  };
+
+  const handleCreateWorkspace = async (worktreePath: string, worktreeName: string) => {
+    // Add to recent projects (worktreePath is the actual workspace path)
+    const projectId = addRecentProject(worktreePath, worktreeName);
+
+    // Store workspace state in sessionStorage
+    const workspaceState: WorkspaceState = {
+      projectId,
+      path: worktreePath,
+      name: worktreeName,
+    };
+    sessionStorage.setItem(`workspace:${projectId}`, JSON.stringify(workspaceState));
+
+    // Close dialog and navigate
+    setIsNewWorkspaceOpen(false);
+
+    // Small delay for smooth UX
+    setTimeout(() => {
+      navigate(`/workspace/${projectId}`);
+    }, 100);
+  };
+
+  const handleSearch = () => {
+    const searchInput = document.querySelector('[data-test="search-input"]') as HTMLInputElement;
+    searchInput?.focus();
+  };
+
   return (
     <>
-      <WelcomeScreen
-        recentProjects={recentProjects()}
-        onOpenFolder={handleOpenFolder}
-        onCloneFromUrl={handleCloneFromUrl}
-        onOpenProject={handleOpenProject}
-        onRemoveProject={handleRemoveProject}
-        onOpenSettings={handleOpenSettings}
-        onOpenDocs={handleOpenDocs}
+      <WorkspaceDashboard
+        recentWorkspaces={recentProjects()}
+        archivedWorkspaces={archivedProjects()}
+        onOpenWorkspace={handleOpenProject}
+        onArchiveWorkspace={handleArchiveWorkspace}
+        onRestoreWorkspace={handleRestoreWorkspace}
+        onNewWorkspace={handleNewWorkspace}
+        onSearch={handleSearch}
       />
       <CloneDialog
         isOpen={isCloneOpen()}
         onClose={() => setIsCloneOpen(false)}
         onClone={handleClone}
+      />
+      <NewWorkspaceDialog
+        isOpen={isNewWorkspaceOpen()}
+        onClose={() => setIsNewWorkspaceOpen(false)}
+        onCreate={handleCreateWorkspace}
       />
     </>
   );

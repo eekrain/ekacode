@@ -3,6 +3,25 @@ export interface RecentProject {
   name: string;
   path: string;
   lastOpened: Date;
+  gitStatus?: GitStatus;
+}
+
+export interface GitStatus {
+  branch: string;
+  baseBranch: string;
+  ahead: number;
+  behind: number;
+  hasUncommitted: boolean;
+}
+
+export interface ArchivedWorkspace {
+  id: string;
+  name: string;
+  path: string;
+  archivedAt: Date;
+  isMerged: boolean;
+  baseBranch: string;
+  repoPath: string;
 }
 
 export type ProjectAction = "open" | "clone" | "remove";

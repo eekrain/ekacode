@@ -4,6 +4,7 @@ import { useWorkspace } from "@/state/providers";
 import { cn } from "@/utils";
 import Resizable from "@corvu/resizable";
 import { Component, Show, createMemo } from "solid-js";
+import { ChatInput } from "./input/chat-input";
 import { ChatPerfPanel } from "./perf/chat-perf-panel";
 import { MessageTimeline } from "./timeline/message-timeline";
 
@@ -33,6 +34,8 @@ export const ChatArea: Component<ChatAreaProps> = props => {
         </Show>
 
         <MessageTimeline turns={turns} isStreaming={isStreaming} />
+
+        <ChatInput class="mx-3 mb-3" />
       </div>
     </Resizable.Panel>
   );

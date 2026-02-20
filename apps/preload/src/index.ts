@@ -156,19 +156,6 @@ const ekacodeAPI = {
   },
 
   // ============================================================
-  // Workspace APIs
-  // ============================================================
-  workspace: {
-    /**
-     * Clone a git repository to a local directory
-     * @param options - Clone options with url and branch
-     * @returns Promise resolving to cloned directory path
-     */
-    clone: (options: { url: string; branch: string }) =>
-      ipcRenderer.invoke("workspace:clone", options),
-  },
-
-  // ============================================================
   // App APIs
   // ============================================================
   app: {

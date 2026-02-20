@@ -612,6 +612,196 @@ export class EkacodeApiClient {
   }
 
   // ============================================================
+  // VCS API
+  // ============================================================
+
+  /**
+   * List remote branches from a git repository URL
+   *
+   * @param url - The repository URL (e.g., https://github.com/user/repo)
+   * @returns Array of branch names
+   */
+  async listRemoteBranches(url: string): Promise<string[]> {
+    logger.debug("Listing remote branches", { url });
+
+    try {
+      const response = await fetch(`${this.config.baseUrl}/api/vcs/remote-branches`, {
+        method: "POST",
+        headers: this.commonHeaders(),
+        body: JSON.stringify({ url }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to list remote branches");
+      }
+
+      const result = await response.json();
+      logger.debug("Remote branches fetched", { count: result.branches.length });
+      return result.branches;
+    } catch (error) {
+      logger.error("Failed to list remote branches", error as Error, { url });
+      throw error;
+    }
+  }
+
+  /**
+   * List local branches from a git repository
+   *
+   * @param path - Path to the git repository
+   * @returns Array of branch names
+   */
+  async listLocalBranches(path: string): Promise<string[]> {
+    logger.debug("Listing local branches", { path });
+
+    try {
+      const response = await fetch(`${this.config.baseUrl}/api/vcs/branches`, {
+        method: "POST",
+        headers: this.commonHeaders(),
+        body: JSON.stringify({ path }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to list branches");
+      }
+
+      const result = await response.json();
+      logger.debug("Local branches fetched", { count: result.branches.length });
+      return result.branches;
+    } catch (error) {
+      logger.error("Failed to list local branches", error as Error, { path });
+      throw error;
+    }
+  }
+
+  /**
+   * Clone a git repository
+   *
+   * @param options - Clone options
+   * @returns Path to cloned repository
+   */
+  async clone(options: { url: string; targetDir: string; branch: string }): Promise<string> {
+    logger.debug("Cloning repository", { url: options.url, targetDir: options.targetDir });
+
+    try {
+      const response = await fetch(`${this.config.baseUrl}/api/vcs/clone`, {
+        method: "POST",
+        headers: this.commonHeaders(),
+        body: JSON.stringify(options),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to clone repository");
+      }
+
+      const result = await response.json();
+      logger.debug("Repository cloned", { path: result.path });
+      return result.path;
+    } catch (error) {
+      logger.error("Failed to clone repository", error as Error, { url: options.url });
+      throw error;
+    }
+  }
+
+  /**
+   * Create a git worktree
+   *
+   * @param options - Worktree options
+   * @returns Path to created worktree
+   */
+  async createWorktree(options: {
+    repoPath: string;
+    worktreeName: string;
+    branch: string;
+    worktreesDir: string;
+  }): Promise<string> {
+    logger.debug("Creating worktree", { worktreeName: options.worktreeName });
+
+    try {
+      const response = await fetch(`${this.config.baseUrl}/api/vcs/worktree`, {
+        method: "POST",
+        headers: this.commonHeaders(),
+        body: JSON.stringify(options),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create worktree");
+      }
+
+      const result = await response.json();
+      logger.debug("Worktree created", { worktreePath: result.worktreePath });
+      return result.worktreePath;
+    } catch (error) {
+      logger.error("Failed to create worktree", error as Error, {
+        worktreeName: options.worktreeName,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Check if worktree name exists
+   *
+   * @param name - Worktree name to check
+   * @param worktreesDir - Worktrees directory path
+   * @returns True if name exists, false otherwise
+   */
+  async checkWorktreeExists(name: string, worktreesDir: string): Promise<boolean> {
+    logger.debug("Checking worktree exists", { name });
+
+    try {
+      const params = new URLSearchParams({ name, worktreesDir });
+      const response = await fetch(`${this.config.baseUrl}/api/vcs/worktree/exists?${params}`, {
+        method: "GET",
+        headers: this.commonHeaders(),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to check worktree exists");
+      }
+
+      const result = await response.json();
+      logger.debug("Worktree exists check", { name, exists: result.exists });
+      return result.exists;
+    } catch (error) {
+      logger.error("Failed to check worktree exists", error as Error, { name });
+      throw error;
+    }
+  }
+
+  /**
+   * Get workspaces directory path
+   *
+   * @returns Path to workspaces directory
+   */
+  async getWorkspacesDir(): Promise<string> {
+    logger.debug("Getting workspaces directory");
+
+    try {
+      const response = await fetch(`${this.config.baseUrl}/api/vcs/workspaces-dir`, {
+        method: "GET",
+        headers: this.commonHeaders(),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to get workspaces directory");
+      }
+
+      const result = await response.json();
+      logger.debug("Workspaces directory", { path: result.path });
+      return result.path;
+    } catch (error) {
+      logger.error("Failed to get workspaces directory", error as Error);
+      throw error;
+    }
+  }
+
+  // ============================================================
   // Health API
   // ============================================================
 
