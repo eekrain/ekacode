@@ -84,9 +84,9 @@ Convert the existing settings page into a dialog/modal component with two-column
 
 ## Progress
 
-| Phase | Name                       | Requirements | Status  |
-| ----- | -------------------------- | ------------ | ------- |
-| 1     | Foundation & UI Components | 6/6          | Pending |
+| Phase | Name                       | Requirements | Plans   | Status  |
+| ----- | -------------------------- | ------------ | ------- | ------- |
+| 1     | Foundation & UI Components | 6/6          | 4       | Pending |
 | 2     | Navigation & General Tab   | 10/10        | Pending |
 | 3     | Integration                | 3/3          | Pending |
 
