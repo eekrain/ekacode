@@ -4,13 +4,10 @@
  * Tests for referential integrity between sessions, messages, and parts.
  */
 
+import { createMessageStore, type MessageWithId } from "@/core/state/stores/message-store";
+import { createPartStore } from "@/core/state/stores/part-store";
+import { createSessionStore } from "@/core/state/stores/session-store";
 import { describe, expect, it } from "vitest";
-import {
-  createMessageStore,
-  type MessageWithId,
-} from "../../../../src/core/state/stores/message-store";
-import { createPartStore } from "../../../../src/core/state/stores/part-store";
-import { createSessionStore } from "../../../../src/core/state/stores/session-store";
 import { validateStoreIntegrity } from "../../../fixtures/data-integrity";
 
 describe("MessageStore - Foreign Key Validation", () => {
