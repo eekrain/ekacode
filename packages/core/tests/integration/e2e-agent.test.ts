@@ -8,14 +8,14 @@
  * Without the API key, tests are skipped.
  */
 
+import { Instance } from "@/instance";
+import { createTools } from "@/tools/registry";
 import { createZai } from "@sakti-code/zai";
 import { generateText } from "ai";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { Instance } from "../../src/instance";
-import { createTools } from "../../src/tools/registry";
 
 // Track test workspace for cleanup
 const testWorkspaceDirs: string[] = [];

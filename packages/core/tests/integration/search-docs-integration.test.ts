@@ -8,11 +8,11 @@
  * Without the API key, tests are skipped.
  */
 
+import { createTools } from "@/tools/registry";
+import { searchDocs } from "@/tools/search-docs";
 import { createZai } from "@sakti-code/zai";
 import { generateText } from "ai";
 import { describe, expect, it } from "vitest";
-import { createTools } from "../../src/tools/registry";
-import { searchDocs } from "../../src/tools/search-docs";
 
 describe("search-docs: code research integration", () => {
   // These tests are online and opt-in.
