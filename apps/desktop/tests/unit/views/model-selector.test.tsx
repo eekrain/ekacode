@@ -1,4 +1,4 @@
-import { ModelSelector } from "@/views/components/model-selector";
+import { ModelSelector } from "@/components/model-selector";
 import { render } from "solid-js/web";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
