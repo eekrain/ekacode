@@ -20,6 +20,7 @@
     "test:typecheck": "tsc -p tsconfig.spec.json --noEmit",
     "test:unit": "vitest run --exclude '**/tests/integration/**'",
     "test:integration": "vitest run tests/integration",
+    "test:imports": "bash tests/.migration/check-import-regressions.sh",
     "test:all": "pnpm test:typecheck && pnpm lint && pnpm test:unit && pnpm test:integration"
   },
   "dependencies": {
