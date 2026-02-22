@@ -12,7 +12,7 @@ import { createClient } from "@libsql/client";
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { runMigrations } from "./migrate";
 import * as schema from "./schema";
 
@@ -20,6 +20,22 @@ import * as schema from "./schema";
  * Get database URL from environment or use default local file
  */
 export function getDatabaseUrl(): string {
+  const envUrl = process.env.DATABASE_URL;
+  if (envUrl) {
+    if (envUrl.startsWith("file:") || envUrl.startsWith("libsql:")) {
+      const filePath = envUrl.replace(/^file:/, "");
+      if (path.isAbsolute(filePath)) {
+        return envUrl;
+      }
+      const resolvedPath = path.resolve(process.cwd(), filePath);
+      return pathToFileURL(resolvedPath).href;
+    }
+    if (envUrl.startsWith("http://") || envUrl.startsWith("https://")) {
+      return envUrl;
+    }
+    const resolvedPath = path.resolve(process.cwd(), envUrl);
+    return pathToFileURL(resolvedPath).href;
+  }
   return resolveAppPaths().sakticodeDbUrl;
 }
 

@@ -52,10 +52,13 @@ describe("chat provider selection", () => {
       }),
     });
 
+    console.log("Response status:", response.status);
+    const payload1 = await response.json();
+    console.log("Response payload:", JSON.stringify(payload1));
+
     expect(response.status).toBe(401);
-    const payload = await response.json();
-    expect(payload.error?.code).toBe("PROVIDER_UNAUTHENTICATED");
-    expect(String(payload.error?.message)).toContain("not authenticated");
+    expect(payload1.error?.code).toBe("PROVIDER_UNAUTHENTICATED");
+    expect(String(payload1.error?.message)).toContain("not authenticated");
   }, 15000);
 
   it("accepts explicit provider when persisted oauth credential exists after runtime reset", async () => {

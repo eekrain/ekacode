@@ -1,3 +1,5 @@
+import { ArrowUpDown, CornerDownLeft, Search } from "lucide-solid";
+
 export function KeyboardShortcutsFooter() {
   return (
     <div
@@ -5,22 +7,23 @@ export function KeyboardShortcutsFooter() {
       data-test="keyboard-shortcuts-footer"
     >
       <span class="flex items-center gap-1">
-        <kbd class="bg-muted rounded px-1.5 py-0.5 text-xs font-medium">⌘1-9</kbd>
-        <span>to focus</span>
-      </span>
-      <span class="opacity-50">•</span>
-      <span class="flex items-center gap-1">
-        <kbd class="bg-muted rounded px-1.5 py-0.5 text-xs font-medium">Arrows</kbd>
+        <kbd class="bg-muted rounded px-1.5 py-0.5 text-xs font-medium">
+          <ArrowUpDown class="h-3 w-3" />
+        </kbd>
         <span>to navigate</span>
       </span>
       <span class="opacity-50">•</span>
       <span class="flex items-center gap-1">
-        <kbd class="bg-muted rounded px-1.5 py-0.5 text-xs font-medium">Enter</kbd>
+        <kbd class="bg-muted rounded px-1.5 py-0.5 text-xs font-medium">
+          <CornerDownLeft class="h-3 w-3" />
+        </kbd>
         <span>to open</span>
       </span>
       <span class="opacity-50">•</span>
       <span class="flex items-center gap-1">
-        <kbd class="bg-muted rounded px-1.5 py-0.5 text-xs font-medium">⌘K</kbd>
+        <kbd class="bg-muted rounded px-1.5 py-0.5 text-xs font-medium">
+          <Search class="h-3 w-3" />
+        </kbd>
         <span>to search</span>
       </span>
       <span class="opacity-50">•</span>

@@ -26,12 +26,15 @@ function fileUrlForPath(filePath: string): string {
 
 /**
  * Resolve sakti paths.
- * Always uses $HOME/.sakti as base directory.
+ * Uses EKACODE_HOME environment variable if set, otherwise defaults to $HOME/.sakti
  */
 export function resolveAppPaths(): ResolvedAppPaths {
   const homedir = os.homedir();
-  const home = path.join(homedir, ".sakti");
+  const ekacodeHome = process.env.EKACODE_HOME;
+  const baseDir =
+    ekacodeHome && path.isAbsolute(ekacodeHome) ? ekacodeHome : path.join(homedir, ".sakti");
 
+  const home = baseDir;
   const config = path.join(home, "config");
   const state = path.join(home, "state");
   const db = path.join(home, "db");
