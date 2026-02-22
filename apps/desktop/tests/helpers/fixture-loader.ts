@@ -7,12 +7,12 @@
  * @package @sakti-code/desktop/tests
  */
 
+import { applyEventToStores } from "@/core/chat/domain/event-router-adapter";
 import type { MessageActions, MessageWithId } from "@/core/state/stores/message-store";
 import type { PartActions } from "@/core/state/stores/part-store";
 import type { SessionActions } from "@/core/state/stores/session-store";
 import type { EventOrderingFixture } from "@sakti-code/shared";
 import type { AllServerEvents, TypedServerEvent } from "@sakti-code/shared/event-types";
-import { applyEventToStores } from "../../src/core/chat/domain/event-router-adapter";
 
 /**
  * Store actions interface for fixture application

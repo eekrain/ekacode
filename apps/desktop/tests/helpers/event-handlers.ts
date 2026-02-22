@@ -5,9 +5,9 @@
  * to support E2E parity testing without requiring the old provider code.
  */
 
+import type { Part } from "@/core/chat/types/sync";
 import type { ServerEvent } from "@sakti-code/shared/event-types";
 import { produce, reconcile } from "solid-js/store";
-import type { Part } from "../../src/types/sync";
 
 /**
  * Directory store type for testing
