@@ -6,10 +6,16 @@ export default defineConfig({
     deps: {
       optimizer: {
         web: {
-          include: ["solid-js", "solid-js/web", "@solidjs/router", "lucide-solid"],
+          include: [
+            "solid-js",
+            "solid-js/web",
+            "@solidjs/router",
+            "@kobalte/core",
+            "solid-presence",
+            "lucide-solid",
+          ],
         },
       },
-      interopDefault: true,
     },
     server: {
       deps: {
@@ -17,6 +23,8 @@ export default defineConfig({
           "@solidjs/router",
           "@kobalte/core",
           "@kobalte/core/collapsible",
+          "@kobalte/core/dialog",
+          "@kobalte/core/separator",
           "@corvu/utils",
           "@corvu/resizable",
           "solid-presence",
@@ -27,6 +35,6 @@ export default defineConfig({
     },
   },
   ssr: {
-    noExternal: ["lucide-solid"],
+    noExternal: [/^@kobalte\/core/, "solid-presence", "lucide-solid"],
   },
 });

@@ -10,11 +10,8 @@ const PROJECT_ROOT = join(PACKAGE_ROOT, "../..");
 // Define explicit paths
 const SHARED_SRC = resolve(PACKAGE_ROOT, "../../packages/shared/src");
 const CORE_SRC = resolve(PACKAGE_ROOT, "../../packages/core/src");
+const MEMORABLE_NAME_SRC = resolve(PACKAGE_ROOT, "../../packages/memorable-name/src/index.ts");
 const DESKTOP_SRC = resolve(PACKAGE_ROOT, "src");
-const LUCIDE_SOLID_ESM = resolve(
-  PACKAGE_ROOT,
-  "node_modules/lucide-solid/dist/esm/lucide-solid.js"
-);
 
 export default mergeConfig(
   shared,
@@ -23,10 +20,8 @@ export default mergeConfig(
     root: PACKAGE_ROOT,
     base: "./",
     envDir: PROJECT_ROOT,
-    assetsInclude: ["**/*.jsx"],
     resolve: {
-      conditions: ["browser", "import"],
-      extensions: [".mjs", ".js", ".ts", ".jsx", ".tsx", ".json"],
+      conditions: ["browser", "import", "default"],
       alias: [
         // App aliases
         { find: "@renderer", replacement: DESKTOP_SRC },
@@ -60,6 +55,7 @@ export default mergeConfig(
         { find: "@sakti-code/core/server", replacement: CORE_SRC + "/server" },
         { find: "@sakti-code/core/tools", replacement: CORE_SRC + "/tools" },
         { find: "@sakti-code/core", replacement: CORE_SRC },
+        { find: "memorable-name", replacement: MEMORABLE_NAME_SRC },
 
         // Legacy aliases used by tests
         {
@@ -70,9 +66,6 @@ export default mergeConfig(
           find: "@renderer/providers/workspace-provider",
           replacement: DESKTOP_SRC + "/core/state/providers/workspace-provider.tsx",
         },
-
-        // Force ESM entry to avoid `solid` export condition selecting `.jsx`
-        { find: /^lucide-solid$/, replacement: LUCIDE_SOLID_ESM },
       ],
     },
     build: {
