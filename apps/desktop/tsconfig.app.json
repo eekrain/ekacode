@@ -11,12 +11,16 @@
       "@sakti-code/core/chat": ["../../packages/core/src/chat"],
       "@sakti-code/core/server": ["../../packages/core/src/server"],
       "@sakti-code/core/tools": ["../../packages/core/src/tools"],
+      "@sakti-code/server/*": ["../../packages/server/src/*"],
+      "memorable-name": ["../../packages/memorable-name/src/index.ts"],
+      "@renderer/*": ["src/*"],
       "@/*": ["src/*"],
       "@/components/*": ["src/components/*"],
       "@/views/*": ["src/views/*"],
       "@/core/*": ["src/core/*"],
       "@/state/*": ["src/core/state/*"],
       "@/services/*": ["src/core/services/*"],
+      "@/infrastructure/*": ["src/core/services/*"],
       "@/shared/*": ["src/core/shared/*"],
       "@/utils/*": ["src/utils/*"]
     }

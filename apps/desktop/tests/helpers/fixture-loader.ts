@@ -12,7 +12,11 @@ import type { MessageActions, MessageWithId } from "@/core/state/stores/message-
 import type { PartActions } from "@/core/state/stores/part-store";
 import type { SessionActions } from "@/core/state/stores/session-store";
 import type { EventOrderingFixture } from "@sakti-code/shared";
-import type { AllServerEvents, TypedServerEvent } from "@sakti-code/shared/event-types";
+import type {
+  AllServerEvents,
+  ServerEvent,
+  TypedServerEvent,
+} from "@sakti-code/shared/event-types";
 
 /**
  * Store actions interface for fixture application
@@ -61,7 +65,11 @@ function isSessionCreatedEvent(
  * Apply a single event to stores
  */
 export async function applyEvent(event: AllServerEvents, actions: StoreActions): Promise<void> {
-  await applyEventToStores(event, actions.message, actions.part, actions.session);
+  const normalized: ServerEvent<string, Record<string, unknown>> = {
+    ...event,
+    properties: event.properties as Record<string, unknown>,
+  };
+  await applyEventToStores(normalized, actions.message, actions.part, actions.session);
 }
 
 /**

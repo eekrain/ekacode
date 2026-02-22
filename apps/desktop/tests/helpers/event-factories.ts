@@ -7,7 +7,7 @@
  * @package @sakti-code/desktop/tests
  */
 
-import type { AllServerEvents, ServerEvent } from "@sakti-code/shared/event-types";
+import type { AllServerEvents, EventType, TypedServerEvent } from "@sakti-code/shared/event-types";
 
 /**
  * Base event metadata
@@ -16,25 +16,29 @@ export interface BaseEventMetadata {
   eventId: string;
   sequence: number;
   timestamp: number;
+  sessionID?: string;
+  directory?: string;
 }
 
 /**
  * Create a typed server event with required metadata
  */
-export function makeEvent<T extends AllServerEvents["type"]>(
+type EventOfType<T extends EventType> = Extract<AllServerEvents, { type: T }>;
+
+export function makeEvent<T extends EventType>(
   type: T,
-  properties: Omit<AllServerEvents, "type">,
+  properties: EventOfType<T>["properties"],
   metadata: BaseEventMetadata
-): ServerEvent<T, Omit<AllServerEvents, "type">> {
+): TypedServerEvent<T> {
   return {
     type,
-    properties: properties as AllServerEvents[T]["properties"],
+    properties,
     eventId: metadata.eventId,
     sequence: metadata.sequence,
     timestamp: metadata.timestamp,
-    sessionId: metadata.sessionId ?? "test-session",
+    sessionID: metadata.sessionID ?? "test-session",
     directory: metadata.directory ?? "/test",
-  } as ServerEvent<T, Omit<AllServerEvents, "type">>;
+  } as TypedServerEvent<T>;
 }
 
 /**
@@ -45,7 +49,7 @@ export function nextEventMetadata(base: BaseEventMetadata): BaseEventMetadata {
     eventId: `evt-${Date.now()}`,
     sequence: base.sequence + 1,
     timestamp: Date.now(),
-    session: base.sessionId ?? "test-session",
+    sessionID: base.sessionID ?? "test-session",
     directory: base.directory ?? "/test",
   };
 }

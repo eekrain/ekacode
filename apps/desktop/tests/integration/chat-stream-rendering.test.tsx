@@ -89,7 +89,7 @@ describe("Integration: Chat Stream Rendering", () => {
           <For each={messages()}>
             {msg => (
               <div data-role={msg.role} data-message-id={msg.id} data-testid={`message-${msg.id}`}>
-                <span data-testid="message-content">{msg.content ?? ""}</span>
+                <span data-testid="message-content">{String(msg.content ?? "")}</span>
                 {msg.role === "assistant" && (
                   <div data-testid="assistant-parts">
                     <For each={partActions.getByMessage(msg.id)}>

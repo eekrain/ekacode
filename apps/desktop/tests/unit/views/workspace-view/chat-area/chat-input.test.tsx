@@ -65,7 +65,6 @@ describe("ChatInput", () => {
     textarea.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", shiftKey: true, bubbles: true })
     );
-
     expect(onSend).not.toHaveBeenCalled();
   });
 

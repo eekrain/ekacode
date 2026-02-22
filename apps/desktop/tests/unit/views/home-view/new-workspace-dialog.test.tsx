@@ -215,7 +215,6 @@ describe("NewWorkspaceDialog", () => {
     const browseBtn = Array.from(document.body.querySelectorAll("button")).find(btn =>
       btn.textContent?.includes("Browse")
     );
-
     // Simulate folder selection by triggering the IPC mock
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ((window as any).saktiCodeAPI.dialog.openDirectory as ReturnType<typeof vi.fn>).mockReturnValue(
