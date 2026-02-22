@@ -4,5 +4,12 @@
     "types": ["vitest/globals", "vite/client"],
     "noEmit": true
   },
-  "include": ["src/**/*", "src/env.d.ts", "tests/**/*.ts", "tests/**/*.tsx", "vitest.config.ts"]
+  "include": [
+    "src/**/*",
+    "tests/**/*.ts",
+    "tests/**/*.tsx",
+    "tests/types/**/*.d.ts",
+    "src/env.d.ts",
+    "vitest.config.ts"
+  ]
 }
