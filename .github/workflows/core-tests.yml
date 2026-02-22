@@ -1,0 +1,40 @@
+name: Core Tests
+
+on:
+  pull_request:
+    paths:
+      - "packages/core/**"
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "packages/core/**"
+
+jobs:
+  core-test-matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check core tests
+        run: pnpm --filter @sakti-code/core test:typecheck
+
+      - name: Lint core
+        run: pnpm --filter @sakti-code/core lint
+
+      - name: Run all core tests
+        run: pnpm --filter @sakti-code/core test
