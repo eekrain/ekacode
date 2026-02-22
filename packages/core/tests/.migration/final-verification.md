@@ -13,14 +13,14 @@ All verification commands executed successfully:
 | `typecheck`        | ✅ PASSED | No TypeScript errors in source code            |
 | `test:typecheck`   | ✅ PASSED | No TypeScript errors in test files             |
 | `lint`             | ✅ PASSED | No ESLint violations, import patterns enforced |
-| `test:unit`        | ✅ PASSED | 124 test files, 1393 tests                     |
+| `test:unit`        | ✅ PASSED | 96 test files, 1158 tests                      |
 | `test:integration` | ✅ PASSED | 2 test files, 6 passed, 10 skipped             |
 | `test:imports`     | ✅ PASSED | No import regressions detected                 |
-| `test`             | ✅ PASSED | Full test suite (1411 tests, 10 skipped)       |
+| `test`             | ✅ PASSED | Full test suite (1164 tests, 10 skipped)       |
 
 ## Migrated Domain Counts
 
-Total test files migrated: **126**
+Total test files migrated: **96**
 
 ### By Wave
 
@@ -28,9 +28,9 @@ Total test files migrated: **126**
 | ---------------------------------- | ------------------------- | ------------------- |
 | Wave A (spec, config, chat)        | spec, chat                | 4                   |
 | Wave B (agent, session, workspace) | agent, session, workspace | 22                  |
-| Wave C (tools, instance, skill)    | tools, instance, skill    | 34                  |
+| Wave C (tools, instance, skill)    | tools, instance, skill    | 36                  |
 | Wave D (lsp, plugin, security)     | lsp, plugin               | 5                   |
-| **Total**                          | **10 domains**            | **65**              |
+| **Total**                          | **10 domains**            | **67**              |
 
 ### By Domain
 
@@ -44,45 +44,48 @@ Total test files migrated: **126**
 | session   | 10         |
 | skill     | 10         |
 | spec      | 2          |
-| tools     | 22         |
+| tools     | 56         |
 | workspace | 2          |
-| **Total** | **64**     |
+| **Total** | **98**     |
 
-Note: Additional test files in subdirectories (e.g., `tools/base/`, `agent/hybrid-agent/`) included in domain totals.
+Note: Test files in subdirectories (e.g., `tools/base/`, `tools/filesystem/`, `agent/hybrid-agent/`, `tools/search-docs/`, `tools/search/`, `tools/shell/`) included in domain totals.
 
 ## Retained Integration Rationale
 
-Test files remaining in `tests/` directory: **62**
+Test files remaining in `tests/` directory: **38**
 
 ### Retained by Reason
 
-| Reason            | Test Files | Examples                                                          |
-| ----------------- | ---------- | ----------------------------------------------------------------- |
-| DB Dependencies   | 35         | All `tests/memory/` tests (23), most `tests/spec/` (4)            |
-| Type Errors       | 10         | `tests/skill/tool.test.ts`, `tests/session/manager.test.ts`, etc. |
-| Integration Tests | 2          | `tests/integration/` (e2e-agent, search-docs-integration)         |
-| Setup/Helpers     | 15         | `tests/fixtures/`, `tests/helpers/`, `.migration/` docs           |
+| Reason            | Test Files | Examples                                                                                         |
+| ----------------- | ---------- | ------------------------------------------------------------------------------------------------ |
+| DB Dependencies   | 30         | All `tests/memory/` tests (25), `tests/spec/` (4), `tests/agent/workflow/model-provider.test.ts` |
+| Type Errors       | 5          | `tests/tools/filesystem/apply-patch.test.ts`, `tests/session/manager.test.ts`, etc.              |
+| Integration Tests | 3          | `tests/integration/` (2), `tests/agent/build-memory-tools.integration.test.ts`                   |
+| Setup/Helpers     | -          | `tests/fixtures/`, `tests/helpers/`, `.migration/` docs (not counted)                            |
 
 ### DB-Dependent Tests
 
 The following tests remain in `tests/` due to database dependencies that cause `test:typecheck` cross-package import issues:
 
-- **`tests/memory/`** - All memory domain tests (23 test files)
-  - `task/`, `working-memory/`, `reflection/`, `observational-memory/`
+- **`tests/memory/`** - All memory domain tests (25 test files)
+  - `task/`, `working-memory/`, `reflection/`, `observation/`
   - Directly import from `@sakti-code/server` DB layer
 
 - **`tests/spec/`** - Spec compiler with DB (4 test files)
   - `compiler.test.ts`, `helpers.test.ts`, `injector.test.ts`, `plan.test.ts`
   - Require DB for spec compilation and execution
 
+- **`tests/agent/workflow/model-provider.test.ts`** - Model provider tests require DB fixtures
+
 ### Type Errors
 
 The following tests have pre-existing TypeScript errors unrelated to migration:
 
-- **`tests/skill/tool.test.ts`** - Type errors in tool-related code
-- **`tests/agent/workflow/model-provider.test.ts`** - Type errors
-- **`tests/session/manager.test.ts`**, **`tests/session/shutdown.test.ts`** - Type errors
-- **`tests/tools/`** - 5 test files with type errors
+- **`tests/session/manager.test.ts`** - Type errors
+- **`tests/session/shutdown.test.ts`** - Type errors
+- **`tests/tools/filesystem/apply-patch.test.ts`** - Type errors in patch application
+- **`tests/tools/task-parallel.test.ts`** - Type errors in parallel task execution
+- **`tests/tools/task.test.ts`** - Type errors in task scheduling
 
 These tests were not fixed as part of migration to keep changes focused. Follow-up: Fix type errors in these tests.
 
@@ -152,6 +155,7 @@ The core package now uses a hybrid test architecture:
 - **`TESTING_ARCHITECTURE.md`** - Comprehensive guide for test placement, import patterns, verification commands
 - **`README.md`** - Package-level testing quick start and development guide
 - **`integration-inventory.md`** - Inventory of integration suites with ownership, dependencies, setup requirements
+- **`retained-tests-rationale.md`** - Detailed rationale for tests remaining in `tests/` directory
 
 ### Existing Documents (Preserved)
 
@@ -164,13 +168,13 @@ The core package now uses a hybrid test architecture:
 
 1. **Fix type errors in retained tests**
    - Priority: Medium
-   - Impact: 10 test files with pre-existing type errors
+   - Impact: 5 test files with pre-existing type errors
    - Effort: Individual investigation required per test
 
-2. **Reduce DB dependencies in tests**
+2. **Consider migrating pure unit tests in tools/search-docs/**
    - Priority: Low
-   - Impact: 35 DB-dependent tests remain in legacy location
-   - Effort: Requires architectural changes to use mock DB layer
+   - Impact: 3 test files (`discovery-tools.test.ts`, `git-manager.test.ts`, `search-docs.test.ts`)
+   - Effort: Minimal, just file moves
 
 ### Future Considerations
 
@@ -193,9 +197,9 @@ The core package now uses a hybrid test architecture:
    - ✅ typecheck
    - ✅ test:typecheck
    - ✅ lint
-   - ✅ test:unit (124 test files, 1393 tests)
+   - ✅ test:unit (96 test files, 1158 tests)
    - ✅ test:integration (2 test files, 6 passed, 10 skipped)
-   - ✅ test (1411 tests, 10 skipped)
+   - ✅ test (1164 tests, 10 skipped)
    - ✅ test:imports
 5. ✅ No deep relative source imports remain in core tests (verified by ESLint and regression script)
 6. ✅ Standards and guardrails are documented (TESTING_ARCHITECTURE.md, README.md)
