@@ -1,57 +1,57 @@
 {
-  "generatedAt": "2026-02-20T23:23:52.790Z",
+  "generatedAt": "2026-02-22T17:44:27.710Z",
   "fixture": "chat-stream.from-log.json",
   "snapshot": {
     "counters": {
-      "commits": 20,
-      "liteCommits": 18,
-      "fullCommits": 2,
-      "droppedFrames": 11,
+      "commits": 18,
+      "liteCommits": 17,
+      "fullCommits": 1,
+      "droppedFrames": 6,
       "longTasks": 0,
       "rafSkippedApplies": 0,
-      "forcedFlushes": 1,
-      "finalizationBatches": 4,
-      "finalizationYieldCount": 3,
-      "finalizationTotalMs": 100.34251500000028,
-      "finalizationMaxBatchMs": 52.55244800000037
+      "forcedFlushes": 0,
+      "finalizationBatches": 6,
+      "finalizationYieldCount": 4,
+      "finalizationTotalMs": 199.9299119999996,
+      "finalizationMaxBatchMs": 45.26723899999979
     },
     "stages": {
       "parse": {
-        "count": 11,
-        "avgMs": 4.723269181818151,
-        "p50Ms": 0.8630009999997128,
-        "p95Ms": 24.087917999999263,
-        "maxMs": 24.087917999999263
+        "count": 18,
+        "avgMs": 2.913640333333458,
+        "p50Ms": 0.33563500000036584,
+        "p95Ms": 20.078580999999758,
+        "maxMs": 20.078580999999758
       },
       "sanitize": {
-        "count": 29,
-        "avgMs": 4.1952893448275255,
-        "p50Ms": 3.111810999998852,
-        "p95Ms": 10.248789999999644,
-        "maxMs": 26.36147500000152
+        "count": 35,
+        "avgMs": 3.4336964571428323,
+        "p50Ms": 3.093801999999414,
+        "p95Ms": 9.936075999999957,
+        "maxMs": 23.60580300000038
       },
       "morph": {
-        "count": 3,
-        "avgMs": 6.250013000000156,
-        "p50Ms": 6.532357000000047,
-        "p95Ms": 10.041439000000537,
-        "maxMs": 10.041439000000537
+        "count": 2,
+        "avgMs": 3.9015950000002704,
+        "p50Ms": 5.881084999999985,
+        "p95Ms": 5.881084999999985,
+        "maxMs": 5.881084999999985
       },
       "copyButtons": {
         "count": 1,
-        "avgMs": 7.870676000000458,
-        "p50Ms": 7.870676000000458,
-        "p95Ms": 7.870676000000458,
-        "maxMs": 7.870676000000458
+        "avgMs": 5.995530999999573,
+        "p50Ms": 5.995530999999573,
+        "p95Ms": 5.995530999999573,
+        "maxMs": 5.995530999999573
       },
       "total": {
-        "count": 20,
-        "avgMs": 10.028767099999822,
-        "p50Ms": 4.005780999999843,
-        "p95Ms": 100.34251500000028,
-        "maxMs": 100.34251500000028
+        "count": 19,
+        "avgMs": 14.278607631578923,
+        "p50Ms": 4.099134000000049,
+        "p95Ms": 133.00317199999972,
+        "maxMs": 133.00317199999972
       }
     },
-    "updatedAt": 1771629832790
+    "updatedAt": 1771782267691
   }
 }
