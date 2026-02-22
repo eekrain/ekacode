@@ -6,6 +6,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/utils";
+import { ArrowRight, ChevronDown, CircleDashed } from "lucide-solid";
 import { createSignal } from "solid-js";
 
 interface WorkspaceContextBarProps {
@@ -29,26 +30,7 @@ export function WorkspaceContextBar(props: WorkspaceContextBarProps) {
   return (
     <div class={cn("mt-4 flex items-center justify-between", props.class)}>
       <div class="flex items-center gap-2">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          class="text-muted-foreground"
-        >
-          <circle cx="12" cy="12" r="3" />
-          <path d="M12 3v9" />
-          <path d="M12 21v-3" />
-          <path d="M12 9l-5 3" />
-          <path d="M12 9l5 3" />
-          <path d="M17 12l-2 2" />
-          <path d="M7 12l2 2" />
-        </svg>
+        <CircleDashed width={18} height={18} class="text-muted-foreground" />
         <span class="text-muted-foreground">
           Work on <span class="text-foreground font-medium">{props.projectName}</span>
         </span>
@@ -65,20 +47,11 @@ export function WorkspaceContextBar(props: WorkspaceContextBarProps) {
                 )}
               >
                 <span class="font-medium">{props.selectedBranch}</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                <ChevronDown
+                  width={14}
+                  height={14}
                   class="transition-transform duration-200 group-hover:rotate-180"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
+                />
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuRadioGroup
@@ -127,20 +100,7 @@ export function WorkspaceContextBar(props: WorkspaceContextBarProps) {
           )}
         >
           <span>Create space</span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M5 12h14" />
-            <path d="m12 5 7 7-7 7" />
-          </svg>
+          <ArrowRight width={16} height={16} />
         </button>
       </div>
     </div>

@@ -14,6 +14,7 @@ import type {
 import { createProviderCatalogSearchIndex } from "@/core/state/providers/provider-catalog-store";
 import { cn } from "@/utils";
 import { createPresence } from "@solid-primitives/presence";
+import { Search } from "lucide-solid";
 import {
   For,
   Show,
@@ -804,19 +805,7 @@ export function ModelsSettings(props: ModelsSettingsProps) {
 
               <div class="mt-3">
                 <label class="border-border/80 bg-background/65 focus-within:border-primary/40 flex items-center gap-2 rounded-md border px-2.5 py-2 transition-colors">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="text-muted-foreground size-4"
-                  >
-                    <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" />
-                    <path d="M21 21l-6 -6" />
-                  </svg>
+                  <Search class="text-muted-foreground size-4" />
                   <input
                     type="text"
                     ref={element => {

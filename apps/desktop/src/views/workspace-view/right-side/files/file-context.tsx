@@ -1,5 +1,6 @@
 import type { FileTab as FileTabType } from "@/core/chat/types";
 import { cn } from "@/utils";
+import { FileText } from "lucide-solid";
 import { Component, For, Show, createSignal } from "solid-js";
 import { FileTab } from "./file-tab";
 
@@ -80,19 +81,7 @@ export const FileContext: Component<FileContextProps> = props => {
           when={activeTab()}
           fallback={
             <div class="flex h-full flex-col items-center justify-center text-center">
-              <svg
-                class="text-muted-foreground/20 mb-3 h-12 w-12"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width={1.5}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
+              <FileText class="text-muted-foreground/20 mb-3 h-12 w-12" />
               <p class="text-muted-foreground/50 text-sm">No file selected</p>
               <p class="text-muted-foreground/30 mt-1 text-xs">Open a file to see its contents</p>
             </div>
@@ -103,19 +92,7 @@ export const FileContext: Component<FileContextProps> = props => {
               {/* File header */}
               <div class="border-border/20 mb-3 flex items-center justify-between border-b pb-2">
                 <div class="flex items-center gap-2">
-                  <svg
-                    class="text-primary/60 h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
+                  <FileText class="text-primary/60 h-4 w-4" />
                   <span class="text-foreground/80 text-sm font-medium">{tab().name}</span>
                   <Show when={tab().isModified}>
                     <span class="bg-primary/20 text-primary/70 rounded px-1.5 py-0.5 text-[10px] font-medium">

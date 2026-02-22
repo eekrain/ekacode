@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 
 import { cn } from "@/utils";
+import { Terminal, Trash2 } from "lucide-solid";
 import { Component, For, Show, createSignal } from "solid-js";
 
 interface TerminalTab {
@@ -105,14 +106,7 @@ export const TerminalPanel: Component<TerminalPanelProps> = props => {
 
         {/* Clear button */}
         <Button variant="ghost" size="icon-sm" onClick={handleClear} title="Clear output">
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width={2}
-              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-            />
-          </svg>
+          <Trash2 class="h-4 w-4" />
         </Button>
       </div>
 
@@ -122,19 +116,7 @@ export const TerminalPanel: Component<TerminalPanelProps> = props => {
           when={output().length > 0}
           fallback={
             <div class="flex h-full flex-col items-center justify-center text-center">
-              <svg
-                class="text-muted-foreground/20 mb-2 h-10 w-10"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width={1.5}
-                  d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
+              <Terminal class="text-muted-foreground/20 mb-2 h-10 w-10" />
               <p class="text-muted-foreground/40 text-xs">
                 {activeTab().type === "terminal"
                   ? "Terminal output will appear here..."

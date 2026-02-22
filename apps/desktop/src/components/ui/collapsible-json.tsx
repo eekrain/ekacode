@@ -12,6 +12,7 @@
  * - Handles circular references gracefully
  */
 import { cn } from "@/utils";
+import { Check, Copy } from "lucide-solid";
 import { Component, createSignal, For, Match, mergeProps, Show, Switch } from "solid-js";
 
 interface CollapsibleJsonProps {
@@ -225,24 +226,9 @@ function CopyButton(props: { data: unknown; class?: string }) {
       )}
       title={copied() ? "Copied!" : "Copy JSON"}
     >
-      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <Show
-          when={copied()}
-          fallback={
-            <>
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke-width="2" />
-              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke-width="2" />
-            </>
-          }
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M5 13l4 4L19 7"
-          />
-        </Show>
-      </svg>
+      <Show when={copied()} fallback={<Copy class="h-3.5 w-3.5" />}>
+        <Check class="h-3.5 w-3.5" />
+      </Show>
     </button>
   );
 }

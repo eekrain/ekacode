@@ -3,6 +3,7 @@ import { splitProps } from "solid-js";
 
 import type { PolymorphicProps } from "@kobalte/core/polymorphic";
 import * as SelectPrimitive from "@kobalte/core/select";
+import { Check, ChevronDown } from "lucide-solid";
 
 import { cn } from "@/utils";
 
@@ -29,18 +30,8 @@ const SelectTrigger = <T extends ValidComponent = "button">(
       {...others}
     >
       {local.children}
-      <SelectPrimitive.Icon
-        as="svg"
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        class="text-muted-foreground size-4 transition-transform duration-200 data-[expanded]:rotate-180"
-      >
-        <path d="M6 9l6 6l6 -6" />
+      <SelectPrimitive.Icon class="text-muted-foreground size-4 transition-transform duration-200 data-[expanded]:rotate-180">
+        <ChevronDown />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );
@@ -90,19 +81,7 @@ const SelectItem = <T extends ValidComponent = "li">(
       {...others}
     >
       <SelectPrimitive.ItemIndicator class="absolute right-3 flex size-4 items-center justify-center transition-transform duration-200">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          class="size-3.5"
-        >
-          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-          <path d="M5 12l5 5l10 -10" />
-        </svg>
+        <Check class="size-3.5" />
       </SelectPrimitive.ItemIndicator>
       <SelectPrimitive.ItemLabel class="flex-1">{local.children}</SelectPrimitive.ItemLabel>
     </SelectPrimitive.Item>

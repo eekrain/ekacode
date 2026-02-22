@@ -6,7 +6,7 @@
  */
 
 import { Collapsible as KobalteCollapsible } from "@kobalte/core/collapsible";
-import { Icon } from "./icon";
+import { ChevronDown } from "lucide-solid";
 
 /**
  * Collapsible component with ekacode styling
@@ -25,10 +25,7 @@ export const Collapsible = Object.assign(KobalteCollapsible, {
    * Uses data-expanded attribute from Kobalte's collapsible context
    */
   Arrow: () => (
-    <Icon
-      name="chevron-down"
-      class="text-muted-foreground data-expanded:rotate-180 h-4 w-4 transition-transform duration-200"
-    />
+    <ChevronDown class="text-muted-foreground data-expanded:rotate-180 h-4 w-4 transition-transform duration-200" />
   ),
 });
 

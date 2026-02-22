@@ -1,4 +1,5 @@
 import { cn } from "@/utils";
+import { ChevronDown, MessageCircle } from "lucide-solid";
 import { Component, For, Show, createSignal } from "solid-js";
 import { SessionCard } from "./session-card";
 
@@ -144,22 +145,12 @@ export const SessionList: Component<SessionListProps> = props => {
                 "hover:text-muted-foreground transition-colors duration-150"
               )}
             >
-              <svg
+              <ChevronDown
                 class={cn(
                   "h-3 w-3 transition-transform duration-200",
                   isGroupCollapsed(group.title) && "-rotate-90"
                 )}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
+              />
               <span>{group.title}</span>
               <span class="ml-auto text-[10px] opacity-60">{group.sessions.length}</span>
             </button>
@@ -195,19 +186,7 @@ export const SessionList: Component<SessionListProps> = props => {
               "flex items-center justify-center"
             )}
           >
-            <svg
-              class="text-muted-foreground/40 h-6 w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width={1.5}
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-              />
-            </svg>
+            <MessageCircle class="text-muted-foreground/40 h-6 w-6" />
           </div>
           <p class="text-muted-foreground/70 text-sm">No sessions yet</p>
           <p class="text-muted-foreground/50 mt-1 text-xs">

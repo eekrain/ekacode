@@ -1,6 +1,7 @@
 import type { JSX } from "solid-js";
 
 import { cn } from "@/utils";
+import { Maximize2 } from "lucide-solid";
 
 interface WorkspaceLauncherCardProps {
   icon: JSX.Element;
@@ -39,19 +40,7 @@ export function WorkspaceLauncherCard(props: WorkspaceLauncherCardProps) {
         <p class="text-muted-foreground text-sm">{props.description}</p>
       </div>
       <div class="text-primary absolute right-6 top-6 opacity-0 transition-opacity group-hover:opacity-100">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M7 17l9.2-9.2M17 17V7H7" />
-        </svg>
+        <Maximize2 width={24} height={24} />
       </div>
     </button>
   );

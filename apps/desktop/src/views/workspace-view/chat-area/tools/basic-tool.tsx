@@ -6,8 +6,8 @@
  */
 
 import { Collapsible } from "@/components/ui/collapsible";
-import { Icon } from "@/components/ui/icon";
 import { cn } from "@/utils";
+import { FileText, Folder, Terminal } from "lucide-solid";
 import { createSignal, Show, type JSX, type ParentComponent } from "solid-js";
 
 export interface TriggerTitle {
@@ -70,7 +70,9 @@ export const BasicTool: ParentComponent<BasicToolProps> = props => {
     return (
       <>
         <Show when={props.icon}>
-          <Icon name={props.icon as "file" | "folder" | "terminal"} class="h-4 w-4 shrink-0" />
+          {props.icon === "file" && <FileText class="h-4 w-4 shrink-0" />}
+          {props.icon === "folder" && <Folder class="h-4 w-4 shrink-0" />}
+          {props.icon === "terminal" && <Terminal class="h-4 w-4 shrink-0" />}
         </Show>
         <div class="flex min-w-0 flex-col gap-0.5">
           <span class="truncate text-sm font-medium">{triggerTitle.title}</span>

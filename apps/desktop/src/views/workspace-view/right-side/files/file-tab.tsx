@@ -2,6 +2,7 @@ import type { FileTab as FileTabType } from "@/core/chat/types";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
+import { FileText, X } from "lucide-solid";
 import { Component, mergeProps, Show } from "solid-js";
 
 interface FileTabProps {
@@ -44,22 +45,12 @@ export const FileTab: Component<FileTabProps> = props => {
       )}
     >
       {/* File icon based on extension */}
-      <svg
+      <FileText
         class={cn(
           "h-4 w-4 flex-shrink-0",
           props.tab.isActive ? "text-primary" : "text-muted-foreground/50"
         )}
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width={2}
-          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-        />
-      </svg>
+      />
 
       {/* File name */}
       <span class="max-w-[120px] truncate">{props.tab.name}</span>
@@ -88,14 +79,7 @@ export const FileTab: Component<FileTabProps> = props => {
             props.tab.isActive ? "hover:text-foreground" : "hover:text-foreground/80"
           )}
         >
-          <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+          <X class="h-3 w-3" />
         </Button>
       </Show>
     </button>

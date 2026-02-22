@@ -707,7 +707,21 @@ export function Markdown(props: MarkdownProps) {
       button.className =
         "absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-card/80 border border-border/40 rounded p-1.5 transition-opacity duration-150 hover:bg-card hover:border-primary/30";
 
-      button.innerHTML = `<svg class="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 4H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2v-2M16 4h2a2 2 0 012 2v4M21 14H11m4 0l-3 3m3-3l-3-3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("class", "h-4 w-4 text-muted-foreground");
+      svg.setAttribute("fill", "none");
+      svg.setAttribute("stroke", "currentColor");
+      svg.setAttribute("viewBox", "0 0 24 24");
+      svg.setAttribute("stroke-width", "2");
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute(
+        "d",
+        "M8 4H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2v-2M16 4h2a2 2 0 012 2v4M21 14H11m4 0l-3 3m3-3l-3-3"
+      );
+      path.setAttribute("stroke-linecap", "round");
+      path.setAttribute("stroke-linejoin", "round");
+      svg.appendChild(path);
+      button.appendChild(svg);
 
       button.onclick = async () => {
         try {

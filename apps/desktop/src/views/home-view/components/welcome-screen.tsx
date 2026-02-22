@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
+import { Folder, Globe, Leaf, Search, Settings, X } from "lucide-solid";
 import { For, Show } from "solid-js";
 import { WorkspaceLauncherCard } from "./workspace-launcher-card";
 
@@ -63,20 +64,7 @@ function RecentProjectCard(props: RecentProjectCardProps) {
           )}
           aria-label="Remove project"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M18 6l-12 12" />
-            <path d="M6 6l12 12" />
-          </svg>
+          <X xmlns="http://www.w3.org/2000/svg" width={14} height={14} />
         </Button>
       )}
     </div>
@@ -192,20 +180,7 @@ export function WelcomeScreen(props: WelcomeScreenProps) {
             onClick={props.onOpenSettings}
             aria-label="Settings"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22-.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1-2 0l.43-.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2-2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1-1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1-1-1.74l-.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1 1.73V4a2 2 0 0 0-2-2z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
+            <Settings width={20} height={20} />
           </Button>
         )}
       </header>
@@ -223,21 +198,7 @@ export function WelcomeScreen(props: WelcomeScreenProps) {
 
           <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
             <WorkspaceLauncherCard
-              icon={
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" />
-                </svg>
-              }
+              icon={<Folder width={24} height={24} />}
               iconBgColor="bg-primary/10"
               iconColor="text-primary"
               hoverIconBgColor="bg-primary"
@@ -248,22 +209,7 @@ export function WelcomeScreen(props: WelcomeScreenProps) {
             />
 
             <WorkspaceLauncherCard
-              icon={
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="m9 12 2 2 4-4" />
-                </svg>
-              }
+              icon={<Globe width={24} height={24} />}
               iconBgColor="bg-secondary/10"
               iconColor="text-secondary-foreground"
               hoverIconBgColor="bg-secondary"
@@ -275,20 +221,12 @@ export function WelcomeScreen(props: WelcomeScreenProps) {
           </div>
 
           <div class="bg-muted/50 border-border mt-auto flex items-center gap-2 rounded-lg border px-4 py-3">
-            <svg
+            <Leaf
               xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+              width={16}
+              height={16}
               class="text-green-600 dark:text-green-400"
-            >
-              <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
-            </svg>
+            />
             <span class="text-muted-foreground text-sm">All data stays on your device</span>
           </div>
         </div>
@@ -302,20 +240,7 @@ export function WelcomeScreen(props: WelcomeScreenProps) {
               class="text-muted-foreground hover:text-primary focus-visible:outline-none"
               aria-label="Search"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
+              <Search width={16} height={16} />
             </button>
           </div>
 
@@ -338,20 +263,7 @@ export function WelcomeScreen(props: WelcomeScreenProps) {
             <div class="min-h-50 flex flex-1 items-center justify-center">
               <div class="text-center">
                 <div class="bg-muted/50 mb-3 inline-flex rounded-full p-4">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="text-muted-foreground"
-                  >
-                    <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2" />
-                  </svg>
+                  <Folder width={24} height={24} class="text-muted-foreground" />
                 </div>
                 <p class="text-muted-foreground text-sm">No recent projects</p>
               </div>

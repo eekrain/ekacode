@@ -1,4 +1,5 @@
 import type { ArchivedWorkspace, RecentProject } from "@/core/chat/types";
+import { Layers, Plus, Search, Settings } from "lucide-solid";
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { ArchivedWorkspaceItem } from "./archived-workspace-item";
 import { EmptyState } from "./empty-state";
@@ -6,42 +7,6 @@ import { KeyboardShortcutsFooter } from "./keyboard-shortcuts-footer";
 import { WorkspaceCard } from "./workspace-card";
 
 type Column = "recent" | "archived";
-
-// Icons as components
-const LogoIcon = () => (
-  <svg class="text-primary-foreground h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-  </svg>
-);
-
-const SettingsIcon = () => (
-  <svg
-    class="h-5 w-5"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  >
-    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22-.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1-2 0l.43-.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2-2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1-1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1-1-1.74l-.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1 1.73V4a2 2 0 0 0-2-2z" />
-    <circle cx="12" cy="12" r="3" />
-  </svg>
-);
-
-const SearchIcon = () => (
-  <svg
-    class="h-4 w-4"
-    fill="none"
-    stroke="currentColor"
-    viewBox="0 0 24 24"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  >
-    <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-  </svg>
-);
 
 interface WorkspaceDashboardProps {
   recentWorkspaces: RecentProject[];
@@ -165,7 +130,7 @@ export function WorkspaceDashboard(props: WorkspaceDashboardProps) {
                 <div class="flex items-start justify-between">
                   <div class="flex items-center gap-4">
                     <div class="bg-primary shadow-primary/25 flex h-12 w-12 items-center justify-center rounded-xl shadow-lg">
-                      <LogoIcon />
+                      <Layers class="text-primary-foreground h-6 w-6" />
                     </div>
                     <div>
                       <h1 class="text-foreground text-2xl font-bold tracking-tight">Sakti</h1>
@@ -179,14 +144,14 @@ export function WorkspaceDashboard(props: WorkspaceDashboardProps) {
                     aria-label="Settings"
                     onClick={() => props.onSettingsOpen?.()}
                   >
-                    <SettingsIcon />
+                    <Settings class="h-5 w-5" />
                   </button>
                 </div>
 
                 {/* Search Row */}
                 <div class="relative">
                   <div class="text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2">
-                    <SearchIcon />
+                    <Search class="h-4 w-4" />
                   </div>
                   <input
                     type="text"
@@ -208,15 +173,7 @@ export function WorkspaceDashboard(props: WorkspaceDashboardProps) {
                     class="bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20 hover:shadow-primary/30 inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium shadow-lg transition-all duration-200 hover:shadow-xl active:scale-[0.98]"
                     onClick={() => props.onNewWorkspace()}
                   >
-                    <svg
-                      class="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      stroke-width="2"
-                    >
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
+                    <Plus class="h-4 w-4" />
                     New Workspace
                   </button>
                   <span class="text-muted-foreground text-xs">or press</span>

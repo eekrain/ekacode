@@ -1,3 +1,5 @@
+import { Search, X } from "lucide-solid";
+
 export interface SearchBarProps {
   value: string;
   onChange: (value: string) => void;
@@ -9,20 +11,7 @@ export interface SearchBarProps {
 export function SearchBar(props: SearchBarProps) {
   return (
     <div class="search-bar">
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        class="search-icon"
-      >
-        <circle cx="11" cy="11" r="8" />
-        <path d="m21 21-4.3-4.3" />
-      </svg>
+      <Search width={16} height={16} class="search-icon" />
       <input
         type="text"
         class="search-input"
@@ -38,7 +27,7 @@ export function SearchBar(props: SearchBarProps) {
       )}
       {props.value && (
         <button class="search-clear" onClick={props.onClear} aria-label="Clear search">
-          ×
+          <X width={16} height={16} />
         </button>
       )}
     </div>

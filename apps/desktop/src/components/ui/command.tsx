@@ -1,6 +1,7 @@
 import { cn } from "@/utils";
 import * as DialogPrimitive from "@kobalte/core/dialog";
 import { createPresence } from "@solid-primitives/presence";
+import { Search } from "lucide-solid";
 import type { Component, ComponentProps, JSX, ParentComponent } from "solid-js";
 import { Show, splitProps } from "solid-js";
 
@@ -73,19 +74,7 @@ export const CommandInput: Component<
   const [local, others] = splitProps(props, ["class", "onValueChange"]);
   return (
     <div class="flex items-center border-b px-3" cmdk-input-wrapper="">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        class="mr-2 size-4 shrink-0 opacity-50"
-      >
-        <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" />
-        <path d="M21 21l-6 -6" />
-      </svg>
+      <Search class="mr-2 size-4 shrink-0 opacity-50" />
       <input
         role="combobox"
         autocomplete="off"

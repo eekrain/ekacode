@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/utils";
+import { Loader2 } from "lucide-solid";
 import { For, Show, createSignal } from "solid-js";
 
 interface CloneDialogProps {
@@ -240,28 +241,7 @@ export function CloneDialog(props: CloneDialogProps) {
               )}
             >
               <Show when={isCloning()}>
-                <svg
-                  class="animate-spin"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    stroke-width="4"
-                    class="opacity-25"
-                  />
-                  <path
-                    fill="currentColor"
-                    class="opacity-75"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                  />
-                </svg>
+                <Loader2 class="animate-spin" width={14} height={14} />
               </Show>
               {isCloning() ? "Cloning..." : "Clone"}
             </button>

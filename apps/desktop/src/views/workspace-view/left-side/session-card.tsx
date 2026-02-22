@@ -3,6 +3,7 @@ import { Component, Show, mergeProps } from "solid-js";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/utils";
+import { Bookmark } from "lucide-solid";
 
 /**
  * Base session interface compatible with both old and new formats
@@ -142,19 +143,7 @@ export const SessionCard: Component<SessionCardProps> = props => {
                 : "text-muted-foreground opacity-0 group-hover:opacity-60"
             )}
           >
-            <svg
-              class="h-3.5 w-3.5"
-              fill={props.session.isPinned ? "currentColor" : "none"}
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width={2}
-                d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-              />
-            </svg>
+            <Bookmark class="h-3.5 w-3.5" fill={props.session.isPinned ? "currentColor" : "none"} />
           </Button>
         </Show>
       </div>

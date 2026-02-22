@@ -18,25 +18,10 @@ import {
   Slash,
   Terminal,
   User,
+  Zap,
 } from "lucide-solid";
 import type { Component } from "solid-js";
 import { For, Show, createSignal } from "solid-js";
-
-const ZapIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  >
-    <polygon points="13 2 3 14 7 13 14 16 14 15 12 12 22 12 22 16 22 16 14 16 14 15 12 15 12 3 3" />
-  </svg>
-);
 
 export interface SettingsTab {
   id: string;
@@ -54,7 +39,7 @@ export const SETTINGS_TABS: SettingsTab[] = [
   { id: "mcp", label: "MCP", icon: Hammer },
   { id: "commands", label: "Commands", icon: Slash },
   { id: "agents", label: "Agents", icon: Brain },
-  { id: "memory", label: "Memory", icon: ZapIcon },
+  { id: "memory", label: "Memory", icon: Zap },
   { id: "hooks", label: "Hooks", icon: Cloud },
   { id: "experimental", label: "Experimental", icon: FileText },
   { id: "changelog", label: "Changelog", icon: Book, external: true, href: "https://github.com" },

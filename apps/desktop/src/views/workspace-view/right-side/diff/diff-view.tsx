@@ -1,5 +1,6 @@
 import type { DiffChange } from "@/core/chat/types";
 import { cn } from "@/utils";
+import { Check, FileText, X } from "lucide-solid";
 import { Component, For, Show, createSignal } from "solid-js";
 
 interface DiffViewProps {
@@ -152,9 +153,7 @@ export const DiffView: Component<DiffViewProps> = props => {
                         )}
                         title="Accept change"
                       >
-                        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
-                        </svg>
+                        <Check class="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleReject(change)}
@@ -165,14 +164,7 @@ export const DiffView: Component<DiffViewProps> = props => {
                         )}
                         title="Reject change"
                       >
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
+                        <X class="h-4 w-4" />
                       </button>
                     </div>
                   </Show>
@@ -227,19 +219,7 @@ export const DiffView: Component<DiffViewProps> = props => {
         {/* Empty state */}
         <Show when={changes().length === 0}>
           <div class="flex h-full flex-col items-center justify-center py-8 text-center">
-            <svg
-              class="text-muted-foreground/20 mb-3 h-12 w-12"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width={1.5}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
+            <FileText class="text-muted-foreground/20 mb-3 h-12 w-12" />
             <p class="text-muted-foreground/50 text-sm">No changes to review</p>
             <p class="text-muted-foreground/30 mt-1 text-xs">
               Changes made by the AI will appear here

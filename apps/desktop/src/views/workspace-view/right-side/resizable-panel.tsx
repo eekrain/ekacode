@@ -1,4 +1,5 @@
 import { cn } from "@/utils";
+import { ChevronLeft, ChevronRight } from "lucide-solid";
 import { createSignal, JSX, mergeProps, onCleanup, onMount, Show } from "solid-js";
 
 interface ResizablePanelProps {
@@ -144,44 +145,11 @@ export function ResizablePanel(props: ResizablePanelProps) {
           )}
           aria-label={isCollapsed() ? "Expand panel" : "Collapse panel"}
         >
-          <svg
-            class="text-foreground/60 h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            {merged.position === "left" ? (
-              isCollapsed() ? (
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width={2}
-                  d="M9 5l7 7-7 7"
-                />
-              ) : (
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              )
-            ) : isCollapsed() ? (
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width={2}
-                d="M15 19l-7-7 7-7"
-              />
-            ) : (
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width={2}
-                d="M9 5l7 7-7 7"
-              />
-            )}
-          </svg>
+          {isCollapsed() ? (
+            <ChevronRight class="text-foreground/60 h-4 w-4" />
+          ) : (
+            <ChevronLeft class="text-foreground/60 h-4 w-4" />
+          )}
         </button>
       </Show>
     </div>
