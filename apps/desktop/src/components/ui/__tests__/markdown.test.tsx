@@ -77,4 +77,15 @@ describe("Markdown singleton/highlighter behavior", () => {
       expect(container.querySelector('[data-component="markdown"]')).not.toBeNull();
     });
   });
+
+  it("renders plain markdown through incremark", async () => {
+    const { Markdown } = await import("@/components/ui/markdown");
+    ({ unmount: dispose } = render(() => <Markdown text="Hello **world**" isStreaming={false} />, {
+      container,
+    }));
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain("Hello");
+      expect(container.textContent).toContain("world");
+    });
+  });
 });
