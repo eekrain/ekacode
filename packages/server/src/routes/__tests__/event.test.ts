@@ -5,7 +5,7 @@
 
 import { TextDecoder } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { PermissionAsked, publish } from "../../src/bus";
+import { PermissionAsked, publish } from "../../bus";
 
 const decoder = new TextDecoder();
 
@@ -61,23 +61,23 @@ function parseSSEEvent(chunk: string): { type: string; properties: unknown } | n
 
 describe("event SSE stream", () => {
   beforeEach(async () => {
-    const { setupTestDatabase } = await import("../../db/test-setup");
+    const { setupTestDatabase } = await import("../../../db/test-setup");
     await setupTestDatabase();
-    const { db, sessions } = await import("../../db");
+    const { db, sessions } = await import("../../../db");
     await db.delete(sessions);
   });
 
   afterEach(async () => {
-    const { db, sessions } = await import("../../db");
+    const { db, sessions } = await import("../../../db");
     await db.delete(sessions);
     // Clear bus subscriptions
-    const { clearAll } = await import("../../src/bus");
+    const { clearAll } = await import("../../bus");
     clearAll();
   });
 
   it("sends server.connected event on connection", async () => {
-    const eventRouter = (await import("../../src/routes/event")).default;
-    const { createSession } = await import("../../db/sessions");
+    const eventRouter = (await import("../event")).default;
+    const { createSession } = await import("../../../db/sessions");
     const session = await createSession("local");
 
     const response = await eventRouter.request(`http://localhost/event?directory=/tmp/events`, {
@@ -101,8 +101,8 @@ describe("event SSE stream", () => {
   });
 
   it("streams bus events via SSE", async () => {
-    const eventRouter = (await import("../../src/routes/event")).default;
-    const { createSession } = await import("../../db/sessions");
+    const eventRouter = (await import("../event")).default;
+    const { createSession } = await import("../../../db/sessions");
     const session = await createSession("local");
 
     const response = await eventRouter.request("http://localhost/event", {
@@ -141,8 +141,8 @@ describe("event SSE stream", () => {
 
   it.skip("sends server.heartbeat every 30 seconds", async () => {
     vi.useFakeTimers();
-    const eventRouter = (await import("../../src/routes/event")).default;
-    const { createSession } = await import("../../db/sessions");
+    const eventRouter = (await import("../event")).default;
+    const { createSession } = await import("../../../db/sessions");
     const session = await createSession("local");
 
     const response = await eventRouter.request("http://localhost/event", {

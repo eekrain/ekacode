@@ -8,7 +8,7 @@
 
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Env } from "../../src/index";
+import type { Env } from "../../index";
 
 describe("rate limit middleware", () => {
   let mockApp: Hono<any>;
@@ -37,7 +37,7 @@ describe("rate limit middleware", () => {
     });
 
     // Import and use the rate limit middleware
-    const rateLimitModule = await import("../../src/middleware/rate-limit");
+    const rateLimitModule = await import("../rate-limit");
     mockApp.use("*", rateLimitModule.rateLimitMiddleware);
 
     resetRateLimit = rateLimitModule.resetRateLimit;
@@ -95,7 +95,7 @@ describe("rate limit middleware", () => {
       // Create app with stricter limit for testing
       const strictApp = new Hono<Env>();
 
-      const { createRateLimitMiddleware } = await import("../../src/middleware/rate-limit");
+      const { createRateLimitMiddleware } = await import("../rate-limit");
       const strictMiddleware = createRateLimitMiddleware({ windowMs: 10000, maxRequests: 3 });
 
       strictApp.use("*", async (c, next) => {
@@ -128,7 +128,7 @@ describe("rate limit middleware", () => {
     it("should include retry-after header when rate limited", async () => {
       const strictApp = new Hono<Env>();
 
-      const { createRateLimitMiddleware } = await import("../../src/middleware/rate-limit");
+      const { createRateLimitMiddleware } = await import("../rate-limit");
       const strictMiddleware = createRateLimitMiddleware({ windowMs: 10000, maxRequests: 2 });
 
       strictApp.use("*", async (c, next) => {
@@ -204,7 +204,7 @@ describe("rate limit middleware", () => {
     it("should allow requests after reset", async () => {
       const strictApp = new Hono<Env>();
 
-      const { createRateLimitMiddleware } = await import("../../src/middleware/rate-limit");
+      const { createRateLimitMiddleware } = await import("../rate-limit");
       const strictMiddleware = createRateLimitMiddleware({ windowMs: 10000, maxRequests: 2 });
 
       strictApp.use("*", async (c, next) => {
@@ -239,7 +239,7 @@ describe("rate limit middleware", () => {
       const customApp = new Hono<Env>();
 
       const { createRateLimitMiddleware, resetRateLimit: customReset } =
-        await import("../../src/middleware/rate-limit");
+        await import("../rate-limit");
       customApp.use("*", createRateLimitMiddleware({ windowMs: 5000, maxRequests: 10 }));
 
       customApp.use("*", async (c, next) => {
@@ -265,7 +265,7 @@ describe("rate limit middleware", () => {
       const customApp = new Hono<Env>();
 
       const { createRateLimitMiddleware, resetRateLimit: customReset } =
-        await import("../../src/middleware/rate-limit");
+        await import("../rate-limit");
       customApp.use("*", createRateLimitMiddleware({ windowMs: 60000, maxRequests: 5 }));
 
       customApp.use("*", async (c, next) => {
@@ -289,7 +289,7 @@ describe("rate limit middleware", () => {
       const customApp = new Hono<Env>();
 
       const { createRateLimitMiddleware, resetRateLimit: customReset } =
-        await import("../../src/middleware/rate-limit");
+        await import("../rate-limit");
       customApp.use("*", createRateLimitMiddleware({ excludePaths: ["/api/skip"] }));
 
       customApp.use("*", async (c, next) => {
@@ -362,7 +362,7 @@ describe("rate limit middleware", () => {
 
       const strictApp = new Hono<Env>();
 
-      const { createRateLimitMiddleware } = await import("../../src/middleware/rate-limit");
+      const { createRateLimitMiddleware } = await import("../rate-limit");
       // 3 requests per 10 seconds
       const strictMiddleware = createRateLimitMiddleware({ windowMs: 10000, maxRequests: 3 });
 
@@ -440,7 +440,7 @@ describe("rate limit middleware", () => {
     it("should include requestId in rate limit error", async () => {
       const strictApp = new Hono<Env>();
 
-      const { createRateLimitMiddleware } = await import("../../src/middleware/rate-limit");
+      const { createRateLimitMiddleware } = await import("../rate-limit");
 
       // requestId middleware MUST be before rate limit middleware
       strictApp.use("*", async (c, next) => {
@@ -469,7 +469,7 @@ describe("rate limit middleware", () => {
     it("should return proper error code", async () => {
       const strictApp = new Hono<Env>();
 
-      const { createRateLimitMiddleware } = await import("../../src/middleware/rate-limit");
+      const { createRateLimitMiddleware } = await import("../rate-limit");
       const strictMiddleware = createRateLimitMiddleware({ windowMs: 10000, maxRequests: 1 });
 
       strictApp.use("*", async (c, next) => {

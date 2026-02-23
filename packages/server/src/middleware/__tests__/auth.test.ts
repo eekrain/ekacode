@@ -8,7 +8,7 @@
 
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Env } from "../../src/index";
+import type { Env } from "../../index";
 
 describe("auth middleware", () => {
   let mockApp: Hono<any>;
@@ -35,7 +35,7 @@ describe("auth middleware", () => {
     });
 
     // Import and use the auth middleware
-    const { authMiddleware } = await import("../../src/middleware/auth");
+    const { authMiddleware } = await import("../auth");
     mockApp.use("*", authMiddleware);
 
     // Add test endpoints

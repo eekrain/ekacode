@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resetProviderRuntimeForTests, resolveChatSelection } from "../../src/provider/runtime";
+import { resetProviderRuntimeForTests, resolveChatSelection } from "../../provider/runtime";
 
 describe("chat provider selection", () => {
   let testHome = "";
@@ -37,7 +37,7 @@ describe("chat provider selection", () => {
   });
 
   it("returns 401 when explicit provider is unauthenticated", async () => {
-    const chatRouter = (await import("../../src/routes/chat")).default;
+    const chatRouter = (await import("../chat")).default;
 
     const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
       method: "POST",
@@ -63,7 +63,7 @@ describe("chat provider selection", () => {
 
   it("accepts explicit provider when persisted oauth credential exists after runtime reset", async () => {
     const { getProviderRuntime, resetProviderRuntimeForTests } =
-      await import("../../src/provider/runtime");
+      await import("../../provider/runtime");
     const runtimeA = getProviderRuntime();
     await runtimeA.authService.setOAuth({
       providerId: "zai",
@@ -75,7 +75,7 @@ describe("chat provider selection", () => {
 
     resetProviderRuntimeForTests();
 
-    const chatRouter = (await import("../../src/routes/chat")).default;
+    const chatRouter = (await import("../chat")).default;
 
     const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
       method: "POST",
@@ -96,14 +96,14 @@ describe("chat provider selection", () => {
   }, 15000);
 
   it("returns actionable error when image prompt uses text-only model without hybrid fallback", async () => {
-    const { getProviderRuntime } = await import("../../src/provider/runtime");
+    const { getProviderRuntime } = await import("../../provider/runtime");
     const runtime = getProviderRuntime();
     await runtime.authService.setToken({
       providerId: "zai",
       token: "test-token",
     });
 
-    const chatRouter = (await import("../../src/routes/chat")).default;
+    const chatRouter = (await import("../chat")).default;
 
     const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
       method: "POST",
@@ -129,14 +129,14 @@ describe("chat provider selection", () => {
   }, 15000);
 
   it("uses model provider auth when providerId is omitted but modelId is fully qualified", async () => {
-    const { getProviderRuntime } = await import("../../src/provider/runtime");
+    const { getProviderRuntime } = await import("../../provider/runtime");
     const runtime = getProviderRuntime();
     await runtime.authService.setToken({
       providerId: "opencode",
       token: "opencode-token",
     });
 
-    const chatRouter = (await import("../../src/routes/chat")).default;
+    const chatRouter = (await import("../chat")).default;
     const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
       method: "POST",
       headers: {
@@ -155,14 +155,14 @@ describe("chat provider selection", () => {
   }, 15000);
 
   it("uses model provider auth when providerId is stale and mismatched", async () => {
-    const { getProviderRuntime } = await import("../../src/provider/runtime");
+    const { getProviderRuntime } = await import("../../provider/runtime");
     const runtime = getProviderRuntime();
     await runtime.authService.setToken({
       providerId: "opencode",
       token: "opencode-token",
     });
 
-    const chatRouter = (await import("../../src/routes/chat")).default;
+    const chatRouter = (await import("../chat")).default;
     const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
       method: "POST",
       headers: {
@@ -182,14 +182,14 @@ describe("chat provider selection", () => {
   }, 15000);
 
   it("accepts explicit openai selection when only explicit token is configured", async () => {
-    const { getProviderRuntime } = await import("../../src/provider/runtime");
+    const { getProviderRuntime } = await import("../../provider/runtime");
     const runtime = getProviderRuntime();
     await runtime.authService.setToken({
       providerId: "openai",
       token: "test-token",
     });
 
-    const chatRouter = (await import("../../src/routes/chat")).default;
+    const chatRouter = (await import("../chat")).default;
 
     const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
       method: "POST",

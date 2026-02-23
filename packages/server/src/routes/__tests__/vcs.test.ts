@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("GET /api/vcs", () => {
   it("returns VCS info for a git repository", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request(
       "http://localhost/api/vcs?directory=/home/eekrain/CODE/sakti-code",
@@ -26,7 +26,7 @@ describe("GET /api/vcs", () => {
   });
 
   it("returns type 'none' for non-git directory", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request("http://localhost/api/vcs?directory=/tmp", {
       method: "GET",
@@ -39,7 +39,7 @@ describe("GET /api/vcs", () => {
   });
 
   it("returns 400 for empty directory", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request("http://localhost/api/vcs?directory=", {
       method: "GET",
@@ -51,7 +51,7 @@ describe("GET /api/vcs", () => {
   });
 
   it("includes branch and commit for git repo", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request(
       "http://localhost/api/vcs?directory=/home/eekrain/CODE/sakti-code",
@@ -69,7 +69,7 @@ describe("GET /api/vcs", () => {
 
 describe("POST /api/vcs/branches", () => {
   it("lists local branches from a repo path", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request("http://localhost/api/vcs/branches", {
       method: "POST",
@@ -83,7 +83,7 @@ describe("POST /api/vcs/branches", () => {
   });
 
   it("returns 400 for missing path", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request("http://localhost/api/vcs/branches", {
       method: "POST",
@@ -97,7 +97,7 @@ describe("POST /api/vcs/branches", () => {
   });
 
   it("returns 400 for non-git directory", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request("http://localhost/api/vcs/branches", {
       method: "POST",
@@ -123,7 +123,7 @@ describe("POST /api/vcs/clone", () => {
   });
 
   it("clones repository to target directory", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request("http://localhost/api/vcs/clone", {
       method: "POST",
@@ -141,7 +141,7 @@ describe("POST /api/vcs/clone", () => {
   });
 
   it("returns 400 for disallowed host", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request("http://localhost/api/vcs/clone", {
       method: "POST",
@@ -159,7 +159,7 @@ describe("POST /api/vcs/clone", () => {
   });
 
   it("returns 400 for missing fields", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request("http://localhost/api/vcs/clone", {
       method: "POST",
@@ -202,7 +202,7 @@ describe("POST /api/vcs/worktree", () => {
   });
 
   it("creates worktree from repo", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request("http://localhost/api/vcs/worktree", {
       method: "POST",
@@ -221,7 +221,7 @@ describe("POST /api/vcs/worktree", () => {
   });
 
   it("creates worktree with new branch when createBranch is true", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request("http://localhost/api/vcs/worktree", {
       method: "POST",
@@ -248,7 +248,7 @@ describe("POST /api/vcs/worktree", () => {
   });
 
   it("returns 400 for missing fields", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request("http://localhost/api/vcs/worktree", {
       method: "POST",
@@ -262,7 +262,7 @@ describe("POST /api/vcs/worktree", () => {
   });
 
   it("returns 400 for non-git repository", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const nonGitDir = path.join(tempDir, "non-git");
     await fs.mkdir(nonGitDir, { recursive: true });
@@ -299,7 +299,7 @@ describe("GET /api/vcs/worktree/exists", () => {
   });
 
   it("returns exists=true if worktree name is taken", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     await fs.mkdir(path.join(workspacesDir, "existing-name"), { recursive: true });
 
@@ -314,7 +314,7 @@ describe("GET /api/vcs/worktree/exists", () => {
   });
 
   it("returns exists=false if worktree name is available", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request(
       `http://localhost/api/vcs/worktree/exists?name=non-existent&worktreesDir=${encodeURIComponent(workspacesDir)}`,
@@ -327,7 +327,7 @@ describe("GET /api/vcs/worktree/exists", () => {
   });
 
   it("returns 400 for missing name parameter", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request(
       `http://localhost/api/vcs/worktree/exists?worktreesDir=${encodeURIComponent(workspacesDir)}`,
@@ -342,7 +342,7 @@ describe("GET /api/vcs/worktree/exists", () => {
 
 describe("GET /api/vcs/workspaces-dir", () => {
   it("returns the workspaces directory path", async () => {
-    const vcsRouter = (await import("../../src/routes/vcs")).default;
+    const vcsRouter = (await import("../vcs")).default;
 
     const response = await vcsRouter.request("http://localhost/api/vcs/workspaces-dir", {
       method: "GET",

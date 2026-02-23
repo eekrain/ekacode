@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 describe("project routes", () => {
   describe("GET /api/project", () => {
     it("returns detected project for explicit directory", async () => {
-      const projectRouter = (await import("../../src/routes/project")).default;
+      const projectRouter = (await import("../project")).default;
 
       const response = await projectRouter.request(
         "http://localhost/api/project?directory=/home/eekrain/CODE/sakti-code",
@@ -25,7 +25,7 @@ describe("project routes", () => {
     });
 
     it("returns 400 for empty directory", async () => {
-      const projectRouter = (await import("../../src/routes/project")).default;
+      const projectRouter = (await import("../project")).default;
 
       const response = await projectRouter.request("http://localhost/api/project?directory=", {
         method: "GET",
@@ -37,7 +37,7 @@ describe("project routes", () => {
     });
 
     it("returns project info with required keys", async () => {
-      const projectRouter = (await import("../../src/routes/project")).default;
+      const projectRouter = (await import("../project")).default;
 
       const response = await projectRouter.request(
         "http://localhost/api/project?directory=/home/eekrain/CODE/sakti-code",
@@ -55,7 +55,7 @@ describe("project routes", () => {
 
   describe("GET /api/projects", () => {
     it("returns list of projects", async () => {
-      const projectRouter = (await import("../../src/routes/project")).default;
+      const projectRouter = (await import("../project")).default;
 
       const response = await projectRouter.request("http://localhost/api/projects", {
         method: "GET",

@@ -19,7 +19,7 @@ describe("health endpoint", () => {
     mockApp = new Hono();
 
     // Import and use the health router
-    const { default: healthRouter } = await import("../../src/routes/health");
+    const { default: healthRouter } = await import("../health");
     mockApp.route("/", healthRouter);
   });
 

@@ -8,7 +8,7 @@
 
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Env } from "../../src/index";
+import type { Env } from "../../index";
 
 describe("cache middleware", () => {
   let mockApp: Hono<any>;
@@ -32,7 +32,7 @@ describe("cache middleware", () => {
     });
 
     // Import and use the cache middleware
-    const cacheModule = await import("../../src/middleware/cache");
+    const cacheModule = await import("../cache");
     mockApp.use("*", cacheModule.cacheMiddleware);
 
     clearCache = cacheModule.clearCache;
@@ -171,7 +171,7 @@ describe("cache middleware", () => {
         await next();
       });
 
-      const { createCacheMiddleware } = await import("../../src/middleware/cache");
+      const { createCacheMiddleware } = await import("../cache");
       customApp.use("*", createCacheMiddleware({ maxSize: 2 }));
 
       customApp.get("/api/1", c => c.json({ id: 1 }));
@@ -206,7 +206,7 @@ describe("cache middleware", () => {
 
       const customApp = new Hono<Env>();
 
-      const { createCacheMiddleware } = await import("../../src/middleware/cache");
+      const { createCacheMiddleware } = await import("../cache");
       customApp.use("*", createCacheMiddleware({ ttl: 1000 })); // 1 second TTL
 
       customApp.use("*", async (c, next) => {
@@ -238,7 +238,7 @@ describe("cache middleware", () => {
     it("should support path exclusion", async () => {
       const customApp = new Hono<Env>();
 
-      const { createCacheMiddleware } = await import("../../src/middleware/cache");
+      const { createCacheMiddleware } = await import("../cache");
       customApp.use("*", createCacheMiddleware({ excludePaths: ["/api/no-cache"] }));
 
       customApp.use("*", async (c, next) => {
@@ -266,7 +266,7 @@ describe("cache middleware", () => {
     it("should support caching all responses (not just success)", async () => {
       const customApp = new Hono<Env>();
 
-      const { createCacheMiddleware } = await import("../../src/middleware/cache");
+      const { createCacheMiddleware } = await import("../cache");
       customApp.use("*", createCacheMiddleware({ successOnly: false }));
 
       customApp.use("*", async (c, next) => {
@@ -300,7 +300,7 @@ describe("cache middleware", () => {
       // Create app with request ID
       const customApp = new Hono<Env>();
 
-      const cacheModule = await import("../../src/middleware/cache");
+      const cacheModule = await import("../cache");
       customApp.use("*", cacheModule.cacheMiddleware);
 
       customApp.use("*", async (c, next) => {
@@ -331,8 +331,7 @@ describe("cache middleware", () => {
     it("should evict least recently used entry when full", async () => {
       const customApp = new Hono<Env>();
 
-      const { createCacheMiddleware, clearCache: customClear } =
-        await import("../../src/middleware/cache");
+      const { createCacheMiddleware, clearCache: customClear } = await import("../cache");
 
       customApp.use("*", createCacheMiddleware({ maxSize: 3 }));
 

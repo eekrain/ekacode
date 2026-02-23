@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeCheckpointMessages } from "../../src/routes/session-data-normalize";
+import { normalizeCheckpointMessages } from "../session-data-normalize";
 
 describe("session-data normalization", () => {
   it("converts legacy model messages to unique ids and text parts", () => {

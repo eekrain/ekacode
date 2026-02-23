@@ -18,7 +18,7 @@ afterEach(async () => {
 
 describe("provider routes", () => {
   it("lists provider catalog with searchable metadata", async () => {
-    const providerRouter = (await import("../../src/routes/provider")).default;
+    const providerRouter = (await import("../provider")).default;
 
     const response = await providerRouter.request("http://localhost/api/providers/catalog");
     const data = await response.json();
@@ -42,7 +42,7 @@ describe("provider routes", () => {
   });
 
   it("lists providers", async () => {
-    const providerRouter = (await import("../../src/routes/provider")).default;
+    const providerRouter = (await import("../provider")).default;
 
     const response = await providerRouter.request("http://localhost/api/providers");
     const data = await response.json();
@@ -53,7 +53,7 @@ describe("provider routes", () => {
   });
 
   it("lists catalog-backed providers beyond built-in adapters", async () => {
-    const providerRouter = (await import("../../src/routes/provider")).default;
+    const providerRouter = (await import("../provider")).default;
 
     const response = await providerRouter.request("http://localhost/api/providers");
     const data = await response.json();
@@ -66,7 +66,7 @@ describe("provider routes", () => {
   });
 
   it("lists models", async () => {
-    const providerRouter = (await import("../../src/routes/provider")).default;
+    const providerRouter = (await import("../provider")).default;
 
     const response = await providerRouter.request("http://localhost/api/providers/models");
     const data = await response.json();
@@ -77,7 +77,7 @@ describe("provider routes", () => {
   });
 
   it("stores and returns provider preferences", async () => {
-    const providerRouter = (await import("../../src/routes/provider")).default;
+    const providerRouter = (await import("../provider")).default;
 
     const initial = await providerRouter.request("http://localhost/api/providers/preferences");
     expect(initial.status).toBe(200);
@@ -118,7 +118,7 @@ describe("provider routes", () => {
   });
 
   it("sets and clears provider token", async () => {
-    const providerRouter = (await import("../../src/routes/provider")).default;
+    const providerRouter = (await import("../provider")).default;
 
     const setResponse = await providerRouter.request(
       "http://localhost/api/providers/zai/auth/token",
@@ -150,7 +150,7 @@ describe("provider routes", () => {
   });
 
   it("returns 404 for unknown provider token set", async () => {
-    const providerRouter = (await import("../../src/routes/provider")).default;
+    const providerRouter = (await import("../provider")).default;
 
     const response = await providerRouter.request(
       "http://localhost/api/providers/unknown/auth/token",
@@ -165,7 +165,7 @@ describe("provider routes", () => {
   });
 
   it("sets and clears token for non-adapter catalog providers", async () => {
-    const providerRouter = (await import("../../src/routes/provider")).default;
+    const providerRouter = (await import("../provider")).default;
     const providerId = "openrouter";
 
     const setResponse = await providerRouter.request(
@@ -198,7 +198,7 @@ describe("provider routes", () => {
   });
 
   it("does not expose oauth methods for opencode and zai providers", async () => {
-    const providerRouter = (await import("../../src/routes/provider")).default;
+    const providerRouter = (await import("../provider")).default;
 
     const methods = await providerRouter.request("http://localhost/api/providers/auth/methods");
     expect(methods.status).toBe(200);
@@ -214,7 +214,7 @@ describe("provider routes", () => {
   });
 
   it("returns normalized error when oauth authorize is requested for non-oauth provider", async () => {
-    const providerRouter = (await import("../../src/routes/provider")).default;
+    const providerRouter = (await import("../provider")).default;
     const authorize = await providerRouter.request(
       "http://localhost/api/providers/opencode/oauth/authorize",
       {
@@ -230,7 +230,7 @@ describe("provider routes", () => {
   });
 
   it("returns normalized oauth error for missing authorization", async () => {
-    const providerRouter = (await import("../../src/routes/provider")).default;
+    const providerRouter = (await import("../provider")).default;
 
     const callback = await providerRouter.request(
       "http://localhost/api/providers/opencode/oauth/callback",

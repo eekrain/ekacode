@@ -14,7 +14,7 @@ describe("agent route", () => {
   it("returns agents from core registry", async () => {
     listAgentsMock.mockReturnValue([{ name: "build" }, { name: "plan" }]);
 
-    const { default: agentRouter } = await import("../../src/routes/agent");
+    const { default: agentRouter } = await import("../agent");
     const response = await agentRouter.request("http://localhost/api/agents");
     const data = await response.json();
 
@@ -28,7 +28,7 @@ describe("agent route", () => {
   it("falls back to raw name for unmapped agents", async () => {
     listAgentsMock.mockReturnValue([{ name: "custom-agent" }]);
 
-    const { default: agentRouter } = await import("../../src/routes/agent");
+    const { default: agentRouter } = await import("../agent");
     const response = await agentRouter.request("http://localhost/api/agents");
     const data = await response.json();
 

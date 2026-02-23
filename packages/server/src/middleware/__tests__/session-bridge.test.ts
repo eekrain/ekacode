@@ -9,7 +9,7 @@
 import { Hono } from "hono";
 import { v7 as uuidv7 } from "uuid";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Env } from "../../src/index";
+import type { Env } from "../../index";
 
 // Mock uuidv7 for consistent testing
 vi.mock("uuid", () => ({
@@ -27,9 +27,9 @@ describe("session bridge middleware", () => {
     vi.clearAllMocks();
 
     // Setup database schema
-    const { setupTestDatabase } = await import("../../db/test-setup");
+    const { setupTestDatabase } = await import("../../../db/test-setup");
     await setupTestDatabase();
-    const { db, sessions } = await import("../../db");
+    const { db, sessions } = await import("../../../db");
     await db.delete(sessions);
 
     // Mock uuidv7 to return sequential IDs
@@ -45,7 +45,7 @@ describe("session bridge middleware", () => {
     mockApp = new Hono<Env>();
 
     // Import and use the session bridge middleware
-    const { sessionBridge } = await import("../../src/middleware/session-bridge");
+    const { sessionBridge } = await import("../session-bridge");
     mockApp.use("*", sessionBridge);
 
     // Add a test endpoint
@@ -62,7 +62,7 @@ describe("session bridge middleware", () => {
 
   afterEach(async () => {
     // Clean up database
-    const { db, sessions } = await import("../../db");
+    const { db, sessions } = await import("../../../db");
     await db.delete(sessions);
   });
 
@@ -78,7 +78,7 @@ describe("session bridge middleware", () => {
     it("should persist session to database", async () => {
       await mockApp.request("/test");
 
-      const { getSession } = await import("../../db/sessions");
+      const { getSession } = await import("../../../db/sessions");
       const session = await getSession("01234567-89ab-7123-8123-456789abcdef");
 
       expect(session).toBeDefined();
@@ -135,7 +135,7 @@ describe("session bridge middleware", () => {
       const firstData = await firstResponse.json();
       const sessionId = firstData.sessionId;
 
-      const { getSession } = await import("../../db/sessions");
+      const { getSession } = await import("../../../db/sessions");
       const firstSession = await getSession(sessionId);
 
       // Wait to ensure timestamp difference

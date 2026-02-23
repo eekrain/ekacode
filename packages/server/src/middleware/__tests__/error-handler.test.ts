@@ -8,7 +8,7 @@
 
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Env } from "../../src/index";
+import type { Env } from "../../index";
 
 describe("error handler middleware", () => {
   let mockApp: Hono<any>;
@@ -28,7 +28,7 @@ describe("error handler middleware", () => {
     });
 
     // Import and use the error handler with onError
-    const { errorHandler } = await import("../../src/middleware/error-handler");
+    const { errorHandler } = await import("../error-handler");
     mockApp.onError(errorHandler);
 
     // Add test endpoints
@@ -41,17 +41,17 @@ describe("error handler middleware", () => {
     });
 
     mockApp.get("/validation", async () => {
-      const { ValidationError } = await import("../../src/types");
+      const { ValidationError } = await import("../../types");
       throw new ValidationError("Invalid input", { field: "email" });
     });
 
     mockApp.get("/auth", async () => {
-      const { AuthorizationError } = await import("../../src/types");
+      const { AuthorizationError } = await import("../../types");
       throw new AuthorizationError("Not authenticated");
     });
 
     mockApp.get("/notfound", async () => {
-      const { NotFoundError } = await import("../../src/types");
+      const { NotFoundError } = await import("../../types");
       throw new NotFoundError("Resource");
     });
   });

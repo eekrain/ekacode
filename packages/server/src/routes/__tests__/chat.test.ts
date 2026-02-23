@@ -62,20 +62,20 @@ describe("Chat route integration", () => {
     delete process.env.ZAI_API_KEY;
     delete process.env.OPENAI_API_KEY;
 
-    const { setupTestDatabase } = await import("../../db/test-setup");
+    const { setupTestDatabase } = await import("../../../db/test-setup");
     await setupTestDatabase();
-    const { db, sessions } = await import("../../db");
+    const { db, sessions } = await import("../../../db");
     await db.delete(sessions);
   });
 
   afterEach(async () => {
-    const { db, sessions } = await import("../../db");
+    const { db, sessions } = await import("../../../db");
     await db.delete(sessions);
   });
 
   describe("UIMessage streaming", () => {
     it("streams UIMessage parts with correct headers", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
         method: "POST",
@@ -95,7 +95,7 @@ describe("Chat route integration", () => {
     });
 
     it("should stream agent responses with proper status", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
         method: "POST",
@@ -118,7 +118,7 @@ describe("Chat route integration", () => {
     });
 
     it("should include state updates in stream", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
         method: "POST",
@@ -139,7 +139,7 @@ describe("Chat route integration", () => {
     });
 
     it("should include text deltas in stream", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
         method: "POST",
@@ -162,7 +162,7 @@ describe("Chat route integration", () => {
     });
 
     it("should complete with finish message", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
         method: "POST",
@@ -185,7 +185,7 @@ describe("Chat route integration", () => {
     });
 
     it("use processMessage API instead of start", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
         method: "POST",
@@ -207,7 +207,7 @@ describe("Chat route integration", () => {
 
   describe("Session handling", () => {
     it("should create new session when none provided", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
         method: "POST",
@@ -229,7 +229,7 @@ describe("Chat route integration", () => {
     });
 
     it("should use existing session when provided", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       const sessionId = "019c0000-0000-7000-8000-000000000121";
 
@@ -252,7 +252,7 @@ describe("Chat route integration", () => {
     });
 
     it("should process multiple messages in the same session", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       const sessionId = "019c0000-0000-7000-8000-000000000122";
 
@@ -290,7 +290,7 @@ describe("Chat route integration", () => {
 
   describe("Error handling", () => {
     it("should return error when no directory provided", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       const response = await chatRouter.request("http://localhost/api/chat", {
         method: "POST",
@@ -307,7 +307,7 @@ describe("Chat route integration", () => {
     });
 
     it("should return 400 when retry target assistant message does not exist", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
         method: "POST",
@@ -329,8 +329,8 @@ describe("Chat route integration", () => {
     it("publishes retry part payload with attempt and next", async () => {
       const sessionId = "019c0000-0000-7000-8000-000000000001";
       const messageId = "019c0000-0000-7000-8000-000000000002";
-      const { createPartPublishState, publishPartEvent } = await import("../../src/routes/chat");
-      const { getSessionMessages } = await import("../../src/state/session-message-store");
+      const { createPartPublishState, publishPartEvent } = await import("../chat");
+      const { getSessionMessages } = await import("../../state/session-message-store");
 
       const partState = createPartPublishState();
       const assistantInfo = {
@@ -364,8 +364,8 @@ describe("Chat route integration", () => {
     it("updates a single retry part across multiple retry attempts", async () => {
       const sessionId = "019c0000-0000-7000-8000-000000000011";
       const messageId = "019c0000-0000-7000-8000-000000000012";
-      const { createPartPublishState, publishPartEvent } = await import("../../src/routes/chat");
-      const { getSessionMessages } = await import("../../src/state/session-message-store");
+      const { createPartPublishState, publishPartEvent } = await import("../chat");
+      const { getSessionMessages } = await import("../../state/session-message-store");
 
       const partState = createPartPublishState();
       const assistantInfo = {
@@ -401,7 +401,7 @@ describe("Chat route integration", () => {
     });
 
     it("should handle empty message gracefully", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
         method: "POST",
@@ -420,7 +420,7 @@ describe("Chat route integration", () => {
     });
 
     it("should handle agent execution errors gracefully", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       // This test verifies that when agent execution fails,
       // the error is properly propagated through the stream
@@ -446,7 +446,7 @@ describe("Chat route integration", () => {
 
   describe("Multimodal support", () => {
     it("should accept multimodal message format", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       const multimodalMessage = {
         content: [
@@ -477,7 +477,7 @@ describe("Chat route integration", () => {
 
   describe("Non-streaming mode", () => {
     it("should support non-streaming responses", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       const response = await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {
         method: "POST",
@@ -498,7 +498,7 @@ describe("Chat route integration", () => {
 
   describe("Session status endpoint", () => {
     it("should return session status", async () => {
-      const chatRouter = (await import("../../src/routes/chat")).default;
+      const chatRouter = (await import("../chat")).default;
 
       // First create a session
       await chatRouter.request("http://localhost/api/chat?directory=/tmp/chat", {

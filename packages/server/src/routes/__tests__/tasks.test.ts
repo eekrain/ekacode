@@ -3,7 +3,7 @@ import { getDb, sessions, tasks } from "@sakti-code/server/db";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-const testApp = (await import("../../src/index")).app;
+const testApp = (await import("../../index")).app;
 
 describe("Tasks API", () => {
   let testSessionId: string;

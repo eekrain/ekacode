@@ -8,7 +8,7 @@
 
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { db, sessions, threads, workspaces } from "../../db";
+import { db, sessions, threads, workspaces } from "../../../db";
 
 describe("workspace API endpoints", () => {
   let mockApp: Hono<any>;
@@ -25,7 +25,7 @@ describe("workspace API endpoints", () => {
     mockApp = new Hono();
 
     // Import and use the workspace router
-    const { default: workspaceRouter } = await import("../../src/routes/workspaces");
+    const { default: workspaceRouter } = await import("../workspaces");
     mockApp.route("/", workspaceRouter);
   });
 

@@ -8,20 +8,20 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("workspace endpoint", () => {
   beforeEach(async () => {
-    const { setupTestDatabase } = await import("../../db/test-setup");
+    const { setupTestDatabase } = await import("../../../db/test-setup");
     await setupTestDatabase();
-    const { db, sessions } = await import("../../db");
+    const { db, sessions } = await import("../../../db");
     await db.delete(sessions);
   });
 
   afterEach(async () => {
-    const { db, sessions } = await import("../../db");
+    const { db, sessions } = await import("../../../db");
     await db.delete(sessions);
   });
 
   describe("GET /api/workspace", () => {
     it("should return 200 with workspace data", async () => {
-      const workspaceRouter = (await import("../../src/routes/workspace")).default;
+      const workspaceRouter = (await import("../workspace")).default;
 
       const response = await workspaceRouter.request(
         "http://localhost/api/workspace?directory=/tmp/workspace-test",
@@ -38,7 +38,7 @@ describe("workspace endpoint", () => {
     });
 
     it("should return current directory path from query parameter", async () => {
-      const workspaceRouter = (await import("../../src/routes/workspace")).default;
+      const workspaceRouter = (await import("../workspace")).default;
 
       const testDir = "/tmp/workspace-query-test";
       const response = await workspaceRouter.request(
@@ -55,7 +55,7 @@ describe("workspace endpoint", () => {
     });
 
     it("should return inContext as true when sessionBridge establishes context", async () => {
-      const workspaceRouter = (await import("../../src/routes/workspace")).default;
+      const workspaceRouter = (await import("../workspace")).default;
 
       const response = await workspaceRouter.request(
         "http://localhost/api/workspace?directory=/tmp/workspace-context",
@@ -71,7 +71,7 @@ describe("workspace endpoint", () => {
     });
 
     it("should have content-type application/json", async () => {
-      const workspaceRouter = (await import("../../src/routes/workspace")).default;
+      const workspaceRouter = (await import("../workspace")).default;
 
       const response = await workspaceRouter.request(
         "http://localhost/api/workspace?directory=/tmp/workspace-headers",
@@ -84,7 +84,7 @@ describe("workspace endpoint", () => {
     });
 
     it("should include sessionId when session is created", async () => {
-      const workspaceRouter = (await import("../../src/routes/workspace")).default;
+      const workspaceRouter = (await import("../workspace")).default;
 
       const response = await workspaceRouter.request(
         "http://localhost/api/workspace?directory=/tmp/workspace-session",
@@ -103,7 +103,7 @@ describe("workspace endpoint", () => {
     });
 
     it("should return same sessionId for subsequent requests with same session header", async () => {
-      const workspaceRouter = (await import("../../src/routes/workspace")).default;
+      const workspaceRouter = (await import("../workspace")).default;
 
       const testDir = "/tmp/workspace-same-session";
 
@@ -134,7 +134,7 @@ describe("workspace endpoint", () => {
     });
 
     it("should return required workspace fields", async () => {
-      const workspaceRouter = (await import("../../src/routes/workspace")).default;
+      const workspaceRouter = (await import("../workspace")).default;
 
       const response = await workspaceRouter.request(
         "http://localhost/api/workspace?directory=/tmp/workspace-fields",
@@ -156,7 +156,7 @@ describe("workspace endpoint", () => {
 
   describe("directory parameter handling", () => {
     it("should fall back to process cwd when directory is not provided", async () => {
-      const workspaceRouter = (await import("../../src/routes/workspace")).default;
+      const workspaceRouter = (await import("../workspace")).default;
 
       const response = await workspaceRouter.request("http://localhost/api/workspace", {
         method: "GET",
@@ -169,7 +169,7 @@ describe("workspace endpoint", () => {
     });
 
     it("should decode URL-encoded directory paths", async () => {
-      const workspaceRouter = (await import("../../src/routes/workspace")).default;
+      const workspaceRouter = (await import("../workspace")).default;
 
       const testDir = "/tmp/workspace with spaces";
       const encodedDir = encodeURIComponent(testDir);
@@ -188,7 +188,7 @@ describe("workspace endpoint", () => {
     });
 
     it("should handle absolute paths", async () => {
-      const workspaceRouter = (await import("../../src/routes/workspace")).default;
+      const workspaceRouter = (await import("../workspace")).default;
 
       const absolutePath = "/tmp/absolute/workspace/path";
 
