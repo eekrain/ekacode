@@ -103,6 +103,7 @@ export default mergeConfig(
             exclude: [
               "tests/unit/presentation/**/*.test.ts",
               "tests/unit/components/markdown-sanitizer.test.ts",
+              "src/components/ui/__tests__/markdown-sanitizer.test.ts",
               "tests/unit/utils/create-auto-scroll.test.ts",
               "tests/unit/core/domain/event-router-adapter.test.ts",
               "tests/unit/infrastructure/api/api-client-provider-selection.test.ts",
@@ -120,6 +121,7 @@ export default mergeConfig(
             include: [
               "src/**/*.test.tsx",
               "src/**/__tests__/**/*.test.tsx",
+              "src/components/ui/__tests__/markdown-sanitizer.test.ts",
               "tests/unit/**/*.test.tsx",
               "tests/unit/presentation/**/*.test.ts",
               "tests/unit/components/markdown-sanitizer.test.ts",
