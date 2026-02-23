@@ -64,4 +64,9 @@ describe("Markdown singleton/highlighter behavior", () => {
       expect(createHighlighterMock).toHaveBeenCalledTimes(1);
     });
   });
+
+  it("loads incremark theme css", async () => {
+    const themeModule = await import("@incremark/theme/styles.css");
+    expect(themeModule).toBeDefined();
+  });
 });
