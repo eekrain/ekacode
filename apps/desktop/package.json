@@ -17,7 +17,8 @@
     "typecheck:test": "tsc -p tsconfig.spec.json --noEmit",
     "test:all": "pnpm run typecheck:test && vitest run",
     "typecheck": "pnpm --filter @sakti-code/shared build && tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "markdown:migration:baseline": "bash ./scripts/markdown-migration-baseline.sh"
   },
   "dependencies": {
     "@corvu/resizable": "^0.2.5",
