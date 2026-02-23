@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-02-23T14:13:33.580Z",
+  "generatedAt": "2026-02-23T15:02:39.031Z",
   "fixture": "chat-stream.from-log.json",
   "snapshot": {
     "counters": {
-      "commits": 28,
-      "liteCommits": 26,
-      "fullCommits": 2,
+      "commits": 0,
+      "liteCommits": 0,
+      "fullCommits": 0,
       "droppedFrames": 0,
       "longTasks": 0,
       "rafSkippedApplies": 0,
@@ -17,25 +17,25 @@
     },
     "stages": {
       "parse": {
-        "count": 28,
-        "avgMs": 0.050000000000000024,
-        "p50Ms": 0.05,
-        "p95Ms": 0.05,
-        "maxMs": 0.05
+        "count": 0,
+        "avgMs": 0,
+        "p50Ms": 0,
+        "p95Ms": 0,
+        "maxMs": 0
       },
       "sanitize": {
-        "count": 28,
-        "avgMs": 0.020000000000000007,
-        "p50Ms": 0.02,
-        "p95Ms": 0.02,
-        "maxMs": 0.02
+        "count": 0,
+        "avgMs": 0,
+        "p50Ms": 0,
+        "p95Ms": 0,
+        "maxMs": 0
       },
       "morph": {
-        "count": 28,
-        "avgMs": 0.040000000000000015,
-        "p50Ms": 0.04,
-        "p95Ms": 0.04,
-        "maxMs": 0.04
+        "count": 0,
+        "avgMs": 0,
+        "p50Ms": 0,
+        "p95Ms": 0,
+        "maxMs": 0
       },
       "copyButtons": {
         "count": 0,
@@ -45,13 +45,13 @@
         "maxMs": 0
       },
       "total": {
-        "count": 28,
-        "avgMs": 0.10999999999999999,
-        "p50Ms": 0.11,
-        "p95Ms": 0.11,
-        "maxMs": 0.11
+        "count": 0,
+        "avgMs": 0,
+        "p50Ms": 0,
+        "p95Ms": 0,
+        "maxMs": 0
       }
     },
-    "updatedAt": 1771856013437
+    "updatedAt": 1771858958810
   }
 }

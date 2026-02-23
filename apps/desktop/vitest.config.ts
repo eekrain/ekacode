@@ -6,7 +6,6 @@ import shared from "./vitest.shared";
 
 const PACKAGE_ROOT = __dirname;
 const PROJECT_ROOT = join(PACKAGE_ROOT, "../..");
-const INCREMARK_ROOT = resolve(PACKAGE_ROOT, "../../../../incremark");
 const PNPM_ROOT = resolve(PACKAGE_ROOT, "../../node_modules/.pnpm");
 
 // Define explicit paths
@@ -69,7 +68,10 @@ export default mergeConfig(
           find: "@renderer/providers/workspace-provider",
           replacement: DESKTOP_SRC + "/core/state/providers/workspace-provider.tsx",
         },
-        { find: "@incremark/solid", replacement: resolve(INCREMARK_ROOT, "packages/solid/src") },
+        {
+          find: "@incremark/solid",
+          replacement: join(PACKAGE_ROOT, "node_modules/@incremark/solid"),
+        },
         {
           find: "@incremark/core",
           replacement: resolve(PNPM_ROOT, "@incremark+core@0.3.10/node_modules/@incremark/core"),

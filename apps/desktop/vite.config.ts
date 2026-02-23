@@ -5,7 +5,6 @@ import solid from "vite-plugin-solid";
 
 const PACKAGE_ROOT = __dirname;
 const PROJECT_ROOT = join(PACKAGE_ROOT, "../..");
-const INCREMARK_ROOT = resolve(PACKAGE_ROOT, "../../../../incremark");
 const PNPM_ROOT = resolve(PACKAGE_ROOT, "../../node_modules/.pnpm");
 
 const config: UserConfig = {
@@ -30,7 +29,10 @@ const config: UserConfig = {
       { find: "@/routes", replacement: join(PACKAGE_ROOT, "src/routes") },
       { find: "@/components/parts", replacement: join(PACKAGE_ROOT, "src/components/parts") },
       { find: "@/", replacement: join(PACKAGE_ROOT, "src") + "/" },
-      { find: "@incremark/solid", replacement: resolve(INCREMARK_ROOT, "packages/solid/src") },
+      {
+        find: "@incremark/solid",
+        replacement: join(PACKAGE_ROOT, "node_modules/@incremark/solid"),
+      },
       {
         find: "@incremark/core",
         replacement: resolve(PNPM_ROOT, "@incremark+core@0.3.10/node_modules/@incremark/core"),
