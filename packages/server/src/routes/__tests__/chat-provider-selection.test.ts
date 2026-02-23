@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resetProviderRuntimeForTests, resolveChatSelection } from "../../provider/runtime";
+import { resolveChatSelection } from "../../provider/runtime";
 
 describe("chat provider selection", () => {
   let testHome = "";
@@ -13,7 +13,10 @@ describe("chat provider selection", () => {
     delete process.env.ZAI_API_KEY;
     delete process.env.OPENAI_API_KEY;
     vi.resetModules();
+    const { getProviderRuntime, resetProviderRuntimeForTests } =
+      await import("../../provider/runtime");
     resetProviderRuntimeForTests();
+    getProviderRuntime();
   });
 
   afterEach(async () => {
