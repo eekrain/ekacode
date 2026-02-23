@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { parseLimitOffset } from "../../../src/routes/_shared/pagination";
+import { parseLimitOffset } from "../pagination";
 
 describe("parseLimitOffset", () => {
   it("parses valid limit and offset", () => {

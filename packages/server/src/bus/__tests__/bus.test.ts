@@ -18,8 +18,8 @@ import {
   SessionCreated,
   subscribe,
   subscribeAll,
-} from "../../src/bus";
-import { defineBusEvent, getRegisteredTypes, isRegistered } from "../../src/bus/bus-event";
+} from "..";
+import { defineBusEvent, getRegisteredTypes, isRegistered } from "../bus-event";
 
 describe("Bus Event System", () => {
   beforeEach(() => {

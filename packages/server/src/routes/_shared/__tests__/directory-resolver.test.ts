@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { resolveDirectory } from "../../../src/routes/_shared/directory-resolver";
+import { resolveDirectory } from "../directory-resolver";
 
 describe("resolveDirectory", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

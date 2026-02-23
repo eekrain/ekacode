@@ -18,7 +18,7 @@ import {
   SessionCreated,
   SessionStatus,
   SessionUpdated,
-} from "../../src/bus";
+} from "..";
 
 describe("Event Contract Tests", () => {
   // Helper to get valid fixture for an event type

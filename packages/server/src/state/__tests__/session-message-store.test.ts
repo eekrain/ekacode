@@ -15,7 +15,7 @@ import {
   removePart,
   upsertMessage,
   upsertPart,
-} from "../../src/state/session-message-store";
+} from "../session-message-store";
 
 type UserMessageInfo = Extract<MessageInfo, { role: "user" }>;
 type AssistantMessageInfo = Extract<MessageInfo, { role: "assistant" }>;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { publish, subscribe, TaskUpdated } from "../../src/bus";
+import { publish, subscribe, TaskUpdated } from "..";
 
 describe("TaskUpdated Event", () => {
   it("should publish and receive task updated event", async () => {
