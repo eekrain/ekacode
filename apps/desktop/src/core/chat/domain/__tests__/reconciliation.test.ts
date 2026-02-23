@@ -11,8 +11,6 @@ import {
   reconcileMessages,
   reconcileParts,
 } from "@/core/chat/domain/reconciliation";
-import type { Part } from "@sakti-code/shared/event-types";
-import { describe, expect, it } from "vitest";
 import {
   createCanonicalMessage,
   createCanonicalTextPart,
@@ -26,7 +24,9 @@ import {
   createOptimisticToolPart,
   createStaleOptimisticScenario,
   createStreamingTextScenario,
-} from "../../../../fixtures/reconciliation-fixtures";
+} from "@/fixtures/reconciliation-fixtures";
+import type { Part } from "@sakti-code/shared/event-types";
+import { describe, expect, it } from "vitest";
 
 describe("reconcileParts", () => {
   describe("exact ID matching", () => {

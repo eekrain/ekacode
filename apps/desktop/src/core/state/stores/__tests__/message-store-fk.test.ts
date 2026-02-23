@@ -7,8 +7,8 @@
 import { createMessageStore, type MessageWithId } from "@/core/state/stores/message-store";
 import { createPartStore } from "@/core/state/stores/part-store";
 import { createSessionStore } from "@/core/state/stores/session-store";
+import { validateStoreIntegrity } from "@/fixtures/data-integrity";
 import { describe, expect, it } from "vitest";
-import { validateStoreIntegrity } from "../../../fixtures/data-integrity";
 
 function toIntegrityMessageState(messageState: ReturnType<typeof createMessageStore>[0]) {
   const byId: Record<string, { sessionID?: string }> = {};

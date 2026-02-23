@@ -1,12 +1,12 @@
-import { EventOrderingBuffer } from "@sakti-code/shared/event-ordering";
-import { describe, expect, it } from "vitest";
 import {
   createMessageUpdatedEvent,
   createOutOfOrderEventSequence,
   createPartUpdatedEvent,
   createSessionCreatedEvent,
   createSessionStatusEvent,
-} from "../../../fixtures/data-integrity";
+} from "@/fixtures/data-integrity";
+import { EventOrderingBuffer } from "@sakti-code/shared/event-ordering";
+import { describe, expect, it } from "vitest";
 
 describe("EventOrderingBuffer", () => {
   it("processes in-order events immediately", async () => {

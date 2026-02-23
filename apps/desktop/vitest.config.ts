@@ -84,8 +84,8 @@ export default mergeConfig(
       exclude: [
         "node_modules",
         "dist",
-        "tests/e2e/**/*",
         "tests/integration/data-integrity/**/*",
+        "tests/e2e/data-integrity/**/*",
         "tests/helpers/test-server.ts",
       ],
       pool: "threads",
@@ -96,14 +96,9 @@ export default mergeConfig(
           extends: true,
           test: {
             name: "desktop-unit-node",
-            include: ["src/**/*.test.ts", "tests/unit/**/*.test.ts"],
+            include: ["src/**/__tests__/**/*.test.ts"],
             exclude: [
-              "tests/unit/presentation/**/*.test.ts",
-              "tests/unit/components/markdown-sanitizer.test.ts",
-              "tests/unit/utils/create-auto-scroll.test.ts",
-              "tests/unit/core/domain/event-router-adapter.test.ts",
-              "tests/unit/infrastructure/api/api-client-provider-selection.test.ts",
-              "tests/**/*.test.tsx",
+              "src/**/__tests__/**/*.test.tsx",
               "tests/integration/**/*.test.ts",
               "tests/e2e/**/*.test.ts",
             ],
@@ -114,16 +109,7 @@ export default mergeConfig(
           extends: true,
           test: {
             name: "desktop-ui-jsdom",
-            include: [
-              "src/**/*.test.tsx",
-              "tests/unit/**/*.test.tsx",
-              "tests/unit/presentation/**/*.test.ts",
-              "tests/unit/components/markdown-sanitizer.test.ts",
-              "tests/unit/utils/create-auto-scroll.test.ts",
-              "tests/unit/core/domain/event-router-adapter.test.ts",
-              "tests/unit/infrastructure/api/api-client-provider-selection.test.ts",
-              "tests/integration/**/*.test.tsx",
-            ],
+            include: ["src/**/__tests__/**/*.test.tsx", "tests/integration/**/*.test.tsx"],
             exclude: ["tests/integration/**/*.test.ts", "tests/e2e/**/*.test.ts"],
             environment: "jsdom",
           },
@@ -132,7 +118,12 @@ export default mergeConfig(
           extends: true,
           test: {
             name: "desktop-contract",
-            include: ["tests/e2e/**/*.test.ts", "tests/integration/**/*.test.ts"],
+            include: [
+              "tests/e2e/**/*.test.ts",
+              "tests/e2e/**/*.test.tsx",
+              "tests/integration/**/*.test.ts",
+              "tests/integration/**/*.test.tsx",
+            ],
             environment: "jsdom",
           },
         },

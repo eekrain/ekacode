@@ -10,8 +10,6 @@ import {
   computeDuration,
   deriveStatusFromPart,
 } from "@/core/chat/hooks/turn-projection";
-import type { Part } from "@sakti-code/shared/event-types";
-import { describe, expect, it } from "vitest";
 import {
   createEmptySessionFixture,
   createErrorTurnFixture,
@@ -23,7 +21,9 @@ import {
   createSingleTurnWithPromptsFixture,
   createStreamingTurnFixture,
   createUserOnlyFixture,
-} from "../../../../fixtures/turn-fixtures";
+} from "@/fixtures/turn-fixtures";
+import type { Part } from "@sakti-code/shared/event-types";
+import { describe, expect, it } from "vitest";
 
 describe("turn-projection", () => {
   describe("buildChatTurns", () => {

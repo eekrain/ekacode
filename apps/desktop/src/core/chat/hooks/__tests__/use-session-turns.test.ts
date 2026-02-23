@@ -7,13 +7,13 @@
 import type { MessageWithId } from "@/core/state/stores/message-store";
 import type { PermissionRequest } from "@/core/state/stores/permission-store";
 import type { QuestionRequest } from "@/core/state/stores/question-store";
-import type { Part } from "@sakti-code/shared/event-types";
-import { createRoot, createSignal } from "solid-js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createPendingPermissionRequest,
   createPendingQuestionRequest,
-} from "../../../../fixtures/permission-question-fixtures";
+} from "@/fixtures/permission-question-fixtures";
+import type { Part } from "@sakti-code/shared/event-types";
+import { createRoot, createSignal } from "solid-js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let messagesBySession: Record<string, MessageWithId[]> = {};
 let messagesById: Record<string, MessageWithId> = {};
