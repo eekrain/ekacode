@@ -14,10 +14,18 @@ export function createMarkdownStreamAdapter(): MarkdownStreamAdapter {
   let previous = "";
   let runId = 0;
   let queue = createMarkdownStreamQueue();
+  let closed = false;
+
+  const closeSafely = () => {
+    if (closed) return;
+    closed = true;
+    queue.close();
+  };
 
   const reset = () => {
-    queue.close();
+    closeSafely();
     queue = createMarkdownStreamQueue();
+    closed = false;
     previous = "";
     runId += 1;
   };
@@ -33,11 +41,11 @@ export function createMarkdownStreamAdapter(): MarkdownStreamAdapter {
         if (delta.snapshot) queue.push(delta.snapshot);
       }
       previous = snapshot;
-      if (!isStreaming) queue.close();
+      if (!isStreaming) closeSafely();
     },
-    finish: () => queue.close(),
+    finish: () => closeSafely(),
     reset,
-    dispose: () => queue.close(),
+    dispose: () => closeSafely(),
     getRunId: () => runId,
   };
 }
