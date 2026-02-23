@@ -14,7 +14,11 @@ export default defineConfig({
   test: {
     setupFiles: ["./tests/vitest.setup.ts"],
     globals: true,
-    include: ["src/**/*.test.ts", "src/**/__tests__/**/*.test.ts", "tests/**/*.test.ts"],
+    include: [
+      "src/**/__tests__/**/*.test.ts",
+      "tests/integration/**/*.test.ts",
+      "tests/e2e/**/*.test.ts",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
