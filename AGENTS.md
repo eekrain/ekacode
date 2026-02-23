@@ -55,6 +55,17 @@ Desktop-focused examples:
 - verification commands run (for example `pnpm lint`, `pnpm typecheck`, targeted Vitest commands)
 - screenshots/GIFs for UI changes in `apps/desktop`
 
+## Git Safety Rules
+
+- Never use `rm -rf` for repo cleanup.
+- Before any reset/restore/cleanup, run `git status --porcelain` and identify `M` (modified) vs `A`/`??` (new or untracked).
+- Treat `A` and `??` files as user work unless created in this session.
+- If cleanup/reset is necessary, create a named stash first (for example `git stash push -m "safety backup before cleanup"`), inform the user it was stashed, and never use `git stash pop` or `git stash drop`; only use `git stash apply` to restore.
+- Revert only targeted tracked-file edits with `git restore <file>`/`git checkout -- <file>`.
+- Do not run `git clean -fd`, broad resets, or delete untracked files without explicit user approval.
+- If anything is uncertain, stop and ask.
+- Reference: `.claude/GIT_SAFETY_RULES.md`.
+
 # AI-DLC and Spec-Driven Development
 
 Kiro-style Spec Driven Development implementation on AI-DLC (AI Development Life Cycle)
