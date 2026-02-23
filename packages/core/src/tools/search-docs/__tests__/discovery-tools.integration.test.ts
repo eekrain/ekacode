@@ -15,6 +15,12 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type {
+  GitCloneOutput,
+  GitProbeResult,
+  ImportMapLookupOutput,
+  RegistryLookupOutput,
+} from "@/tools/search-docs/discovery-tools";
 
 // Set up mocks before importing the module
 const mockExecSync = vi.fn();
@@ -107,7 +113,9 @@ def456\trefs/heads/master
 
   describe("registryLookup", () => {
     it("finds packages in the pre-configured registry", async () => {
-      const result = await discoveryTools.registryLookup.execute({ packageName: "xstate" });
+      const result = (await discoveryTools.registryLookup.execute({
+        packageName: "xstate",
+      })) as RegistryLookupOutput;
 
       expect(result.found).toBe(true);
       expect(result.url).toBe("https://github.com/statelyai/xstate");
@@ -116,7 +124,9 @@ def456\trefs/heads/master
     });
 
     it("finds scoped packages", async () => {
-      const result = await discoveryTools.registryLookup.execute({ packageName: "@ai-sdk/zai" });
+      const result = (await discoveryTools.registryLookup.execute({
+        packageName: "@ai-sdk/zai",
+      })) as RegistryLookupOutput;
 
       expect(result.found).toBe(true);
       expect(result.url).toBe("https://github.com/vercel/ai");
@@ -125,7 +135,9 @@ def456\trefs/heads/master
     });
 
     it("finds monorepo packages with search paths", async () => {
-      const result = await discoveryTools.registryLookup.execute({ packageName: "ai" });
+      const result = (await discoveryTools.registryLookup.execute({
+        packageName: "ai",
+      })) as RegistryLookupOutput;
 
       expect(result.found).toBe(true);
       expect(result.searchPath).toBe("packages/ai");
@@ -133,9 +145,9 @@ def456\trefs/heads/master
     });
 
     it("returns not found for unknown packages", async () => {
-      const result = await discoveryTools.registryLookup.execute({
+      const result = (await discoveryTools.registryLookup.execute({
         packageName: "nonexistent-package-xyz",
-      });
+      })) as RegistryLookupOutput;
 
       expect(result.found).toBe(false);
       expect(result.url).toBeUndefined();
@@ -144,7 +156,9 @@ def456\trefs/heads/master
 
   describe("gitProbe", () => {
     it("validates known git URLs and fetches tags", async () => {
-      const result = await discoveryTools.gitProbe.execute({ url: "https://github.com/vercel/ai" });
+      const result = (await discoveryTools.gitProbe.execute({
+        url: "https://github.com/vercel/ai",
+      })) as GitProbeResult;
 
       expect(result.valid).toBe(true);
       expect(result.url).toBe("https://github.com/vercel/ai");
@@ -154,9 +168,9 @@ def456\trefs/heads/master
     });
 
     it("fetches available branches", async () => {
-      const result = await discoveryTools.gitProbe.execute({
+      const result = (await discoveryTools.gitProbe.execute({
         url: "https://github.com/facebook/react",
-      });
+      })) as GitProbeResult;
 
       expect(result.valid).toBe(true);
       expect(Array.isArray(result.branches)).toBe(true);
@@ -165,7 +179,9 @@ def456\trefs/heads/master
     });
 
     it("rejects invalid URLs", async () => {
-      const result = await discoveryTools.gitProbe.execute({ url: "not-a-valid-url" });
+      const result = (await discoveryTools.gitProbe.execute({
+        url: "not-a-valid-url",
+      })) as GitProbeResult;
 
       expect(result.valid).toBe(false);
       expect(result.tags).toEqual([]);
@@ -176,12 +192,12 @@ def456\trefs/heads/master
   describe("gitClone", () => {
     it("clones a repository at main branch", async () => {
       // Note: This test may try to actually clone, so we mock the git manager
-      const result = await withInstance(() =>
+      const result = (await withInstance(() =>
         discoveryTools.gitClone.execute({
           url: "https://github.com/statelyai/xstate",
           version: "main",
         })
-      );
+      )) as GitCloneOutput;
 
       // In mocked environment, we just verify the structure
       expect(result).toHaveProperty("success");
@@ -189,12 +205,12 @@ def456\trefs/heads/master
     });
 
     it("clones a repository at specific version", async () => {
-      const result = await withInstance(() =>
+      const result = (await withInstance(() =>
         discoveryTools.gitClone.execute({
           url: "https://github.com/statelyai/xstate",
           version: "v4.38.3",
         })
-      );
+      )) as GitCloneOutput;
 
       expect(result).toHaveProperty("success");
       if (result.success) {
@@ -203,13 +219,13 @@ def456\trefs/heads/master
     });
 
     it("supports sparse checkout with searchPath", async () => {
-      const result = await withInstance(() =>
+      const result = (await withInstance(() =>
         discoveryTools.gitClone.execute({
           url: "https://github.com/vercel/ai",
           version: "main",
           searchPath: "packages/ai",
         })
-      );
+      )) as GitCloneOutput;
 
       expect(result).toHaveProperty("success");
     });
@@ -217,7 +233,9 @@ def456\trefs/heads/master
 
   describe("importMapLookup", () => {
     it("returns not found when no import map exists", async () => {
-      const result = await discoveryTools.importMapLookup.execute({ packageName: "any-package" });
+      const result = (await discoveryTools.importMapLookup.execute({
+        packageName: "any-package",
+      })) as ImportMapLookupOutput;
 
       expect(result.found).toBe(false);
     });
@@ -226,15 +244,15 @@ def456\trefs/heads/master
   describe("integration: multi-tier discovery", () => {
     it("demonstrates Tier 1 → Tier 2 workflow", async () => {
       // Try registry first (Tier 1)
-      const registryResult = await discoveryTools.registryLookup.execute({
+      const registryResult = (await discoveryTools.registryLookup.execute({
         packageName: "unknown-package",
-      });
+      })) as RegistryLookupOutput;
 
       if (!registryResult.found) {
         // Fall back to git probe (Tier 2)
-        const probeResult = await discoveryTools.gitProbe.execute({
+        const probeResult = (await discoveryTools.gitProbe.execute({
           url: "https://github.com/unknown/package",
-        });
+        })) as GitProbeResult;
         expect(probeResult).toHaveProperty("valid");
       }
     });
@@ -245,7 +263,9 @@ def456\trefs/heads/master
       const monorepoPkgs = ["ai", "@ai-sdk/zai", "react", "vitest", "redux"];
 
       for (const pkg of monorepoPkgs) {
-        const result = await discoveryTools.registryLookup.execute({ packageName: pkg });
+        const result = (await discoveryTools.registryLookup.execute({
+          packageName: pkg,
+        })) as RegistryLookupOutput;
         if (result.found) {
           expect(result.isMonorepo).toBe(true);
           // Only check for searchPath on packages that define it

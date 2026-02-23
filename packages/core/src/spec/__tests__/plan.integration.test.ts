@@ -30,14 +30,21 @@ vi.mock("@/security/permission-rules", () => ({
 }));
 
 describe("Plan Tools", () => {
-  let planEnterTool: ReturnType<typeof import("@/tools/plan").planEnterTool>;
-  let planExitTool: ReturnType<typeof import("@/tools/plan").planExitTool>;
+  let planEnterTool: typeof import("@/tools/plan").planEnterTool;
+  let planExitTool: typeof import("@/tools/plan").planExitTool;
+  let planEnterExecute: NonNullable<typeof import("@/tools/plan").planEnterTool.execute>;
+  let planExitExecute: NonNullable<typeof import("@/tools/plan").planExitTool.execute>;
   let updateSessionSpec: typeof import("@/spec/helpers").updateSessionSpec;
   let getCurrentTask: typeof import("@/spec/helpers").getCurrentTask;
   let Instance: typeof import("@/instance").Instance;
 
+  type PlanToolOptions = Parameters<
+    NonNullable<typeof import("@/tools/plan").planEnterTool.execute>
+  >[1];
+
   const testSessionId = `test-plan-session-${uuidv7()}`;
   const testWorkspaceDir = path.join("/tmp", "sakti-code-test-plan", uuidv7());
+  const toolOptions: PlanToolOptions = { toolCallId: "plan-tool-call", messages: [] };
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -45,6 +52,8 @@ describe("Plan Tools", () => {
     const plan = await import("@/tools/plan");
     planEnterTool = plan.planEnterTool;
     planExitTool = plan.planExitTool;
+    planEnterExecute = planEnterTool.execute as NonNullable<typeof planEnterTool.execute>;
+    planExitExecute = planExitTool.execute as NonNullable<typeof planExitTool.execute>;
 
     const helpers = await import("@/spec/helpers");
     updateSessionSpec = helpers.updateSessionSpec;
@@ -91,10 +100,10 @@ describe("Plan Tools", () => {
         sessionID: testSessionId,
         messageID: "msg-1",
         async fn() {
-          const result = await planEnterTool.execute(
+          const result = (await planEnterExecute(
             { spec_slug: "User-Auth", description: "Test spec" },
-            {}
-          );
+            toolOptions
+          )) as { error?: string };
 
           expect(result.error).toContain("spec_slug must be lowercase");
         },
@@ -107,10 +116,10 @@ describe("Plan Tools", () => {
         sessionID: testSessionId,
         messageID: "msg-1",
         async fn() {
-          const result = await planEnterTool.execute(
+          const result = (await planEnterExecute(
             { spec_slug: "user_auth!", description: "Test spec" },
-            {}
-          );
+            toolOptions
+          )) as { error?: string };
 
           expect(result.error).toContain("spec_slug must be lowercase");
         },
@@ -123,10 +132,10 @@ describe("Plan Tools", () => {
         sessionID: testSessionId,
         messageID: "msg-1",
         async fn() {
-          const result = await planEnterTool.execute(
+          const result = (await planEnterExecute(
             { spec_slug: "user-auth", description: "User authentication" },
-            {}
-          );
+            toolOptions
+          )) as { error?: string };
 
           expect(result.error).toBeUndefined();
 
@@ -146,9 +155,9 @@ describe("Plan Tools", () => {
         sessionID: testSessionId,
         messageID: "msg-1",
         async fn() {
-          await planEnterTool.execute(
+          await planEnterExecute(
             { spec_slug: "user-auth", description: "User authentication" },
-            {}
+            toolOptions
           );
 
           const specDir = path.join(testWorkspaceDir, ".kiro", "specs", "user-auth");
@@ -184,9 +193,9 @@ describe("Plan Tools", () => {
         sessionID: testSessionId,
         messageID: "msg-1",
         async fn() {
-          await planEnterTool.execute(
+          await planEnterExecute(
             { spec_slug: "user-auth", description: "User authentication" },
-            {}
+            toolOptions
           );
 
           const { getActiveSpec } = await import("@/spec/helpers");
@@ -202,10 +211,10 @@ describe("Plan Tools", () => {
         sessionID: testSessionId,
         messageID: "msg-1",
         async fn() {
-          const result = await planEnterTool.execute(
+          const result = (await planEnterExecute(
             { spec_slug: "test-spec", description: "Test" },
-            {}
-          );
+            toolOptions
+          )) as { error?: string; spec_slug?: string; spec_path?: string };
 
           expect(result.error).toBeUndefined();
           expect(result.spec_slug).toBe("test-spec");
@@ -222,7 +231,7 @@ describe("Plan Tools", () => {
         sessionID: testSessionId,
         messageID: "msg-1",
         async fn() {
-          await expect(planExitTool.execute({ summary: "Test plan" }, {})).rejects.toThrow(
+          await expect(planExitExecute({ summary: "Test plan" }, toolOptions)).rejects.toThrow(
             "No active spec"
           );
         },
@@ -237,7 +246,7 @@ describe("Plan Tools", () => {
         async fn() {
           await updateSessionSpec(testSessionId, "nonexistent-spec");
 
-          await expect(planExitTool.execute({ summary: "Test plan" }, {})).rejects.toThrow(
+          await expect(planExitExecute({ summary: "Test plan" }, toolOptions)).rejects.toThrow(
             /(tasks\.md not found|No tasks found in tasks\.md)/
           );
         },
@@ -278,7 +287,7 @@ describe("Plan Tools", () => {
 
           await updateSessionSpec(testSessionId, "user-auth");
 
-          await expect(planExitTool.execute({ summary: "Test plan" }, {})).rejects.toThrow(
+          await expect(planExitExecute({ summary: "Test plan" }, toolOptions)).rejects.toThrow(
             "without R-### mapping"
           );
         },
@@ -323,7 +332,9 @@ describe("Plan Tools", () => {
 
           await updateSessionSpec(testSessionId, "user-auth");
 
-          await expect(planExitTool.execute({ summary: "Test plan" }, {})).rejects.toThrow("cycle");
+          await expect(planExitExecute({ summary: "Test plan" }, toolOptions)).rejects.toThrow(
+            "cycle"
+          );
         },
       });
     });
@@ -360,7 +371,7 @@ describe("Plan Tools", () => {
 
           await updateSessionSpec(testSessionId, "user-auth");
 
-          await expect(planExitTool.execute({ summary: "Test plan" }, {})).rejects.toThrow(
+          await expect(planExitExecute({ summary: "Test plan" }, toolOptions)).rejects.toThrow(
             "Compilation failed"
           );
         },
@@ -399,7 +410,10 @@ describe("Plan Tools", () => {
 
           await updateSessionSpec(testSessionId, "user-auth");
 
-          const result = await planExitTool.execute({ summary: "Test plan" }, {});
+          const result = (await planExitExecute({ summary: "Test plan" }, toolOptions)) as {
+            status: string;
+            next_task: string | null;
+          };
           expect(result.status).toBe("Plan compiled to database");
           expect(result.next_task).toBe("T-001");
           await expect(getCurrentTask(testSessionId)).resolves.toBe("T-001");

@@ -1,23 +1,32 @@
 import { Instance } from "@/instance";
 import { describe, expect, it, vi } from "vitest";
 
+type ProviderOptions = { apiKey?: string; baseURL?: string; headers?: Record<string, string> };
+type ProviderModel = { provider: string; modelId: string; options: ProviderOptions };
+type ProviderFn = ((modelId: string) => ProviderModel) & {
+  chat?: (modelId: string) => ProviderModel;
+  responses?: (modelId: string) => ProviderModel;
+  agenticChat?: (modelId: string) => ProviderModel;
+};
+
 function createProviderMock(providerName: string) {
-  return vi.fn((options: { apiKey?: string; baseURL?: string; headers?: Record<string, string> }) =>
-    vi.fn((modelId: string) => ({
+  return vi.fn((options: ProviderOptions) => {
+    const provider = vi.fn((modelId: string) => ({
       provider: providerName,
       modelId,
       options,
-    }))
-  );
+    })) as ProviderFn;
+    return provider;
+  });
 }
 
 const createOpenAIMock = vi.fn(
-  (options: { apiKey?: string; baseURL?: string; headers?: Record<string, string> }) => {
+  (options: ProviderOptions) => {
     const provider = vi.fn((modelId: string) => ({
       provider: "openai",
       modelId,
       options,
-    }));
+    })) as ProviderFn;
     provider.chat = vi.fn((modelId: string) => ({
       provider: "openai-compatible",
       modelId,
@@ -33,12 +42,12 @@ const createOpenAIMock = vi.fn(
 );
 
 const createOpenAICompatibleMock = vi.fn(
-  (options: { apiKey?: string; baseURL?: string; headers?: Record<string, string> }) => {
+  (options: ProviderOptions) => {
     const provider = vi.fn((modelId: string) => ({
       provider: "openai-compatible-sdk",
       modelId,
       options,
-    }));
+    })) as ProviderFn;
     if (!options.headers?.["x-no-chat"]) {
       provider.chat = vi.fn((modelId: string) => ({
         provider: "openai-compatible-sdk-chat",
@@ -52,12 +61,12 @@ const createOpenAICompatibleMock = vi.fn(
 
 const createAnthropicMock = createProviderMock("anthropic");
 const createAzureMock = vi.fn(
-  (options: { apiKey?: string; baseURL?: string; headers?: Record<string, string> }) => {
+  (options: ProviderOptions) => {
     const provider = vi.fn((modelId: string) => ({
       provider: "azure",
       modelId,
       options,
-    }));
+    })) as ProviderFn;
     provider.responses = vi.fn((modelId: string) => ({
       provider: "openai-responses",
       modelId,
@@ -74,7 +83,7 @@ const createGitLabMock = vi.fn(
       provider: "gitlab-default",
       modelId,
       options,
-    }));
+    })) as ProviderFn;
     provider.agenticChat = vi.fn((modelId: string) => ({
       provider: "gitlab-agentic-chat",
       modelId,

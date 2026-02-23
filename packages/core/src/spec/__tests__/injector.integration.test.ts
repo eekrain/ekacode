@@ -11,8 +11,9 @@
 
 import { v7 as uuidv7 } from "uuid";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Message } from "@/chat";
 
-type TestMessage = unknown;
+type TestMessage = Message & { metadata?: Record<string, unknown> };
 
 describe("Spec Injector", () => {
   let injectSpecContext: typeof import("@/agent/spec-injector").injectSpecContext;
@@ -86,7 +87,7 @@ describe("Spec Injector", () => {
     role: "user" | "system" | "assistant",
     content: string,
     extra?: Record<string, unknown>
-  ) => ({
+  ): TestMessage => ({
     info: { role, id: `msg-${uuidv7()}` },
     parts: [createTextPart(content)],
     ...extra,
@@ -101,7 +102,7 @@ describe("Spec Injector", () => {
         async fn() {
           const messages = [createMessage("user", "Hello")];
 
-          const result = await injectSpecContext(messages as TestMessage, testSessionId);
+          const result = await injectSpecContext(messages, testSessionId);
           expect(result).toBe(messages);
           expect(result.length).toBe(1);
         },
@@ -139,7 +140,7 @@ describe("Spec Injector", () => {
             createMessage("user", "Hello"),
           ];
 
-          const result = await injectSpecContext(messages as TestMessage, testSessionId);
+          const result = await injectSpecContext(messages, testSessionId);
 
           expect(result.length).toBe(4);
           expect((result[2] as { info: { role: string } }).info.role).toBe("system");
@@ -193,7 +194,7 @@ describe("Spec Injector", () => {
 
           const messages = [createMessage("user", "Hello")];
 
-          const result = await injectSpecContext(messages as TestMessage, testSessionId);
+          const result = await injectSpecContext(messages, testSessionId);
 
           expect(result.length).toBe(2);
           expect((result[0] as { parts: Array<{ text: string }> }).parts[0].text).toContain(
@@ -239,7 +240,7 @@ describe("Spec Injector", () => {
             createMessage("user", "Hello"),
           ];
 
-          const result = await injectSpecContext(messages as TestMessage, testSessionId);
+          const result = await injectSpecContext(messages, testSessionId);
 
           expect(result.length).toBe(4);
           expect((result[1] as { info: { role: string } }).info.role).toBe("system");
@@ -272,7 +273,7 @@ describe("Spec Injector", () => {
 
           const messages = [createMessage("system", "System"), createMessage("user", "Hello")];
 
-          const result = await injectSpecContext(messages as TestMessage, testSessionId);
+          const result = await injectSpecContext(messages, testSessionId);
 
           expect(result.length).toBe(3);
           expect((result[1] as { info: { role: string } }).info.role).toBe("system");

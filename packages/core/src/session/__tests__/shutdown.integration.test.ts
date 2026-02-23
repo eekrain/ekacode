@@ -5,6 +5,7 @@
  */
 
 import { ShutdownHandler } from "@/session/shutdown";
+import type { SessionManager } from "@/session/manager";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock process methods
@@ -12,9 +13,7 @@ const originalProcess = global.process;
 const mockListeners = new Map<string, (...args: unknown[]) => void>();
 
 describe("session/shutdown", () => {
-  let mockSessionManager: {
-    getActiveSessions: () => SessionController[];
-  };
+  let mockSessionManager: Pick<SessionManager, "getActiveSessions">;
   let shutdownHandler: ShutdownHandler;
 
   beforeEach(() => {
@@ -48,13 +47,13 @@ describe("session/shutdown", () => {
 
   describe("constructor", () => {
     it("should create shutdown handler with session manager", () => {
-      shutdownHandler = new ShutdownHandler(mockSessionManager as unknown);
+      shutdownHandler = new ShutdownHandler(mockSessionManager as SessionManager);
 
       expect(shutdownHandler).toBeDefined();
     });
 
     it("should register signal handlers", () => {
-      shutdownHandler = new ShutdownHandler(mockSessionManager as unknown);
+      shutdownHandler = new ShutdownHandler(mockSessionManager as SessionManager);
 
       expect(mockListeners.has("SIGTERM")).toBe(true);
       expect(mockListeners.has("SIGINT")).toBe(true);
@@ -63,7 +62,7 @@ describe("session/shutdown", () => {
 
   describe("handleShutdown", () => {
     it("should call getActiveSessions during shutdown", async () => {
-      shutdownHandler = new ShutdownHandler(mockSessionManager as unknown);
+      shutdownHandler = new ShutdownHandler(mockSessionManager as SessionManager);
 
       // Trigger SIGTERM
       const listener = mockListeners.get("SIGTERM");

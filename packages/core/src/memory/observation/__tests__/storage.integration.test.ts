@@ -12,6 +12,7 @@
 
 import { v7 as uuidv7 } from "uuid";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import type { ObservationalMemoryConfig } from "@/memory/observation/storage";
 
 describe("ObservationalMemoryStorage", () => {
   let storage: import("@/memory/observation/storage").ObservationalMemoryStorage;
@@ -95,12 +96,13 @@ describe("ObservationalMemoryStorage", () => {
         createdAt: now,
       });
 
-      expect(record.config).toBeDefined();
-      expect(record.config.observationThreshold).toBe(30000);
-      expect(record.config.reflectionThreshold).toBe(40000);
-      expect(record.config.bufferTokens).toBe(6000);
-      expect(record.config.bufferActivation).toBe(0.8);
-      expect(record.config.scope).toBe("thread");
+      const config = record.config as ObservationalMemoryConfig;
+      expect(config).toBeDefined();
+      expect(config.observationThreshold).toBe(30000);
+      expect(config.reflectionThreshold).toBe(40000);
+      expect(config.bufferTokens).toBe(6000);
+      expect(config.bufferActivation).toBe(0.8);
+      expect(config.scope).toBe("thread");
     });
   });
 
@@ -574,10 +576,11 @@ describe("ObservationalMemoryStorage", () => {
         },
       });
 
-      expect(record.config.observationThreshold).toBe(50000);
-      expect(record.config.reflectionThreshold).toBe(60000);
-      expect(record.config.bufferTokens).toBe(8000);
-      expect(record.config.bufferActivation).toBe(0.9);
+      const config = record.config as ObservationalMemoryConfig;
+      expect(config.observationThreshold).toBe(50000);
+      expect(config.reflectionThreshold).toBe(60000);
+      expect(config.bufferTokens).toBe(8000);
+      expect(config.bufferActivation).toBe(0.9);
     });
   });
 
@@ -597,6 +600,7 @@ describe("ObservationalMemoryStorage", () => {
 
       // Mock token counter
       const mockTokenCounter = {
+        countString: () => 0,
         countMessages: () => 100,
       };
 
@@ -636,6 +640,7 @@ describe("ObservationalMemoryStorage", () => {
 
       const mockObserverAgent = async () => "Test observation content";
       const mockTokenCounter = {
+        countString: () => 0,
         countMessages: () => 50,
       };
 
@@ -673,6 +678,7 @@ describe("ObservationalMemoryStorage", () => {
         throw new Error("Observer failed");
       };
       const mockTokenCounter = {
+        countString: () => 0,
         countMessages: () => 10,
       };
 

@@ -40,6 +40,10 @@ describe("ReflectionStorage", () => {
     const mod = await import("@/memory/reflection/storage");
     ReflectionStorageClass = mod.ReflectionStorage;
     storage = new ReflectionStorageClass();
+    const { sql } = await import("drizzle-orm");
+    const db = await getDb();
+    await db.run(sql`DELETE FROM reflections`);
+    await db.run(sql`DELETE FROM threads`);
   });
 
   afterAll(async () => {

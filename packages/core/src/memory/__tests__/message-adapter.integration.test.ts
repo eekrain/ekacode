@@ -146,6 +146,9 @@ describe("MessageAdapter", () => {
     const frontend = MessageAdapter.toFrontendFormat(dbMessage as unknown as DBMessage);
     expect(frontend.id).toBe("db-1");
     expect(frontend.role).toBe("assistant");
+    if (frontend.role !== "assistant") {
+      throw new Error("Expected assistant message info");
+    }
     expect(frontend.sessionID).toBe("thread-456");
     expect(frontend.time?.created).toBe(1700000000000);
   });

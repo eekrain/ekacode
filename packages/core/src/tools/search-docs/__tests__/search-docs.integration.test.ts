@@ -12,6 +12,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Test files use any for simplicity */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ClonedRepo } from "@/tools/search-docs/session-store";
 
 // Mock uuid
 vi.mock("uuid", () => ({
@@ -30,7 +31,18 @@ vi.mock("@/tools/search-docs/sub-agent", () => ({
 }));
 
 // Mock git manager
-const mockCloneResult = {
+type MockCloneResult = {
+  success: boolean;
+  path?: string;
+  commit?: string;
+  error?: {
+    code: string;
+    message: string;
+    hint?: string;
+  };
+};
+
+const mockCloneResult: MockCloneResult = {
   success: true,
   path: "/tmp/cloned-repo",
   commit: "abc123def456",
@@ -47,10 +59,10 @@ vi.mock("@/tools/search-docs/git-manager", () => ({
 }));
 
 // Mock session store
-const mockSessionStore = {
+const mockSessionStore: any = {
   getOrCreateSession: vi.fn(),
   deleteSession: vi.fn(),
-  getRepo: vi.fn(() => null), // Default: not cached
+  getRepo: vi.fn(() => undefined as ClonedRepo | undefined), // Default: not cached
   addRepo: vi.fn(),
 };
 
@@ -196,7 +208,7 @@ describe("search-docs", () => {
   describe("repository caching", () => {
     it("clones repository on first query", async () => {
       // Mock that repo is not cached
-      mockSessionStore.getRepo.mockReturnValue(null);
+      mockSessionStore.getRepo.mockReturnValue(undefined);
 
       const tool = createSearchDocsTool();
 
@@ -238,7 +250,7 @@ describe("search-docs", () => {
 
   describe("sub-agent delegation", () => {
     it("delegates research to sub-agent", async () => {
-      mockSessionStore.getRepo.mockReturnValue(null);
+      mockSessionStore.getRepo.mockReturnValue(undefined);
 
       const tool = createSearchDocsTool();
 
@@ -250,7 +262,7 @@ describe("search-docs", () => {
     });
 
     it("passes extracted question to sub-agent", async () => {
-      mockSessionStore.getRepo.mockReturnValue(null);
+      mockSessionStore.getRepo.mockReturnValue(undefined);
 
       const tool = createSearchDocsTool();
 
@@ -266,7 +278,7 @@ describe("search-docs", () => {
 
   describe("structured output", () => {
     it("returns sessionId in output", async () => {
-      mockSessionStore.getRepo.mockReturnValue(null);
+      mockSessionStore.getRepo.mockReturnValue(undefined);
 
       const tool = createSearchDocsTool();
 
@@ -279,7 +291,7 @@ describe("search-docs", () => {
     });
 
     it("returns AI-generated findings", async () => {
-      mockSessionStore.getRepo.mockReturnValue(null);
+      mockSessionStore.getRepo.mockReturnValue(undefined);
 
       const tool = createSearchDocsTool();
 
@@ -293,7 +305,7 @@ describe("search-docs", () => {
     });
 
     it("returns supporting evidence", async () => {
-      mockSessionStore.getRepo.mockReturnValue(null);
+      mockSessionStore.getRepo.mockReturnValue(undefined);
 
       const tool = createSearchDocsTool();
 
@@ -312,7 +324,7 @@ describe("search-docs", () => {
     });
 
     it("returns metadata about repository", async () => {
-      mockSessionStore.getRepo.mockReturnValue(null);
+      mockSessionStore.getRepo.mockReturnValue(undefined);
 
       const tool = createSearchDocsTool();
 
@@ -365,7 +377,7 @@ describe("search-docs", () => {
 
   describe("integration: complete workflow", () => {
     it("demonstrates end-to-end research workflow", async () => {
-      mockSessionStore.getRepo.mockReturnValue(null);
+      mockSessionStore.getRepo.mockReturnValue(undefined);
 
       const tool = createSearchDocsTool();
 

@@ -11,10 +11,15 @@ import { bashTool } from "@/tools/shell/bash.tool";
 import { describe, expect, it } from "vitest";
 
 describe("Instance Context Integration", () => {
+  const readExecute = readTool.execute as NonNullable<typeof readTool.execute>;
+  const toolOptions: Parameters<typeof readExecute>[1] = {
+    toolCallId: "instance-context-call",
+    messages: [],
+  };
   describe("context validation", () => {
     it("tools fail gracefully when context missing", async () => {
       // Call tool outside Instance.provide()
-      await expect(readTool.execute({ filePath: "test.txt" })).rejects.toThrow(
+      await expect(readExecute({ filePath: "test.txt" }, toolOptions)).rejects.toThrow(
         "Tool executed outside of Instance.provide()"
       );
     });

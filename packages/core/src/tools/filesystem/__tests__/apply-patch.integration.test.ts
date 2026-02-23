@@ -26,9 +26,14 @@ vi.mock("@/security/permission-manager", () => ({
 }));
 
 describe("applyPatchTool", () => {
-  let applyPatchTool: {
-    execute: (args: { patchText: string }) => Promise<unknown>;
-  };
+  let applyPatchTool: typeof import("@/tools/filesystem/apply-patch").applyPatchTool;
+  let applyPatchExecute: NonNullable<
+    typeof import("@/tools/filesystem/apply-patch").applyPatchTool.execute
+  >;
+  type ToolOptions = Parameters<
+    NonNullable<typeof import("@/tools/filesystem/apply-patch").applyPatchTool.execute>
+  >[1];
+  const toolOptions: ToolOptions = { toolCallId: "apply-patch-call", messages: [] };
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -37,6 +42,7 @@ describe("applyPatchTool", () => {
     // Import the tool after mocks are set up
     const module = await import("@/tools/filesystem/apply-patch");
     applyPatchTool = module.applyPatchTool;
+    applyPatchExecute = applyPatchTool.execute as NonNullable<typeof applyPatchTool.execute>;
   });
 
   afterEach(() => {
@@ -59,7 +65,7 @@ describe("applyPatchTool", () => {
         directory: "/workspace",
         sessionID: "test-session",
         async fn() {
-          await applyPatchTool.execute({ patchText });
+          await applyPatchExecute({ patchText }, toolOptions);
         },
       }).catch(() => {
         // Expected to fail because we can't actually write to /etc/passwd
@@ -82,7 +88,7 @@ describe("applyPatchTool", () => {
         directory: "/workspace",
         sessionID: "test-session",
         async fn() {
-          await applyPatchTool.execute({ patchText });
+          await applyPatchExecute({ patchText }, toolOptions);
         },
       }).catch(() => {
         // May fail due to missing parent directory, but we're testing permissions
@@ -106,7 +112,7 @@ describe("applyPatchTool", () => {
         directory: "/workspace",
         sessionID: "test-session",
         async fn() {
-          await applyPatchTool.execute({ patchText });
+          await applyPatchExecute({ patchText }, toolOptions);
         },
       }).catch(() => {
         // Expected to fail without actual filesystem
@@ -131,7 +137,7 @@ describe("applyPatchTool", () => {
           directory: "/workspace",
           sessionID: "test-session",
           async fn() {
-            return applyPatchTool.execute({ patchText: invalidPatch });
+            return applyPatchExecute({ patchText: invalidPatch }, toolOptions);
           },
         })
       ).rejects.toThrow("Invalid patch format");
@@ -151,7 +157,7 @@ describe("applyPatchTool", () => {
         sessionID: "test-session",
         async fn() {
           // Will fail on write, but we can test parsing
-          await applyPatchTool.execute({ patchText });
+          await applyPatchExecute({ patchText }, toolOptions);
         },
       }).catch(() => {
         // Expected - filesystem doesn't exist
@@ -169,7 +175,7 @@ describe("applyPatchTool", () => {
 +content
 `;
 
-      await expect(applyPatchTool.execute({ patchText })).rejects.toThrow(
+      await expect(applyPatchExecute({ patchText }, toolOptions)).rejects.toThrow(
         "Instance context accessed outside"
       );
     });

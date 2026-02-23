@@ -13,6 +13,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import type { SealedMessage } from "@/memory/observation/sealing";
 
 describe("Message Sealing System", () => {
   describe("ObservationMarkers", () => {
@@ -61,7 +62,7 @@ describe("Message Sealing System", () => {
   describe("sealMessage", () => {
     it("should mark message as sealed", async () => {
       const { sealMessage } = await import("@/memory/observation/sealing");
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -77,7 +78,7 @@ describe("Message Sealing System", () => {
     it("should add sealedAt timestamp to last part", async () => {
       const { sealMessage } = await import("@/memory/observation/sealing");
       const before = Date.now();
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -96,7 +97,7 @@ describe("Message Sealing System", () => {
 
     it("should handle messages without metadata", async () => {
       const { sealMessage } = await import("@/memory/observation/sealing");
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -115,7 +116,7 @@ describe("Message Sealing System", () => {
     it("should insert START marker", async () => {
       const { insertObservationMarker, ObservationMarkers } =
         await import("@/memory/observation/sealing");
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -132,7 +133,7 @@ describe("Message Sealing System", () => {
     it("should insert END marker", async () => {
       const { insertObservationMarker, ObservationMarkers } =
         await import("@/memory/observation/sealing");
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -149,7 +150,7 @@ describe("Message Sealing System", () => {
     it("should add timestamp to marker", async () => {
       const { insertObservationMarker } = await import("@/memory/observation/sealing");
       const before = Date.now();
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -171,7 +172,7 @@ describe("Message Sealing System", () => {
     it("should return -1 when no end marker exists", async () => {
       const { findLastCompletedObservationBoundary } =
         await import("@/memory/observation/sealing");
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -189,7 +190,7 @@ describe("Message Sealing System", () => {
     it("should find index of last END marker", async () => {
       const { findLastCompletedObservationBoundary, ObservationMarkers } =
         await import("@/memory/observation/sealing");
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -208,7 +209,7 @@ describe("Message Sealing System", () => {
     it("should return index of last END when multiple exist", async () => {
       const { findLastCompletedObservationBoundary, ObservationMarkers } =
         await import("@/memory/observation/sealing");
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -228,7 +229,7 @@ describe("Message Sealing System", () => {
   describe("getUnobservedParts", () => {
     it("should return all parts when no end marker", async () => {
       const { getUnobservedParts } = await import("@/memory/observation/sealing");
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -248,7 +249,7 @@ describe("Message Sealing System", () => {
     it("should return only parts after last END marker", async () => {
       const { getUnobservedParts, ObservationMarkers } =
         await import("@/memory/observation/sealing");
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -268,7 +269,7 @@ describe("Message Sealing System", () => {
     it("should filter out marker parts", async () => {
       const { getUnobservedParts, ObservationMarkers } =
         await import("@/memory/observation/sealing");
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -287,7 +288,7 @@ describe("Message Sealing System", () => {
 
     it("should return empty array for empty parts", async () => {
       const { getUnobservedParts } = await import("@/memory/observation/sealing");
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -304,7 +305,7 @@ describe("Message Sealing System", () => {
     it("should return true for sealed message", async () => {
       const { isMessageSealed, sealMessage } =
         await import("@/memory/observation/sealing");
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -319,7 +320,7 @@ describe("Message Sealing System", () => {
 
     it("should return false for unsealed message", async () => {
       const { isMessageSealed } = await import("@/memory/observation/sealing");
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -335,7 +336,7 @@ describe("Message Sealing System", () => {
     it("should return timestamp for sealed message", async () => {
       const { getMessageSealedAt, sealMessage } =
         await import("@/memory/observation/sealing");
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {
@@ -355,7 +356,7 @@ describe("Message Sealing System", () => {
 
     it("should return undefined for unsealed message", async () => {
       const { getMessageSealedAt } = await import("@/memory/observation/sealing");
-      const message = {
+      const message: SealedMessage = {
         id: "msg-1",
         role: "user" as const,
         content: {

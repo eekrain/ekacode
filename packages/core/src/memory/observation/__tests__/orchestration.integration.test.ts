@@ -12,6 +12,7 @@
 
 import { v7 as uuidv7 } from "uuid";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ObservationalMemory } from "@/server-bridge";
 
 describe("Observational Memory Orchestration", () => {
   let storage: import("@/memory/observation/storage").ObservationalMemoryStorage;
@@ -68,9 +69,11 @@ describe("Observational Memory Orchestration", () => {
 
     it("should create record with resource scope", async () => {
       const { getOrCreateObservationalMemory } = await import("@/memory/observation/orchestration");
+      const threadId = uuidv7();
       const resourceId = "resource-1";
 
       const record = await getOrCreateObservationalMemory({
+        threadId,
         resourceId,
         scope: "resource",
       });
@@ -130,10 +133,10 @@ describe("Observational Memory Orchestration", () => {
   describe("filterAlreadyObservedMessages", () => {
     it("should filter out observed messages", async () => {
       const { filterAlreadyObservedMessages } = await import("@/memory/observation/orchestration");
-      const record: Partial<ObservationalMemory> = {
+      const record = {
         id: "record-1",
         observed_message_ids: ["msg-1", "msg-2"],
-      };
+      } as unknown as ObservationalMemory;
 
       const messages = [
         { id: "msg-1", role: "user" as const, content: "Hello" },
@@ -149,10 +152,10 @@ describe("Observational Memory Orchestration", () => {
 
     it("should return all messages when none observed", async () => {
       const { filterAlreadyObservedMessages } = await import("@/memory/observation/orchestration");
-      const record: Partial<ObservationalMemory> = {
+      const record = {
         id: "record-1",
         observed_message_ids: [],
-      };
+      } as unknown as ObservationalMemory;
 
       const messages = [
         { id: "msg-1", role: "user" as const, content: "Hello" },
@@ -166,10 +169,10 @@ describe("Observational Memory Orchestration", () => {
 
     it("should handle null observed_message_ids", async () => {
       const { filterAlreadyObservedMessages } = await import("@/memory/observation/orchestration");
-      const record: Partial<ObservationalMemory> = {
+      const record = {
         id: "record-1",
         observed_message_ids: null,
-      };
+      } as unknown as ObservationalMemory;
 
       const messages = [{ id: "msg-1", role: "user" as const, content: "Hello" }];
 
@@ -394,7 +397,7 @@ describe("Observational Memory Orchestration", () => {
           scope: "thread" as const,
           lastMessages: 10,
         },
-      };
+      } as ObservationalMemory;
 
       const result = calculateObservationThresholds(
         messages,
@@ -419,10 +422,10 @@ describe("Observational Memory Orchestration", () => {
         countString: () => 100,
       };
 
-      const record: Partial<ObservationalMemory> = {
+      const record = {
         id: "record-1",
         config: null,
-      };
+      } as ObservationalMemory;
 
       const result = calculateObservationThresholds(messages, 0, 0, 0, record, tokenCounter);
 

@@ -27,9 +27,14 @@ vi.mock("@/security/permission-rules", () => ({
 
 describe("taskParallelTool", () => {
   let Instance: typeof import("@/instance").Instance;
+  const taskParallelExecute = taskParallelTool.execute as NonNullable<
+    typeof taskParallelTool.execute
+  >;
+  type ToolOptions = Parameters<typeof taskParallelExecute>[1];
 
   const testSessionId = "test-parallel-session";
   const testWorkspaceDir = "/tmp/sakti-code-test-parallel";
+  const toolOptions: ToolOptions = { toolCallId: "task-parallel-call", messages: [] };
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -45,7 +50,7 @@ describe("taskParallelTool", () => {
         sessionID: testSessionId,
         messageID: "msg-1",
         async fn() {
-          await expect(taskParallelTool.execute({ tasks: [] }, {})).rejects.toThrow(
+          await expect(taskParallelExecute({ tasks: [] }, toolOptions)).rejects.toThrow(
             "At least one task is required"
           );
         },
@@ -62,7 +67,7 @@ describe("taskParallelTool", () => {
             description: `Task ${i}`,
             prompt: `Do task ${i}`,
           }));
-          await expect(taskParallelTool.execute({ tasks: tooManyTasks }, {})).rejects.toThrow(
+          await expect(taskParallelExecute({ tasks: tooManyTasks }, toolOptions)).rejects.toThrow(
             "Maximum 8 tasks allowed"
           );
         },

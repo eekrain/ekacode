@@ -17,7 +17,7 @@ describe("session/manager", () => {
     mockCheckpointDir = "/tmp/test-checkpoints";
 
     // Create mock db
-    const mockDb = {
+    const mockDb: ConstructorParameters<typeof SessionManager>[0] = {
       insert: vi.fn().mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
       }),
@@ -30,7 +30,7 @@ describe("session/manager", () => {
     };
 
     // Create manager with mock db
-    mockManager = new SessionManager(mockDb as unknown, mockCheckpointDir);
+    mockManager = new SessionManager(mockDb, mockCheckpointDir);
   });
 
   describe("constructor", () => {

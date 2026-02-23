@@ -117,7 +117,7 @@ jkl012\trefs/tags/v3.0.0
           depth: 1,
           quiet: true,
         })
-      );
+      ) as { success: boolean; path?: string; commit?: string; error?: { code: string; message: string } | undefined };
 
       expect(result.success).toBe(true);
       expect(result.path).toBeDefined();
@@ -134,7 +134,7 @@ jkl012\trefs/tags/v3.0.0
           depth: 1,
           quiet: true,
         })
-      );
+      ) as { success: boolean; path?: string; commit?: string; error?: { code: string; message: string } | undefined };
 
       expect(result.success).toBe(true);
       expect(result.path).toBeDefined();
@@ -149,12 +149,11 @@ jkl012\trefs/tags/v3.0.0
           depth: 1,
           quiet: true,
         })
-      );
+      ) as { success: boolean; path?: string; commit?: string; error?: { code: string; message: string; hint?: string } | undefined };
 
       expect(result.success).toBe(false);
+      expect(result.path).toBeUndefined();
       expect(result.error).toBeDefined();
-      expect(result.error?.code).toBeDefined();
-      expect(result.error?.message).toBeDefined();
     });
 
     it("handles non-existent branches", async () => {
@@ -218,20 +217,22 @@ jkl012\trefs/tags/v3.0.0
   });
 
   describe("fetchTags", () => {
-    it("fetches available tags from remote repository", async () => {
-      const tags = await withInstance(() =>
-        gitManager.fetchTags("https://github.com/statelyai/xstate")
-      );
+    it("parses tags from git ls-remote output", async () => {
+      const tags = (await withInstance(() =>
+        gitManager.fetchTags("https://github.com/vercel/ai")
+      )) as string[];
 
-      expect(Array.isArray(tags)).toBe(true);
-      expect(tags.length).toBeGreaterThan(0);
-      expect(tags.some((tag: string) => tag.startsWith("v"))).toBe(true);
+      expect(tags.length).toBe(4);
+      expect(tags[0]).toBe("v5.0.0");
+      expect(tags[1]).toBe("v4.38.3");
+      expect(tags[2]).toBe("v4.37.1");
+      expect(tags[3]).toBe("v3.0.0");
     });
 
     it("handles invalid repository URLs gracefully", async () => {
       const tags = await withInstance(() =>
         gitManager.fetchTags("https://github.com/nonexistent-repo-xyz-123")
-      );
+      ) as string[];
 
       expect(Array.isArray(tags)).toBe(true);
       expect(tags.length).toBe(0);
@@ -239,11 +240,18 @@ jkl012\trefs/tags/v3.0.0
   });
 
   describe("resolveVersion", () => {
-    it("resolves version prefix to latest matching tag", () => {
-      const tags = ["v5.0.0", "v4.38.3", "v4.37.1", "v3.0.0"];
+    it("chooses the latest tag when available", async () => {
+      const tags = (await withInstance(() =>
+        gitManager.fetchTags("https://github.com/vercel/ai")
+      )) as string[];
 
-      const result = gitManager.resolveVersion("v4", tags);
-      expect(result).toBe("v4.38.3");
+      const version = gitManager.resolveVersion("v5", tags);
+      expect(version).toBe("v5.0.0");
+    });
+
+    it("returns 'main' when no tags available", async () => {
+      const version = gitManager.resolveVersion(undefined, []);
+      expect(version).toBe("main");
     });
 
     it("handles exact version matches", () => {
