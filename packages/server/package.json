@@ -10,6 +10,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "test:typecheck": "tsc -p tsconfig.spec.json --noEmit",
+    "test:layout": "bash ./scripts/check-no-legacy-domain-tests.sh",
     "lint": "eslint .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
