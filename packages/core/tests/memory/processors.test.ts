@@ -21,7 +21,7 @@ describe("MemoryProcessor", () => {
     MemoryProcessor = mod.MemoryProcessor;
 
     // Clean up test data
-    const { getDb } = await import("@sakti-code/core/testing/db");
+    const { getDb } = await import("@/testing/db");
     const { sql } = await import("drizzle-orm");
     const db = await getDb();
     await db.run(sql`DELETE FROM working_memory`);
@@ -29,7 +29,7 @@ describe("MemoryProcessor", () => {
   });
 
   afterAll(async () => {
-    const { closeDb } = await import("@sakti-code/core/testing/db");
+    const { closeDb } = await import("@/testing/db");
     closeDb();
   });
 
@@ -62,8 +62,8 @@ describe("MemoryProcessor", () => {
 
     it("should return recent messages", async () => {
       const { messageStorage } = await import("../../src/memory/message/storage");
-      const { threads } = await import("@sakti-code/core/testing/db");
-      const { getDb } = await import("@sakti-code/core/testing/db");
+      const { threads } = await import("@/testing/db");
+      const { getDb } = await import("@/testing/db");
 
       const threadId = uuidv7();
       const resourceId = uuidv7();
@@ -115,7 +115,7 @@ describe("MemoryProcessor", () => {
 
     it("should apply semantic recall topK/messageRange within thread scope", async () => {
       const { messageStorage } = await import("../../src/memory/message/storage");
-      const { getDb, threads } = await import("@sakti-code/core/testing/db");
+      const { getDb, threads } = await import("@/testing/db");
 
       const threadId = uuidv7();
       const resourceId = uuidv7();
@@ -161,7 +161,7 @@ describe("MemoryProcessor", () => {
 
     it("should support semantic recall with resource scope across threads", async () => {
       const { messageStorage } = await import("../../src/memory/message/storage");
-      const { getDb, threads } = await import("@sakti-code/core/testing/db");
+      const { getDb, threads } = await import("@/testing/db");
 
       const resourceId = uuidv7();
       const threadId1 = uuidv7();
@@ -219,8 +219,8 @@ describe("MemoryProcessor", () => {
       resourceId = uuidv7();
 
       // Create thread first (required for messages due to foreign key)
-      const { getDb } = await import("@sakti-code/core/testing/db");
-      const { threads } = await import("@sakti-code/core/testing/db");
+      const { getDb } = await import("@/testing/db");
+      const { threads } = await import("@/testing/db");
       const db = await getDb();
       await db.insert(threads).values({
         id: threadId,

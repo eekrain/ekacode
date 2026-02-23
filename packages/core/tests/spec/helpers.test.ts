@@ -45,7 +45,7 @@ describe("Spec Helpers", () => {
     taskStorage = new TaskStorage();
 
     // Clean up tasks and tool_sessions from previous test runs
-    const { getDb, sessions } = await import("@sakti-code/core/testing/db");
+    const { getDb, sessions } = await import("@/testing/db");
     const { sql } = await import("drizzle-orm");
     const db = await getDb();
 
@@ -68,7 +68,7 @@ describe("Spec Helpers", () => {
   });
 
   afterAll(async () => {
-    const { closeDb } = await import("@sakti-code/core/testing/db");
+    const { closeDb } = await import("@/testing/db");
     closeDb();
   });
 
@@ -80,9 +80,9 @@ describe("Spec Helpers", () => {
 
     it("should return null when spec tool session exists but has no data", async () => {
       const sessionId = uuidv7();
-      const { getDb, sessions } = await import("@sakti-code/core/testing/db");
+      const { getDb, sessions } = await import("@/testing/db");
       const db = await getDb();
-      const { toolSessions } = await import("@sakti-code/core/testing/db");
+      const { toolSessions } = await import("@/testing/db");
 
       // Create session first (FK constraint)
       await db.insert(sessions).values({
@@ -114,7 +114,7 @@ describe("Spec Helpers", () => {
       const sessionId = uuidv7();
 
       // Create session first (FK constraint)
-      const { getDb, sessions } = await import("@sakti-code/core/testing/db");
+      const { getDb, sessions } = await import("@/testing/db");
       const db = await getDb();
       await db.insert(sessions).values({
         session_id: sessionId,
@@ -127,7 +127,7 @@ describe("Spec Helpers", () => {
 
       await updateSessionSpec(sessionId, "user-auth");
 
-      const { toolSessions } = await import("@sakti-code/core/testing/db");
+      const { toolSessions } = await import("@/testing/db");
       const { eq, and } = await import("drizzle-orm");
 
       const result = await db
@@ -150,7 +150,7 @@ describe("Spec Helpers", () => {
       const sessionId = uuidv7();
 
       // Create session first (FK constraint)
-      const { getDb, sessions } = await import("@sakti-code/core/testing/db");
+      const { getDb, sessions } = await import("@/testing/db");
       const db = await getDb();
       await db.insert(sessions).values({
         session_id: sessionId,
@@ -174,7 +174,7 @@ describe("Spec Helpers", () => {
       const sessionId = uuidv7();
 
       // Create session first (FK constraint)
-      const { getDb, sessions } = await import("@sakti-code/core/testing/db");
+      const { getDb, sessions } = await import("@/testing/db");
       const db = await getDb();
       await db.insert(sessions).values({
         session_id: sessionId,
@@ -398,7 +398,7 @@ describe("Spec Helpers", () => {
       const { updateCurrentTask, getCurrentTask } = await import("../../src/spec/helpers");
       const sessionId = uuidv7();
 
-      const { getDb, sessions } = await import("@sakti-code/core/testing/db");
+      const { getDb, sessions } = await import("@/testing/db");
       const db = await getDb();
       await db
         .insert(sessions)
@@ -424,7 +424,7 @@ describe("Spec Helpers", () => {
       const { updateCurrentTask, getCurrentTask } = await import("../../src/spec/helpers");
       const sessionId = uuidv7();
 
-      const { getDb, sessions } = await import("@sakti-code/core/testing/db");
+      const { getDb, sessions } = await import("@/testing/db");
       const db = await getDb();
       await db
         .insert(sessions)
@@ -448,7 +448,7 @@ describe("Spec Helpers", () => {
       const { updateCurrentTask, getCurrentTask } = await import("../../src/spec/helpers");
       const sessionId = uuidv7();
 
-      const { getDb, sessions } = await import("@sakti-code/core/testing/db");
+      const { getDb, sessions } = await import("@/testing/db");
       const db = await getDb();
       await db
         .insert(sessions)
@@ -479,7 +479,7 @@ describe("Spec Helpers", () => {
 
     it("should return null when runtime mode is not set but tool_session exists", async () => {
       const sessionId = uuidv7();
-      const { getDb, sessions, toolSessions } = await import("@sakti-code/core/testing/db");
+      const { getDb, sessions, toolSessions } = await import("@/testing/db");
       const db = await getDb();
 
       await db.insert(sessions).values({
@@ -508,7 +508,7 @@ describe("Spec Helpers", () => {
 
     it("should return null for legacy/invalid stored value like 'explore'", async () => {
       const sessionId = uuidv7();
-      const { getDb, sessions, toolSessions } = await import("@sakti-code/core/testing/db");
+      const { getDb, sessions, toolSessions } = await import("@/testing/db");
       const db = await getDb();
 
       await db.insert(sessions).values({
@@ -542,7 +542,7 @@ describe("Spec Helpers", () => {
         await import("../../src/spec/helpers");
       const sessionId = uuidv7();
 
-      const { getDb, sessions } = await import("@sakti-code/core/testing/db");
+      const { getDb, sessions } = await import("@/testing/db");
       const db = await getDb();
       await db.insert(sessions).values({
         session_id: sessionId,
@@ -564,7 +564,7 @@ describe("Spec Helpers", () => {
         await import("../../src/spec/helpers");
       const sessionId = uuidv7();
 
-      const { getDb, sessions } = await import("@sakti-code/core/testing/db");
+      const { getDb, sessions } = await import("@/testing/db");
       const db = await getDb();
       await db.insert(sessions).values({
         session_id: sessionId,
@@ -587,7 +587,7 @@ describe("Spec Helpers", () => {
         await import("../../src/spec/helpers");
       const sessionId = uuidv7();
 
-      const { getDb, sessions, toolSessions } = await import("@sakti-code/core/testing/db");
+      const { getDb, sessions, toolSessions } = await import("@/testing/db");
       const { eq, and } = await import("drizzle-orm");
       const db = await getDb();
       await db.insert(sessions).values({

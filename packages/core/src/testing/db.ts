@@ -15,7 +15,7 @@ import type {
   Task,
   TaskDependency,
   WorkingMemory,
-} from "../../server-bridge";
+} from "@sakti-code/shared/core-server-bridge";
 import * as dbModule from "../../../server/db/index.ts";
 
 function ensureBridgeBindings(): void {
@@ -51,4 +51,4 @@ export type {
   Task,
   TaskDependency,
   WorkingMemory,
-} from "../../server-bridge";
+} from "@sakti-code/shared/core-server-bridge";

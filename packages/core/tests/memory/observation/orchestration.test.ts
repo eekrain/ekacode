@@ -21,14 +21,14 @@ describe("Observational Memory Orchestration", () => {
     storage = new ObservationalMemoryStorage();
 
     // Clean up observational memory from previous test runs
-    const { getDb } = await import("@sakti-code/core/testing/db");
+    const { getDb } = await import("@/testing/db");
     const { sql } = await import("drizzle-orm");
     const db = await getDb();
     await db.run(sql`DELETE FROM observational_memory`);
   });
 
   afterAll(async () => {
-    const { closeDb } = await import("@sakti-code/core/testing/db");
+    const { closeDb } = await import("@/testing/db");
     closeDb();
   });
 

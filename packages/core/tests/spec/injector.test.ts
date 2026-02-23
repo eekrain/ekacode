@@ -43,7 +43,7 @@ describe("Spec Injector", () => {
     const { TaskStorage } = await import("../../src/memory/task/storage");
     taskStorage = new TaskStorage();
 
-    const { getDb, sessions } = await import("@sakti-code/core/testing/db");
+    const { getDb, sessions } = await import("@/testing/db");
     const { sql } = await import("drizzle-orm");
     const db = await getDb();
 
@@ -70,7 +70,7 @@ describe("Spec Injector", () => {
     } else {
       process.env.SAKTI_CODE_HOME = previousSaktiCodeHome;
     }
-    const { closeDb } = await import("@sakti-code/core/testing/db");
+    const { closeDb } = await import("@/testing/db");
     closeDb();
   });
 

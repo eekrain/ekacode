@@ -2,7 +2,7 @@
  * Tests for MessageAdapter conversions between chat and memory formats.
  */
 
-import type { Message as DBMessage } from "@sakti-code/core/testing/db";
+import type { Message as DBMessage } from "@/testing/db";
 import { describe, expect, it } from "vitest";
 import type { Message } from "../../src/chat";
 

@@ -53,7 +53,7 @@ describe("Plan Tools", () => {
     const instanceModule = await import("../../src/instance");
     Instance = instanceModule.Instance;
 
-    const { getDb, sessions } = await import("@sakti-code/core/testing/db");
+    const { getDb, sessions } = await import("@/testing/db");
     const { sql } = await import("drizzle-orm");
     const db = await getDb();
 
@@ -80,7 +80,7 @@ describe("Plan Tools", () => {
     try {
       await fs.rm(path.dirname(testWorkspaceDir), { recursive: true, force: true });
     } catch {}
-    const { closeDb } = await import("@sakti-code/core/testing/db");
+    const { closeDb } = await import("@/testing/db");
     closeDb();
   });
 

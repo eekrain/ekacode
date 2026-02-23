@@ -38,7 +38,7 @@ describe("Spec Compiler", () => {
     await fs.mkdir(tempDir, { recursive: true });
 
     // Clean up tasks and tool_sessions from previous test runs
-    const { getDb } = await import("@sakti-code/core/testing/db");
+    const { getDb } = await import("@/testing/db");
     const { sql } = await import("drizzle-orm");
     const db = await getDb();
 
@@ -49,7 +49,7 @@ describe("Spec Compiler", () => {
   });
 
   afterAll(async () => {
-    const { closeDb } = await import("@sakti-code/core/testing/db");
+    const { closeDb } = await import("@/testing/db");
     closeDb();
   });
 
@@ -267,8 +267,8 @@ describe("Spec Compiler", () => {
       const { getTaskBySpecAndId } = await import("../../src/spec/helpers");
       const t2 = await getTaskBySpecAndId("user-auth", "T-002");
 
-      const { getDb } = await import("@sakti-code/core/testing/db");
-      const { taskDependencies } = await import("@sakti-code/core/testing/db");
+      const { getDb } = await import("@/testing/db");
+      const { taskDependencies } = await import("@/testing/db");
       const { eq } = await import("drizzle-orm");
       const db = await getDb();
 

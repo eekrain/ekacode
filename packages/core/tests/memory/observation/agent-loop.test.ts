@@ -107,7 +107,7 @@ describe("Agent Loop Integration - Mode Detection", () => {
 
 describe("Agent Loop Integration - Process Input Step", () => {
   beforeEach(async () => {
-    const { closeDb, getDb } = await import("@sakti-code/core/testing/db");
+    const { closeDb, getDb } = await import("@/testing/db");
     closeDb();
     const { sql } = await import("drizzle-orm");
     const db = await getDb();
@@ -115,7 +115,7 @@ describe("Agent Loop Integration - Process Input Step", () => {
   });
 
   afterEach(async () => {
-    const { closeDb } = await import("@sakti-code/core/testing/db");
+    const { closeDb } = await import("@/testing/db");
     closeDb();
   });
 
@@ -151,7 +151,7 @@ describe("Agent Loop Integration - Process Input Step", () => {
 
 describe("Agent Loop Integration - Observation Injection", () => {
   beforeEach(async () => {
-    const { closeDb, getDb } = await import("@sakti-code/core/testing/db");
+    const { closeDb, getDb } = await import("@/testing/db");
     closeDb();
     const { sql } = await import("drizzle-orm");
     const db = await getDb();
@@ -159,7 +159,7 @@ describe("Agent Loop Integration - Observation Injection", () => {
   });
 
   afterEach(async () => {
-    const { closeDb } = await import("@sakti-code/core/testing/db");
+    const { closeDb } = await import("@/testing/db");
     closeDb();
   });
 

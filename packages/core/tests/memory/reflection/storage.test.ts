@@ -11,7 +11,7 @@
  * - getReflectionCount: Count reflections
  */
 
-import { getDb, threads } from "@sakti-code/core/testing/db";
+import { getDb, threads } from "@/testing/db";
 import { v7 as uuidv7 } from "uuid";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { ReflectionStorage } from "../../../src/memory/reflection/storage";
@@ -43,7 +43,7 @@ describe("ReflectionStorage", () => {
   });
 
   afterAll(async () => {
-    const { closeDb } = await import("@sakti-code/core/testing/db");
+    const { closeDb } = await import("@/testing/db");
     closeDb();
   });
 

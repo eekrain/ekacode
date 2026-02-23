@@ -1,4 +1,4 @@
-import { getDb, tasks } from "@sakti-code/core/testing/db";
+import { getDb, tasks } from "@/testing/db";
 import { registerCoreBusBindings } from "@sakti-code/shared/core-server-bridge";
 import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";

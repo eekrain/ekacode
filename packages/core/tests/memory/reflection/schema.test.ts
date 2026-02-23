@@ -7,7 +7,7 @@
  * - Reflections table has correct indexes
  */
 
-import { getDb, reflections, threads } from "@sakti-code/core/testing/db";
+import { getDb, reflections, threads } from "@/testing/db";
 import { eq } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";

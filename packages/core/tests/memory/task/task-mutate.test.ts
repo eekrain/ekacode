@@ -9,7 +9,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 describe("task-mutate executor", () => {
   beforeEach(async () => {
-    const { getDb } = await import("@sakti-code/core/testing/db");
+    const { getDb } = await import("@/testing/db");
     const db = await getDb();
 
     await db.run(sql`DELETE FROM task_messages`);
@@ -19,7 +19,7 @@ describe("task-mutate executor", () => {
   });
 
   afterAll(async () => {
-    const { closeDb } = await import("@sakti-code/core/testing/db");
+    const { closeDb } = await import("@/testing/db");
     closeDb();
   });
 
@@ -42,7 +42,7 @@ describe("task-mutate executor", () => {
 
   it("persists resource-scoped working memory via update_context", async () => {
     const { executeTaskMutate } = await import("../../../src/memory/task/task-mutate");
-    const { getDb, workingMemory } = await import("@sakti-code/core/testing/db");
+    const { getDb, workingMemory } = await import("@/testing/db");
 
     const resourceId = "resource-memory-test";
     const result = await executeTaskMutate({
@@ -68,7 +68,7 @@ describe("task-mutate executor", () => {
 
   it("updates existing working memory instead of creating duplicates", async () => {
     const { executeTaskMutate } = await import("../../../src/memory/task/task-mutate");
-    const { getDb, workingMemory } = await import("@sakti-code/core/testing/db");
+    const { getDb, workingMemory } = await import("@/testing/db");
 
     const resourceId = "resource-memory-update";
     await executeTaskMutate({
@@ -100,7 +100,7 @@ describe("task-mutate executor", () => {
 
   it("supports thread-scoped working memory via update_context", async () => {
     const { executeTaskMutate } = await import("../../../src/memory/task/task-mutate");
-    const { getDb, workingMemory } = await import("@sakti-code/core/testing/db");
+    const { getDb, workingMemory } = await import("@/testing/db");
 
     const threadId = "thread-memory-scope";
     const result = await executeTaskMutate({
