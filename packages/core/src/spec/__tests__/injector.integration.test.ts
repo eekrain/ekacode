@@ -15,11 +15,11 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 type TestMessage = unknown;
 
 describe("Spec Injector", () => {
-  let injectSpecContext: typeof import("../../src/agent/spec-injector").injectSpecContext;
-  let updateSessionSpec: typeof import("../../src/spec/helpers").updateSessionSpec;
-  let updateCurrentTask: typeof import("../../src/spec/helpers").updateCurrentTask;
-  let Instance: typeof import("../../src/instance").Instance;
-  let taskStorage: import("../../src/memory/task/storage").TaskStorage;
+  let injectSpecContext: typeof import("@/agent/spec-injector").injectSpecContext;
+  let updateSessionSpec: typeof import("@/spec/helpers").updateSessionSpec;
+  let updateCurrentTask: typeof import("@/spec/helpers").updateCurrentTask;
+  let Instance: typeof import("@/instance").Instance;
+  let taskStorage: import("@/memory/task/storage").TaskStorage;
 
   const testSessionId = `test-injector-session-${uuidv7()}`;
   const testWorkspaceDir = `/tmp/sakti-code-test-injector-${uuidv7()}`;
@@ -30,17 +30,17 @@ describe("Spec Injector", () => {
     vi.resetModules();
     process.env.SAKTI_CODE_HOME = testHomeDir;
 
-    const injector = await import("../../src/agent/spec-injector");
+    const injector = await import("@/agent/spec-injector");
     injectSpecContext = injector.injectSpecContext;
 
-    const helpers = await import("../../src/spec/helpers");
+    const helpers = await import("@/spec/helpers");
     updateSessionSpec = helpers.updateSessionSpec;
     updateCurrentTask = helpers.updateCurrentTask;
 
-    const instanceModule = await import("../../src/instance");
+    const instanceModule = await import("@/instance");
     Instance = instanceModule.Instance;
 
-    const { TaskStorage } = await import("../../src/memory/task/storage");
+    const { TaskStorage } = await import("@/memory/task/storage");
     taskStorage = new TaskStorage();
 
     const { getDb, sessions } = await import("@/testing/db");

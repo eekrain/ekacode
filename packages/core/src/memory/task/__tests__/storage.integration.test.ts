@@ -17,10 +17,10 @@ import { v7 as uuidv7 } from "uuid";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 describe("TaskStorage", () => {
-  let taskStorage: import("../../../src/memory/task/storage").TaskStorage;
+  let taskStorage: import("@/memory/task/storage").TaskStorage;
 
   beforeEach(async () => {
-    const { TaskStorage } = await import("../../../src/memory/task/storage");
+    const { TaskStorage } = await import("@/memory/task/storage");
     taskStorage = new TaskStorage();
 
     // Clean up tasks from previous test runs

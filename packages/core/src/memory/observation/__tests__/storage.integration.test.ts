@@ -14,11 +14,11 @@ import { v7 as uuidv7 } from "uuid";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 describe("ObservationalMemoryStorage", () => {
-  let storage: import("../../../src/memory/observation/storage").ObservationalMemoryStorage;
-  let ObservationalMemoryStorageClass: typeof import("../../../src/memory/observation/storage").ObservationalMemoryStorage;
+  let storage: import("@/memory/observation/storage").ObservationalMemoryStorage;
+  let ObservationalMemoryStorageClass: typeof import("@/memory/observation/storage").ObservationalMemoryStorage;
 
   beforeEach(async () => {
-    const mod = await import("../../../src/memory/observation/storage");
+    const mod = await import("@/memory/observation/storage");
     ObservationalMemoryStorageClass = mod.ObservationalMemoryStorage;
     storage = new ObservationalMemoryStorageClass();
 

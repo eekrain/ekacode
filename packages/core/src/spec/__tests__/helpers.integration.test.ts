@@ -25,23 +25,23 @@ function getSpecMeta(metadata: unknown): SpecTaskMeta | undefined {
 }
 
 describe("Spec Helpers", () => {
-  let getActiveSpec: typeof import("../../src/spec/helpers").getActiveSpec;
-  let updateSessionSpec: typeof import("../../src/spec/helpers").updateSessionSpec;
-  let getTaskBySpecAndId: typeof import("../../src/spec/helpers").getTaskBySpecAndId;
-  let listTasksBySpec: typeof import("../../src/spec/helpers").listTasksBySpec;
-  let getReadyTasks: typeof import("../../src/spec/helpers").getReadyTasks;
-  let taskStorage: import("../../src/memory/task/storage").TaskStorage;
+  let getActiveSpec: typeof import("@/spec/helpers").getActiveSpec;
+  let updateSessionSpec: typeof import("@/spec/helpers").updateSessionSpec;
+  let getTaskBySpecAndId: typeof import("@/spec/helpers").getTaskBySpecAndId;
+  let listTasksBySpec: typeof import("@/spec/helpers").listTasksBySpec;
+  let getReadyTasks: typeof import("@/spec/helpers").getReadyTasks;
+  let taskStorage: import("@/memory/task/storage").TaskStorage;
 
   beforeEach(async () => {
     // Import helpers - these will fail until implemented
-    const helpers = await import("../../src/spec/helpers");
+    const helpers = await import("@/spec/helpers");
     getActiveSpec = helpers.getActiveSpec;
     updateSessionSpec = helpers.updateSessionSpec;
     getTaskBySpecAndId = helpers.getTaskBySpecAndId;
     listTasksBySpec = helpers.listTasksBySpec;
     getReadyTasks = helpers.getReadyTasks;
 
-    const { TaskStorage } = await import("../../src/memory/task/storage");
+    const { TaskStorage } = await import("@/memory/task/storage");
     taskStorage = new TaskStorage();
 
     // Clean up tasks and tool_sessions from previous test runs
@@ -389,13 +389,13 @@ describe("Spec Helpers", () => {
 
   describe("getCurrentTask", () => {
     it("should return null when no current task is set", async () => {
-      const { getCurrentTask } = await import("../../src/spec/helpers");
+      const { getCurrentTask } = await import("@/spec/helpers");
       const result = await getCurrentTask("nonexistent-session");
       expect(result).toBeNull();
     });
 
     it("should return current task ID when set", async () => {
-      const { updateCurrentTask, getCurrentTask } = await import("../../src/spec/helpers");
+      const { updateCurrentTask, getCurrentTask } = await import("@/spec/helpers");
       const sessionId = uuidv7();
 
       const { getDb, sessions } = await import("@/testing/db");
@@ -421,7 +421,7 @@ describe("Spec Helpers", () => {
 
   describe("updateCurrentTask", () => {
     it("should set current task for a session", async () => {
-      const { updateCurrentTask, getCurrentTask } = await import("../../src/spec/helpers");
+      const { updateCurrentTask, getCurrentTask } = await import("@/spec/helpers");
       const sessionId = uuidv7();
 
       const { getDb, sessions } = await import("@/testing/db");
@@ -445,7 +445,7 @@ describe("Spec Helpers", () => {
     });
 
     it("should update existing current task", async () => {
-      const { updateCurrentTask, getCurrentTask } = await import("../../src/spec/helpers");
+      const { updateCurrentTask, getCurrentTask } = await import("@/spec/helpers");
       const sessionId = uuidv7();
 
       const { getDb, sessions } = await import("@/testing/db");
@@ -472,7 +472,7 @@ describe("Spec Helpers", () => {
 
   describe("getSessionRuntimeMode", () => {
     it("should return null when no runtime mode is set", async () => {
-      const { getSessionRuntimeMode } = await import("../../src/spec/helpers");
+      const { getSessionRuntimeMode } = await import("@/spec/helpers");
       const result = await getSessionRuntimeMode("nonexistent-session");
       expect(result).toBeNull();
     });
@@ -501,7 +501,7 @@ describe("Spec Helpers", () => {
         last_accessed: new Date(),
       });
 
-      const { getSessionRuntimeMode } = await import("../../src/spec/helpers");
+      const { getSessionRuntimeMode } = await import("@/spec/helpers");
       const result = await getSessionRuntimeMode(sessionId);
       expect(result).toBeNull();
     });
@@ -530,7 +530,7 @@ describe("Spec Helpers", () => {
         last_accessed: new Date(),
       });
 
-      const { getSessionRuntimeMode } = await import("../../src/spec/helpers");
+      const { getSessionRuntimeMode } = await import("@/spec/helpers");
       const result = await getSessionRuntimeMode(sessionId);
       expect(result).toBeNull();
     });
@@ -538,8 +538,7 @@ describe("Spec Helpers", () => {
 
   describe("updateSessionRuntimeMode", () => {
     it("should set runtime mode to 'plan'", async () => {
-      const { updateSessionRuntimeMode, getSessionRuntimeMode } =
-        await import("../../src/spec/helpers");
+      const { updateSessionRuntimeMode, getSessionRuntimeMode } = await import("@/spec/helpers");
       const sessionId = uuidv7();
 
       const { getDb, sessions } = await import("@/testing/db");
@@ -560,8 +559,7 @@ describe("Spec Helpers", () => {
     });
 
     it("should update runtime mode from 'plan' to 'build'", async () => {
-      const { updateSessionRuntimeMode, getSessionRuntimeMode } =
-        await import("../../src/spec/helpers");
+      const { updateSessionRuntimeMode, getSessionRuntimeMode } = await import("@/spec/helpers");
       const sessionId = uuidv7();
 
       const { getDb, sessions } = await import("@/testing/db");
@@ -583,8 +581,7 @@ describe("Spec Helpers", () => {
     });
 
     it("should update in place (upsert behavior) - only one row per session", async () => {
-      const { updateSessionRuntimeMode, getSessionRuntimeMode } =
-        await import("../../src/spec/helpers");
+      const { updateSessionRuntimeMode, getSessionRuntimeMode } = await import("@/spec/helpers");
       const sessionId = uuidv7();
 
       const { getDb, sessions, toolSessions } = await import("@/testing/db");

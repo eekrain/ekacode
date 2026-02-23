@@ -15,10 +15,10 @@ import { v7 as uuidv7 } from "uuid";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 describe("WorkingMemoryStorage", () => {
-  let storage: import("../../../src/memory/working-memory/storage").WorkingMemoryStorage;
+  let storage: import("@/memory/working-memory/storage").WorkingMemoryStorage;
 
   beforeEach(async () => {
-    const { WorkingMemoryStorage } = await import("../../../src/memory/working-memory/storage");
+    const { WorkingMemoryStorage } = await import("@/memory/working-memory/storage");
     storage = new WorkingMemoryStorage();
 
     const { getDb } = await import("@/testing/db");

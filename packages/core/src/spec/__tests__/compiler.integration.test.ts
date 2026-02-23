@@ -24,11 +24,11 @@ function getSpecMeta(metadata: unknown): SpecTaskMeta | undefined {
 }
 
 describe("Spec Compiler", () => {
-  let compileSpecToDb: typeof import("../../src/spec/compiler").compileSpecToDb;
+  let compileSpecToDb: typeof import("@/spec/compiler").compileSpecToDb;
   let tempDir: string;
 
   beforeEach(async () => {
-    const compiler = await import("../../src/spec/compiler");
+    const compiler = await import("@/spec/compiler");
     compileSpecToDb = compiler.compileSpecToDb;
 
     tempDir = path.join(
@@ -96,7 +96,7 @@ describe("Spec Compiler", () => {
       expect(result.errors).toHaveLength(0);
 
       // Verify tasks in DB
-      const { listTasksBySpec } = await import("../../src/spec/helpers");
+      const { listTasksBySpec } = await import("@/spec/helpers");
       const tasks = await listTasksBySpec("user-auth");
 
       expect(tasks).toHaveLength(2);
@@ -153,7 +153,7 @@ describe("Spec Compiler", () => {
       expect(result.created).toBe(0);
       expect(result.updated).toBe(1);
 
-      const { listTasksBySpec } = await import("../../src/spec/helpers");
+      const { listTasksBySpec } = await import("@/spec/helpers");
       const tasks = await listTasksBySpec("user-auth");
 
       expect(tasks[0].title).toBe("Updated title");
@@ -264,7 +264,7 @@ describe("Spec Compiler", () => {
       await compileSpecToDb(tempDir, "user-auth");
 
       // Verify dependencies in DB
-      const { getTaskBySpecAndId } = await import("../../src/spec/helpers");
+      const { getTaskBySpecAndId } = await import("@/spec/helpers");
       const t2 = await getTaskBySpecAndId("user-auth", "T-002");
 
       const { getDb } = await import("@/testing/db");

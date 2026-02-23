@@ -12,12 +12,12 @@ import { v7 as uuidv7 } from "uuid";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 describe("MemoryProcessor", () => {
-  let MemoryProcessor: typeof import("../../src/memory/processors").MemoryProcessor;
+  let MemoryProcessor: typeof import("@/memory/processors").MemoryProcessor;
   let threadId: string;
   let resourceId: string;
 
   beforeEach(async () => {
-    const mod = await import("../../src/memory/processors");
+    const mod = await import("@/memory/processors");
     MemoryProcessor = mod.MemoryProcessor;
 
     // Clean up test data
@@ -35,7 +35,7 @@ describe("MemoryProcessor", () => {
 
   describe("input", () => {
     it("should retrieve working memory for resource", async () => {
-      const { workingMemoryStorage } = await import("../../src/memory/working-memory/storage");
+      const { workingMemoryStorage } = await import("@/memory/working-memory/storage");
       const resourceId = uuidv7();
       const content = "# Project Context\n- Language: TypeScript";
 
@@ -61,7 +61,7 @@ describe("MemoryProcessor", () => {
     });
 
     it("should return recent messages", async () => {
-      const { messageStorage } = await import("../../src/memory/message/storage");
+      const { messageStorage } = await import("@/memory/message/storage");
       const { threads } = await import("@/testing/db");
       const { getDb } = await import("@/testing/db");
 
@@ -114,7 +114,7 @@ describe("MemoryProcessor", () => {
     });
 
     it("should apply semantic recall topK/messageRange within thread scope", async () => {
-      const { messageStorage } = await import("../../src/memory/message/storage");
+      const { messageStorage } = await import("@/memory/message/storage");
       const { getDb, threads } = await import("@/testing/db");
 
       const threadId = uuidv7();
@@ -160,7 +160,7 @@ describe("MemoryProcessor", () => {
     });
 
     it("should support semantic recall with resource scope across threads", async () => {
-      const { messageStorage } = await import("../../src/memory/message/storage");
+      const { messageStorage } = await import("@/memory/message/storage");
       const { getDb, threads } = await import("@/testing/db");
 
       const resourceId = uuidv7();
@@ -232,7 +232,7 @@ describe("MemoryProcessor", () => {
     });
 
     it("should persist messages to storage", async () => {
-      const { messageStorage } = await import("../../src/memory/message/storage");
+      const { messageStorage } = await import("@/memory/message/storage");
 
       const result = await MemoryProcessor.output({
         messages: [

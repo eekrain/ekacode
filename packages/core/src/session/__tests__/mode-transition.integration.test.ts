@@ -13,15 +13,15 @@ import { v7 as uuidv7 } from "uuid";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("Mode Transition Orchestrator", () => {
-  let transitionSessionMode: typeof import("../../src/session/mode-transition").transitionSessionMode;
-  let getSessionRuntimeMode: typeof import("../../src/spec/helpers").getSessionRuntimeMode;
-  let updateSessionRuntimeMode: typeof import("../../src/spec/helpers").updateSessionRuntimeMode;
+  let transitionSessionMode: typeof import("@/session/mode-transition").transitionSessionMode;
+  let getSessionRuntimeMode: typeof import("@/spec/helpers").getSessionRuntimeMode;
+  let updateSessionRuntimeMode: typeof import("@/spec/helpers").updateSessionRuntimeMode;
 
   beforeEach(async () => {
-    const modeTransition = await import("../../src/session/mode-transition");
+    const modeTransition = await import("@/session/mode-transition");
     transitionSessionMode = modeTransition.transitionSessionMode;
 
-    const helpers = await import("../../src/spec/helpers");
+    const helpers = await import("@/spec/helpers");
     getSessionRuntimeMode = helpers.getSessionRuntimeMode;
     updateSessionRuntimeMode = helpers.updateSessionRuntimeMode;
 

@@ -16,7 +16,7 @@ const { mockRequestApproval } = vi.hoisted(() => ({
   mockRequestApproval: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock("../../src/security/permission-manager", () => ({
+vi.mock("@/security/permission-manager", () => ({
   PermissionManager: {
     getInstance: vi.fn(() => ({
       requestApproval: (...args: unknown[]) => mockRequestApproval(...args),
@@ -25,16 +25,16 @@ vi.mock("../../src/security/permission-manager", () => ({
   },
 }));
 
-vi.mock("../../src/security/permission-rules", () => ({
+vi.mock("@/security/permission-rules", () => ({
   evaluatePermission: vi.fn(() => "allow"),
 }));
 
 describe("Plan Tools", () => {
-  let planEnterTool: ReturnType<typeof import("../../src/tools/plan").planEnterTool>;
-  let planExitTool: ReturnType<typeof import("../../src/tools/plan").planExitTool>;
-  let updateSessionSpec: typeof import("../../src/spec/helpers").updateSessionSpec;
-  let getCurrentTask: typeof import("../../src/spec/helpers").getCurrentTask;
-  let Instance: typeof import("../../src/instance").Instance;
+  let planEnterTool: ReturnType<typeof import("@/tools/plan").planEnterTool>;
+  let planExitTool: ReturnType<typeof import("@/tools/plan").planExitTool>;
+  let updateSessionSpec: typeof import("@/spec/helpers").updateSessionSpec;
+  let getCurrentTask: typeof import("@/spec/helpers").getCurrentTask;
+  let Instance: typeof import("@/instance").Instance;
 
   const testSessionId = `test-plan-session-${uuidv7()}`;
   const testWorkspaceDir = path.join("/tmp", "sakti-code-test-plan", uuidv7());
@@ -42,15 +42,15 @@ describe("Plan Tools", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
 
-    const plan = await import("../../src/tools/plan");
+    const plan = await import("@/tools/plan");
     planEnterTool = plan.planEnterTool;
     planExitTool = plan.planExitTool;
 
-    const helpers = await import("../../src/spec/helpers");
+    const helpers = await import("@/spec/helpers");
     updateSessionSpec = helpers.updateSessionSpec;
     getCurrentTask = helpers.getCurrentTask;
 
-    const instanceModule = await import("../../src/instance");
+    const instanceModule = await import("@/instance");
     Instance = instanceModule.Instance;
 
     const { getDb, sessions } = await import("@/testing/db");
@@ -189,7 +189,7 @@ describe("Plan Tools", () => {
             {}
           );
 
-          const { getActiveSpec } = await import("../../src/spec/helpers");
+          const { getActiveSpec } = await import("@/spec/helpers");
           const activeSpec = await getActiveSpec(testSessionId);
           expect(activeSpec).toBe("user-auth");
         },

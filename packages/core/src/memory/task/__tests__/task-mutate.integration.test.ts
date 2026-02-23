@@ -24,7 +24,7 @@ describe("task-mutate executor", () => {
   });
 
   it("creates a task via action=create", async () => {
-    const { executeTaskMutate } = await import("../../../src/memory/task/task-mutate");
+    const { executeTaskMutate } = await import("@/memory/task/task-mutate");
 
     const result = await executeTaskMutate({
       action: "create",
@@ -41,7 +41,7 @@ describe("task-mutate executor", () => {
   });
 
   it("persists resource-scoped working memory via update_context", async () => {
-    const { executeTaskMutate } = await import("../../../src/memory/task/task-mutate");
+    const { executeTaskMutate } = await import("@/memory/task/task-mutate");
     const { getDb, workingMemory } = await import("@/testing/db");
 
     const resourceId = "resource-memory-test";
@@ -67,7 +67,7 @@ describe("task-mutate executor", () => {
   });
 
   it("updates existing working memory instead of creating duplicates", async () => {
-    const { executeTaskMutate } = await import("../../../src/memory/task/task-mutate");
+    const { executeTaskMutate } = await import("@/memory/task/task-mutate");
     const { getDb, workingMemory } = await import("@/testing/db");
 
     const resourceId = "resource-memory-update";
@@ -99,7 +99,7 @@ describe("task-mutate executor", () => {
   });
 
   it("supports thread-scoped working memory via update_context", async () => {
-    const { executeTaskMutate } = await import("../../../src/memory/task/task-mutate");
+    const { executeTaskMutate } = await import("@/memory/task/task-mutate");
     const { getDb, workingMemory } = await import("@/testing/db");
 
     const threadId = "thread-memory-scope";
