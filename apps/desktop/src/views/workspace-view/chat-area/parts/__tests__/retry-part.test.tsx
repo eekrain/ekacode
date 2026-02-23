@@ -1,7 +1,7 @@
+import { createRetryPart } from "@/fixtures/part-fixtures";
 import { RetryPart } from "@/views/workspace-view/chat-area/parts/retry-part";
 import { render } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createRetryPart } from "../../../../../fixtures/part-fixtures";
 
 describe("RetryPart", () => {
   let container: HTMLDivElement;

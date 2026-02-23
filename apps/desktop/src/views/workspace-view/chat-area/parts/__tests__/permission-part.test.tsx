@@ -1,15 +1,15 @@
 import {
+  createApprovedPermissionRequest,
+  createCanonicalPermissionPart,
+  createDeniedPermissionRequest,
+  createPendingPermissionRequest,
+} from "@/fixtures/permission-question-fixtures";
+import {
   PermissionPartWithCallbacks,
   type PermissionPartData,
 } from "@/views/workspace-view/chat-area/parts/permission-part";
 import { render } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  createApprovedPermissionRequest,
-  createCanonicalPermissionPart,
-  createDeniedPermissionRequest,
-  createPendingPermissionRequest,
-} from "../../../../../fixtures/permission-question-fixtures";
 
 /**
  * Create a permission part data object for testing

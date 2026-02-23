@@ -1,16 +1,16 @@
 import {
-  QuestionPartWithCallbacks,
-  type QuestionPartData,
-} from "@/views/workspace-view/chat-area/parts/question-part";
-import { render } from "@solidjs/testing-library";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
   createAnsweredQuestionRequest,
   createCanonicalQuestionPart,
   createMultipleChoiceQuestionRequest,
   createPendingQuestionRequest,
   createRejectedQuestionRequest,
-} from "../../../../../fixtures/permission-question-fixtures";
+} from "@/fixtures/permission-question-fixtures";
+import {
+  QuestionPartWithCallbacks,
+  type QuestionPartData,
+} from "@/views/workspace-view/chat-area/parts/question-part";
+import { render } from "@solidjs/testing-library";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * Create a question part data object for testing

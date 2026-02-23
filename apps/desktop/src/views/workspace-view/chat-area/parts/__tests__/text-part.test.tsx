@@ -1,11 +1,8 @@
+import { accumulateDeltas, createRecordedTextDeltaSequence } from "@/fixtures/performance-fixtures";
 import { TextPart } from "@/views/workspace-view/chat-area/parts/text-part";
 import { render } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  accumulateDeltas,
-  createRecordedTextDeltaSequence,
-} from "../../../../../fixtures/performance-fixtures";
 
 describe("TextPart", () => {
   let container: HTMLDivElement;

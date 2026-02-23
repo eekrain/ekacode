@@ -1,8 +1,4 @@
 import { buildChatTurns, type ChatTurn } from "@/core/chat/hooks/turn-projection";
-import { SessionTurn } from "@/views/workspace-view/chat-area/timeline/session-turn";
-import { render } from "@solidjs/testing-library";
-import { createSignal } from "solid-js";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createErrorTurnFixture,
   createInterleavedAssistantPartsFixture,
@@ -10,7 +6,11 @@ import {
   createSingleTurnFixture,
   createSingleTurnWithPromptsFixture,
   createStreamingTurnFixture,
-} from "../../../../fixtures/turn-fixtures";
+} from "@/fixtures/turn-fixtures";
+import { SessionTurn } from "@/views/workspace-view/chat-area/timeline/session-turn";
+import { render } from "@solidjs/testing-library";
+import { createSignal } from "solid-js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function projectSingleTurn(
   fixture:

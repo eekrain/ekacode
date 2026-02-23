@@ -29,6 +29,7 @@ export default mergeConfig(
         { find: "@/core/hooks", replacement: DESKTOP_SRC + "/core/chat/hooks" },
         { find: "@/core/state/contexts", replacement: DESKTOP_SRC + "/core/state/contexts" },
         { find: "@/core/state/providers", replacement: DESKTOP_SRC + "/core/state/providers" },
+        { find: "@/fixtures", replacement: PACKAGE_ROOT + "/tests/fixtures" },
         { find: /^@\/state\/(.*)$/, replacement: DESKTOP_SRC + "/core/state/$1" },
         { find: /^@\/services\/(.*)$/, replacement: DESKTOP_SRC + "/core/services/$1" },
         { find: /^@\/shared\/(.*)$/, replacement: DESKTOP_SRC + "/core/shared/$1" },
