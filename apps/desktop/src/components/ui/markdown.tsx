@@ -1,3 +1,4 @@
+import { sanitizeForIncremark } from "@/components/ui/markdown-sanitize";
 import { createMarkdownStreamAdapter } from "@/components/ui/markdown-stream-adapter";
 import { useThrottledValue } from "@/core/chat/hooks/use-throttled-value";
 import {
@@ -28,6 +29,11 @@ export interface MarkdownProps {
 const DEFAULT_STREAM_CADENCE_MS = 90;
 const DEFAULT_SCROLL_CADENCE_MS = 220;
 const FENCE_DELIMITER_PATTERN = /^(\s{0,3})(`{3,}|~{3,})(.*)$/;
+
+function resolveIncremarkTheme(): "default" | "dark" {
+  if (typeof document === "undefined") return "default";
+  return document.documentElement.classList.contains("dark") ? "dark" : "default";
+}
 
 function hasFenceDelimiterLine(input: string): boolean {
   for (const line of input.split("\n")) {
@@ -130,8 +136,10 @@ export function Markdown(props: MarkdownProps) {
     return maskFenceDelimiterLines(raw);
   });
 
+  const sanitizedText = createMemo(() => sanitizeForIncremark(textForRender()));
+
   createEffect(() => {
-    const snapshot = textForRender();
+    const snapshot = sanitizedText();
     streamAdapter.update(snapshot, !!props.isStreaming);
     const runId = streamAdapter.getRunId();
     if (runId !== streamRunId()) {
@@ -144,10 +152,10 @@ export function Markdown(props: MarkdownProps) {
   });
 
   return (
-    <div data-component="markdown" class={cn("prose prose-sm max-w-none", props.class)}>
-      <Show when={textForRender()}>
+    <div data-component="markdown" class={cn("max-w-none text-[0.95rem]", props.class)}>
+      <Show when={sanitizedText()}>
         <ConfigProvider>
-          <ThemeProvider>
+          <ThemeProvider theme={resolveIncremarkTheme()}>
             <Show when={streamRunId() + 1} keyed>
               <IncremarkContent
                 stream={streamAdapter.stream}

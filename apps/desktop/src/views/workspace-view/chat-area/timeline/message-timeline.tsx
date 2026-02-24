@@ -54,7 +54,7 @@ export function MessageTimeline(props: MessageTimelineProps): JSX.Element {
       }}
       role="log"
       aria-live="polite"
-      class={cn("scrollbar-thin min-h-0 flex-1 overflow-y-auto", "px-4 py-4", props.class)}
+      class={cn("scrollbar-default min-h-0 flex-1 overflow-y-auto", "px-4 py-4", props.class)}
     >
       <Show
         when={props.turns().length > 0}

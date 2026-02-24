@@ -512,6 +512,58 @@ describe("event-router-adapter", () => {
     expect(stored?.metadata?.optimistic).toBeUndefined();
   });
 
+  it("keeps stale optimistic user entities during idle cleanup to preserve turn anchors", async () => {
+    const { messageActions, partActions, sessionActions } = createActions();
+    const userMessageId = "019c4da0-fc0b-713c-984e-b2aca339c986";
+    const userPartId = `${userMessageId}-text`;
+    const staleTimestamp = Date.now() - 120_000;
+
+    sessionActions.upsert({ sessionID: SESSION_ID_1, directory: "/repo" });
+    messageActions.upsert({
+      id: userMessageId,
+      role: "user",
+      sessionID: SESSION_ID_1,
+      metadata: {
+        optimistic: true,
+        optimisticSource: "userAction",
+        correlationKey: "msg:user:no-parent:1",
+        timestamp: staleTimestamp,
+      },
+    } as never);
+    partActions.upsert({
+      id: userPartId,
+      type: "text",
+      messageID: userMessageId,
+      sessionID: SESSION_ID_1,
+      text: "hello",
+      metadata: {
+        optimistic: true,
+        optimisticSource: "useChat",
+        correlationKey: `part:${userMessageId}:text:default`,
+        timestamp: staleTimestamp,
+      },
+    } as never);
+
+    await applyEventToStores(
+      {
+        type: "session.status",
+        properties: {
+          sessionID: SESSION_ID_1,
+          status: { type: "idle" },
+        },
+        eventId: uuidv7(),
+        sequence: 1,
+        timestamp: Date.now(),
+      } as ServerEvent,
+      messageActions,
+      partActions,
+      sessionActions
+    );
+
+    expect(messageActions.getById(userMessageId)).toBeTruthy();
+    expect(partActions.getById(userPartId)).toBeTruthy();
+  });
+
   it("skips no-op canonical part updates when payload is unchanged", async () => {
     const { messageActions, partActions, sessionActions } = createActions();
     const messageId = "019c4da0-fc0b-713c-984e-b2aca339c985";

@@ -9,9 +9,9 @@
  * - Shows task index with status indicators
  */
 
+import type { Message } from "@/chat";
 import { v7 as uuidv7 } from "uuid";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Message } from "@/chat";
 
 type TestMessage = Message & { metadata?: Record<string, unknown> };
 
@@ -29,6 +29,7 @@ describe("Spec Injector", () => {
 
   beforeEach(async () => {
     vi.resetModules();
+    await import("../../../tests/vitest.setup.ts");
     process.env.SAKTI_CODE_HOME = testHomeDir;
 
     const injector = await import("@/agent/spec-injector");

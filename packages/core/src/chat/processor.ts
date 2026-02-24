@@ -327,10 +327,10 @@ export async function processStream(
       }
 
       case "error": {
-        await _onSessionStatus?.("idle");
         await _onMessageUpdated?.(context.messageID, {
           error: event.error.message,
         });
+        await _onSessionStatus?.("idle");
         const errorPart: Part = {
           id: uuidv7(),
           sessionID: context.sessionID,
@@ -344,10 +344,10 @@ export async function processStream(
       }
 
       case "finish": {
-        await _onSessionStatus?.("idle");
         await _onMessageUpdated?.(context.messageID, {
           finishReason: event.finishReason,
         });
+        await _onSessionStatus?.("idle");
         break;
       }
     }

@@ -112,7 +112,7 @@ export const DiffView: Component<DiffViewProps> = props => {
       </Show>
 
       {/* Diff list */}
-      <div class="scrollbar-thin flex-1 space-y-2 overflow-auto p-2">
+      <div class="scrollbar-default flex-1 space-y-2 overflow-auto p-2">
         <For each={changes()}>
           {change => {
             const config = changeConfig(change);

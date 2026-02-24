@@ -45,9 +45,6 @@ export {
   writeTool,
 } from "./tools";
 
-// Testing helpers
-export * from "./testing";
-
 // Search tools
 export { grepTool, webfetchTool } from "./tools";
 

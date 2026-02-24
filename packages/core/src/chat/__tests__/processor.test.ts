@@ -92,4 +92,58 @@ describe("chat/processor", () => {
     expect(toolPart).toBeDefined();
     expect(toolPart.state.status).toBe("completed");
   });
+
+  it("publishes message completion before idle session status on finish", async () => {
+    const context = createProcessorContext("session-3", "message-3");
+    const callOrder: string[] = [];
+
+    await processStream(
+      asStream([
+        { type: "start" },
+        { type: "finish", finishReason: "stop" },
+      ]) as unknown as AsyncIterable<
+        Parameters<typeof processStream>[0] extends AsyncIterable<infer T> ? T : never
+      >,
+      context,
+      {
+        _onSessionStatus(status) {
+          callOrder.push(`status:${status}`);
+        },
+        _onMessageUpdated(_messageId, payload) {
+          if ("finishReason" in payload) {
+            callOrder.push(`message:${String(payload.finishReason)}`);
+          }
+        },
+      }
+    );
+
+    expect(callOrder).toEqual(["status:busy", "message:stop", "status:idle"]);
+  });
+
+  it("publishes message error before idle session status on error", async () => {
+    const context = createProcessorContext("session-4", "message-4");
+    const callOrder: string[] = [];
+
+    await processStream(
+      asStream([
+        { type: "start" },
+        { type: "error", error: new Error("boom") },
+      ]) as unknown as AsyncIterable<
+        Parameters<typeof processStream>[0] extends AsyncIterable<infer T> ? T : never
+      >,
+      context,
+      {
+        _onSessionStatus(status) {
+          callOrder.push(`status:${status}`);
+        },
+        _onMessageUpdated(_messageId, payload) {
+          if ("error" in payload) {
+            callOrder.push(`message:${String(payload.error)}`);
+          }
+        },
+      }
+    );
+
+    expect(callOrder).toEqual(["status:busy", "message:boom", "status:idle"]);
+  });
 });

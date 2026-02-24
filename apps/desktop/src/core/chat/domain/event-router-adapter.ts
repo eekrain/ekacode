@@ -665,6 +665,7 @@ function processEvent(
         // Clean up orphaned optimistic entities when session goes idle
         if (status.type === "idle") {
           const messages = messageActions.getBySession(sessionID);
+          const messagesById = new Map(messages.map(message => [message.id, message]));
           const parts = messages.flatMap(message => partActions.getByMessage(message.id));
 
           const orphanedPartIds = findOrphanedOptimisticEntities(
@@ -678,6 +679,10 @@ function processEvent(
           for (const partId of orphanedPartIds) {
             const part = partActions.getById(partId);
             if (!part?.messageID) continue;
+            const parentMessage = messagesById.get(part.messageID);
+            if (parentMessage?.role === "user") {
+              continue;
+            }
             logger.info("Removing orphaned optimistic part", {
               partId,
               messageID: part.messageID,
@@ -691,6 +696,10 @@ function processEvent(
           );
 
           for (const messageId of orphanedIds) {
+            const message = messagesById.get(messageId);
+            if (message?.role === "user") {
+              continue;
+            }
             logger.info("Removing orphaned optimistic message", { messageId, sessionID });
 
             // Remove parts first (cascade)

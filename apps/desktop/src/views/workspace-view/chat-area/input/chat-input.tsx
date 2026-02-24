@@ -242,7 +242,7 @@ export const ChatInput: Component<ChatInputProps> = props => {
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         class={cn(
-          "scrollbar-thin w-full resize-none bg-transparent px-1 py-2 outline-none",
+          "scrollbar-default w-full resize-none bg-transparent px-1 py-2 outline-none",
           "text-foreground placeholder:text-muted-foreground/60",
           "max-h-[200px] min-h-6",
           disabled() && "cursor-not-allowed opacity-60"

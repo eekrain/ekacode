@@ -869,18 +869,18 @@ export async function publishPartEvent(
       }
       state.tools.clear();
 
-      // Publish session status update
-      await publish(SessionStatus, {
-        sessionID: sessionId,
-        status: { type: "idle" },
-      });
-
       assistantInfo.finish = String(event.finishReason ?? "stop");
       assistantInfo.time.completed = Date.now();
 
-      // Publish message updated event
+      // Publish message completion before session idle so the UI can
+      // reconcile canonical message state before cleanup handlers run.
       await publish(MessageUpdated, {
         info: cloneAssistantInfo(assistantInfo),
+      });
+
+      await publish(SessionStatus, {
+        sessionID: sessionId,
+        status: { type: "idle" },
       });
       break;
     }

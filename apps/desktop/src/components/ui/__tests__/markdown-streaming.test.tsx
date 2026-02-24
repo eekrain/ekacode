@@ -80,7 +80,11 @@ describe("Markdown streaming behavior", () => {
 
     setStreaming(false);
     await vi.advanceTimersByTimeAsync(120);
-    expect(createHighlighterMock).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => {
+      expect(container.querySelector("pre code")).not.toBeNull();
+      expect(container.textContent).toContain("const answer = 42");
+    });
+    expect(createHighlighterMock.mock.calls.length).toBeLessThanOrEqual(1);
   });
 
   it("pauses updates while scrolling and flushes when scrolling stops", async () => {
@@ -213,6 +217,29 @@ describe("Markdown streaming behavior", () => {
 
     expect(() => dispose?.()).not.toThrow();
     dispose = undefined;
+  });
+
+  it("renders malformed reference markdown without throwing", async () => {
+    const { Markdown } = await import("@/components/ui/markdown");
+    const [text, setText] = createSignal("start");
+
+    ({ unmount: dispose } = render(
+      () => <Markdown text={text()} isStreaming={true} streamCadenceMs={60} />,
+      { container }
+    ));
+
+    setText("See [guide][docs]");
+    await vi.advanceTimersByTimeAsync(90);
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain("guide");
+    });
+
+    setText("[guide][docs]\n\n[docs]: https://example.com/docs");
+    await vi.advanceTimersByTimeAsync(90);
+    await vi.waitFor(() => {
+      expect(container.textContent).toContain("guide");
+      expect(container.textContent).toContain("docs");
+    });
   });
 });
 

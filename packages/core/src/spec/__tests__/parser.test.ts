@@ -352,6 +352,9 @@ describe("Spec Parser", () => {
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
       ];
       const result = validateTaskDagFromParsed(tasks);
@@ -368,6 +371,9 @@ describe("Spec Parser", () => {
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
         {
           id: "T-002",
@@ -377,6 +383,9 @@ describe("Spec Parser", () => {
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
       ];
       const result = validateTaskDagFromParsed(tasks);
@@ -394,6 +403,9 @@ describe("Spec Parser", () => {
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
         {
           id: "T-002",
@@ -403,6 +415,9 @@ describe("Spec Parser", () => {
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
         {
           id: "T-003",
@@ -412,6 +427,9 @@ describe("Spec Parser", () => {
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
       ];
       const result = validateTaskDagFromParsed(tasks);
@@ -428,6 +446,9 @@ describe("Spec Parser", () => {
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
         {
           id: "T-002",
@@ -437,6 +458,9 @@ describe("Spec Parser", () => {
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
         {
           id: "T-003",
@@ -446,6 +470,9 @@ describe("Spec Parser", () => {
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
       ];
       const result = validateTaskDagFromParsed(tasks);
@@ -463,6 +490,9 @@ describe("Spec Parser", () => {
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
         {
           id: "T-002",
@@ -472,6 +502,9 @@ describe("Spec Parser", () => {
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
         {
           id: "T-003",
@@ -481,6 +514,9 @@ describe("Spec Parser", () => {
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
         {
           id: "T-004",
@@ -490,6 +526,9 @@ describe("Spec Parser", () => {
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
       ];
       const result = validateTaskDagFromParsed(tasks);
@@ -506,6 +545,9 @@ describe("Spec Parser", () => {
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
         {
           id: "T-002",
@@ -515,6 +557,9 @@ describe("Spec Parser", () => {
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
       ];
       const result = validateTaskDagFromParsed(tasks);

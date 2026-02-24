@@ -221,9 +221,9 @@ Implement parity-plus spec generation quality and the added conversational workf
 
 **Outcome:** timeline can render actionable button groups.
 
-- [ ] Add `action_buttons` part type schema
-- [ ] Implement ActionButtonPart rendering and variants
-- [ ] Implement loading-state handling and duplicate-click prevention
+- [x] Add `action_buttons` part type schema
+- [x] Implement ActionButtonPart rendering and variants
+- [x] Implement loading-state handling and duplicate-click prevention
 
 **Dependencies:**
 
@@ -233,9 +233,9 @@ Implement parity-plus spec generation quality and the added conversational workf
 
 **Outcome:** wizard state is persisted and resumable per session.
 
-- [ ] Add workflow state model/storage API
-- [ ] Add DB-first write path with explicit mirror sync behavior
-- [ ] Add state query/recovery helpers by session ID
+- [x] Add workflow state model/storage API
+- [x] Add DB-first write path with explicit mirror sync behavior
+- [x] Add state query/recovery helpers by session ID
 
 **Dependencies:** T-001
 
@@ -245,9 +245,9 @@ Implement parity-plus spec generation quality and the added conversational workf
 
 **Outcome:** feature-request intent can proactively trigger wizard offers.
 
-- [ ] Implement intent classifier with confidence result
-- [ ] Add configurable thresholds/patterns and enable toggle
-- [ ] Add feedback capture for false-positive/false-negative events
+- [x] Implement intent classifier with confidence result
+- [x] Add configurable thresholds/patterns and enable toggle
+- [x] Add feedback capture for false-positive/false-negative events
 
 **Dependencies:**
 
@@ -257,10 +257,10 @@ Implement parity-plus spec generation quality and the added conversational workf
 
 **Outcome:** users can run guided spec lifecycle from chat actions.
 
-- [ ] Implement wizard controller state machine for init/requirements/design/tasks/complete
-- [ ] Map canonical action IDs to operations (`wizard:start:comprehensive`, `wizard:start:quick`, `wizard:requirements:revise`, `wizard:requirements:approve`, `wizard:design:revise`, `wizard:design:approve`, `wizard:tasks:approve`, `wizard:start-implementation`, `spec-status`)
-- [ ] Render exact phase-specific labels: `Add More Requirements`, `Approve Requirements and Continue`, `Request Changes`, `Approve Design and Continue`, `Approve Tasks`, `Start Implementation`, `Edit Spec`
-- [ ] Generate session title before presenting primary wizard options
+- [x] Implement wizard controller state machine for init/requirements/design/tasks/complete
+- [x] Map canonical action IDs to operations (`wizard:start:comprehensive`, `wizard:start:quick`, `wizard:requirements:revise`, `wizard:requirements:approve`, `wizard:design:revise`, `wizard:design:approve`, `wizard:tasks:approve`, `wizard:start-implementation`, `spec-status`)
+- [x] Render exact phase-specific labels: `Add More Requirements`, `Approve Requirements and Continue`, `Request Changes`, `Approve Design and Continue`, `Approve Tasks`, `Start Implementation`, `Edit Spec`
+- [x] Generate session title before presenting primary wizard options
 
 **Dependencies:** T-018, T-019, T-020, T-011
 
@@ -270,9 +270,9 @@ Implement parity-plus spec generation quality and the added conversational workf
 
 **Outcome:** `Start Implementation` (`wizard:start-implementation`) transitions workflow mode safely.
 
-- [ ] Add mode-switch integration for `wizard:start-implementation`
-- [ ] Add guards for invalid transition conditions
-- [ ] Add user-visible status confirmation after transition
+- [x] Add mode-switch integration for `wizard:start-implementation`
+- [x] Add guards for invalid transition conditions
+- [x] Add user-visible status confirmation after transition
 
 **Dependencies:** T-021
 
@@ -282,10 +282,10 @@ Implement parity-plus spec generation quality and the added conversational workf
 
 **Outcome:** conversational workflow is validated end-to-end.
 
-- [ ] Add integration tests for intent -> canonical buttons -> action ID execution
-- [ ] Add integration tests for workflow resume by session
-- [ ] Add integration tests for `wizard:requirements:approve` and `wizard:design:approve` transitions
-- [ ] Add integration tests for `wizard:start-implementation` Plan->Build transition
+- [x] Add integration tests for intent -> canonical buttons -> action ID execution
+- [x] Add integration tests for workflow resume by session
+- [x] Add integration tests for `wizard:requirements:approve` and `wizard:design:approve` transitions
+- [x] Add integration tests for `wizard:start-implementation` Plan->Build transition
 - [ ]\* Add exploratory test for low-confidence intent suppression
 
 **Dependencies:** T-022
@@ -296,12 +296,12 @@ Implement parity-plus spec generation quality and the added conversational workf
 
 **Outcome:** option-based questioning works end-to-end (tool -> events -> UX -> reply/reject) and can be repeated safely.
 
-- [ ] Add core question lifecycle manager with pending/request/reply/reject behavior
-- [ ] Add `question` tool schema and execution behavior with structured prompts/options
-- [ ] Register `question` tool in agent/phase tool maps used by spec-generation flows
-- [ ] Add server question routes and bus events for asked/replied/rejected lifecycle
-- [ ] Wire desktop API + timeline handlers for option selection, free-form input, and skip/reject
-- [ ] Ensure repeated `question` calls are exempt from doom-loop detection heuristics
+- [x] Add core question lifecycle manager with pending/request/reply/reject behavior
+- [x] Add `question` tool schema and execution behavior with structured prompts/options
+- [x] Register `question` tool in agent/phase tool maps used by spec-generation flows
+- [x] Add server question routes and bus events for asked/replied/rejected lifecycle
+- [x] Wire desktop API + timeline handlers for option selection, free-form input, and skip/reject
+- [x] Ensure repeated `question` calls are exempt from doom-loop detection heuristics
 
 **Dependencies:** T-018, T-021
 
@@ -311,12 +311,12 @@ Implement parity-plus spec generation quality and the added conversational workf
 
 **Outcome:** iterative question loops are regression-tested and phase-gating behavior is deterministic.
 
-- [ ] Add unit tests for question lifecycle manager (pending, reply, reject, unknown-id safety)
-- [ ] Add tool tests asserting question metadata and reply propagation
-- [ ] Add agent/session tests proving repeated question loops are not flagged as doom loops
-- [ ] Add server contract/route tests for question event payloads and API behavior
-- [ ] Add desktop tests for question endpoint client calls and timeline interaction path
-- [ ] Add integration tests ensuring required clarifications block phase transitions until answered/rejected
+- [x] Add unit tests for question lifecycle manager (pending, reply, reject, unknown-id safety)
+- [x] Add tool tests asserting question metadata and reply propagation
+- [x] Add agent/session tests proving repeated question loops are not flagged as doom loops
+- [x] Add server contract/route tests for question event payloads and API behavior
+- [x] Add desktop tests for question endpoint client calls and timeline interaction path
+- [x] Add integration tests ensuring required clarifications block phase transitions until answered/rejected
 
 **Dependencies:** T-024, T-023
 
@@ -326,8 +326,8 @@ Implement parity-plus spec generation quality and the added conversational workf
 
 **Outcome:** implementation status and parity claims are documented and auditable.
 
-- [ ] Update spec workflow docs with new tooling and UX flow
-- [ ] Add parity and parity-plus validation report
-- [ ] Record verification commands/results for CI and local runs
+- [x] Update spec workflow docs with new tooling and UX flow
+- [x] Add parity and parity-plus validation report
+- [x] Record verification commands/results for CI and local runs
 
 **Dependencies:** T-015, T-016, T-017, T-023, T-025

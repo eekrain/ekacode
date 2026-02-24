@@ -11,12 +11,10 @@ const coreDbBindings = await (async () => {
   try {
     return getCoreDbBindings();
   } catch (error) {
-    try {
-      await import("../../tests/vitest.setup.ts");
-      return getCoreDbBindings();
-    } catch {
-      throw error;
-    }
+    throw new Error(
+      "Core DB bindings not registered. Ensure tests run with vitest setup or call registerCoreDbBindings() before importing @/testing/db.",
+      { cause: error instanceof Error ? error : undefined }
+    );
   }
 })();
 

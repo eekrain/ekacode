@@ -455,7 +455,7 @@ export function ModelSelector(props: ModelSelectorProps) {
       <CommandList
         ref={commandListRef}
         aria-label="Model selector"
-        class="bg-background/35 [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50 h-[420px] !max-h-none overflow-y-auto overflow-x-hidden px-1.5 py-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2"
+        class="bg-background/35 scrollbar-default h-[420px] !max-h-none overflow-y-auto overflow-x-hidden px-1.5 py-1.5"
       >
         <Show
           when={
@@ -470,7 +470,7 @@ export function ModelSelector(props: ModelSelectorProps) {
           <Show when={props.mode === "model"}>
             <div
               ref={modelListRef}
-              class="[&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50 h-[404px] overflow-y-auto [scrollbar-color:var(--color-border)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2"
+              class="scrollbar-emphasis h-[404px] overflow-y-auto"
               data-component="model-selector-virtual-list"
               onScroll={event => setModelScrollTop(event.currentTarget.scrollTop)}
             >

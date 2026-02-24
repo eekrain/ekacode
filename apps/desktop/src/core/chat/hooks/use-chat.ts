@@ -78,6 +78,11 @@ function isOptimisticPartPayload(part: unknown): boolean {
   return (metadata as { optimistic?: unknown }).optimistic === true;
 }
 
+function isUserMessageEntity(message: unknown): boolean {
+  if (!message || typeof message !== "object") return false;
+  return (message as { role?: unknown }).role === "user";
+}
+
 /**
  * UUIDv7 regex pattern for validation
  */
@@ -240,6 +245,10 @@ export function useChat(options: UseChatOptions): UseChatResult {
     for (const partId of orphanedPartIds) {
       const part = partActions.getById(partId);
       if (!part?.messageID) continue;
+      const parentMessage = messageActions.getById(part.messageID);
+      if (isUserMessageEntity(parentMessage)) {
+        continue;
+      }
       logger.info("Cleaning up optimistic part", {
         partId,
         messageId: part.messageID,
@@ -257,6 +266,10 @@ export function useChat(options: UseChatOptions): UseChatResult {
     );
 
     for (const messageId of orphanedIds) {
+      const message = messageActions.getById(messageId);
+      if (isUserMessageEntity(message)) {
+        continue;
+      }
       logger.info("Cleaning up optimistic message", { messageId, sessionId });
 
       // Remove parts first (cascade)
@@ -453,7 +466,44 @@ export function useChat(options: UseChatOptions): UseChatResult {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        let details = "";
+        const contentType = response.headers.get("content-type") ?? "";
+        try {
+          if (contentType.includes("application/json")) {
+            const payload = (await response.json()) as
+              | {
+                  error?:
+                    | string
+                    | {
+                        code?: string;
+                        message?: string;
+                      };
+                  message?: string;
+                }
+              | undefined;
+            const errorMessage =
+              typeof payload?.error === "string"
+                ? payload.error
+                : payload?.error?.message || payload?.message;
+            const errorCode =
+              typeof payload?.error === "object" && payload?.error?.code
+                ? payload.error.code
+                : undefined;
+            if (errorCode && errorMessage) {
+              details = `${errorCode}: ${errorMessage}`;
+            } else if (errorMessage) {
+              details = errorMessage;
+            }
+          } else {
+            const text = (await response.text()).trim();
+            if (text) details = text;
+          }
+        } catch {
+          // Best effort only; preserve base HTTP error below.
+        }
+
+        const suffix = details ? ` - ${details}` : "";
+        throw new Error(`HTTP ${response.status}: ${response.statusText}${suffix}`);
       }
 
       // Resolve session ID for this request lifecycle.
@@ -537,37 +587,48 @@ export function useChat(options: UseChatOptions): UseChatResult {
       const optimisticSessionId = ensureResolvedSessionId();
       if (optimisticSessionId && !retryOptions?.skipUserPersistence) {
         const optimisticTextPartId = `${userMessageId}-text`;
-        messageActions.upsert({
-          id: userMessageId,
-          role: "user",
-          sessionID: optimisticSessionId,
-          time: { created: now },
-          metadata: createOptimisticMetadata(
-            "userAction",
-            generateMessageCorrelationKey({
-              role: "user",
-              createdAt: now,
-            })
-          ),
-        });
-        messageUpserts += 1;
+        const existingUserMessage = messageActions.getById(userMessageId);
+        const existingUserTextPart = partActions.getById(optimisticTextPartId);
+
+        if (!existingUserMessage) {
+          messageActions.upsert({
+            id: userMessageId,
+            role: "user",
+            sessionID: optimisticSessionId,
+            time: { created: now },
+            metadata: createOptimisticMetadata(
+              "userAction",
+              generateMessageCorrelationKey({
+                role: "user",
+                createdAt: now,
+              })
+            ),
+          });
+          messageUpserts += 1;
+        }
+
+        if (!existingUserTextPart) {
+          partActions.upsert({
+            id: optimisticTextPartId,
+            type: "text",
+            messageID: userMessageId,
+            sessionID: optimisticSessionId,
+            text: trimmed,
+            time: { start: now, end: now },
+            metadata: existingUserMessage
+              ? undefined
+              : createOptimisticMetadata(
+                  "useChat",
+                  generatePartCorrelationKey({
+                    messageID: userMessageId,
+                    partType: "text",
+                  })
+                ),
+          });
+          partUpserts += 1;
+        }
+
         userMessagePersisted = true;
-        partActions.upsert({
-          id: optimisticTextPartId,
-          type: "text",
-          messageID: userMessageId,
-          sessionID: optimisticSessionId,
-          text: trimmed,
-          time: { start: now, end: now },
-          metadata: createOptimisticMetadata(
-            "useChat",
-            generatePartCorrelationKey({
-              messageID: userMessageId,
-              partType: "text",
-            })
-          ),
-        });
-        partUpserts += 1;
       } else {
         logger.warn("Unable to resolve session before stream start; waiting for SSE/session sync", {
           workspace: ws,

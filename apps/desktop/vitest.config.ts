@@ -7,6 +7,7 @@ import shared from "./vitest.shared";
 const PACKAGE_ROOT = __dirname;
 const PROJECT_ROOT = join(PACKAGE_ROOT, "../..");
 const PNPM_ROOT = resolve(PACKAGE_ROOT, "../../node_modules/.pnpm");
+const INCREMARK_PACKAGES_ROOT = resolve(PACKAGE_ROOT, "../../third_party/incremark/packages");
 
 // Define explicit paths
 const SHARED_SRC = resolve(PACKAGE_ROOT, "../../packages/shared/src");
@@ -42,6 +43,8 @@ export default mergeConfig(
         { find: "@/routes", replacement: DESKTOP_SRC + "/routes" },
         { find: "@/components/parts", replacement: DESKTOP_SRC + "/components/parts" },
         { find: "@/", replacement: DESKTOP_SRC + "/" },
+        { find: "solid-js/jsx-runtime", replacement: "solid-js/h/jsx-runtime" },
+        { find: "solid-js/jsx-dev-runtime", replacement: "solid-js/h/jsx-dev-runtime" },
 
         // Workspace dependencies
         { find: "@sakti-code/shared/event-guards", replacement: SHARED_SRC + "/event-guards.ts" },
@@ -69,19 +72,20 @@ export default mergeConfig(
           replacement: DESKTOP_SRC + "/core/state/providers/workspace-provider.tsx",
         },
         {
-          find: "@incremark/solid",
-          replacement: join(PACKAGE_ROOT, "node_modules/@incremark/solid"),
+          find: "@incremark/core/engines/micromark",
+          replacement: resolve(INCREMARK_PACKAGES_ROOT, "core/src/engines/micromark/index.ts"),
         },
         {
           find: "@incremark/core",
-          replacement: resolve(PNPM_ROOT, "@incremark+core@0.3.10/node_modules/@incremark/core"),
+          replacement: resolve(INCREMARK_PACKAGES_ROOT, "core/src"),
+        },
+        {
+          find: "@incremark/solid",
+          replacement: resolve(INCREMARK_PACKAGES_ROOT, "solid/src"),
         },
         {
           find: "@incremark/shared",
-          replacement: resolve(
-            PNPM_ROOT,
-            "@incremark+shared@0.3.10_@incremark+core@0.3.10/node_modules/@incremark/shared"
-          ),
+          replacement: resolve(INCREMARK_PACKAGES_ROOT, "shared/src"),
         },
         {
           find: "@incremark/theme/styles.css",
@@ -92,13 +96,16 @@ export default mergeConfig(
         },
         {
           find: "@incremark/theme",
-          replacement: resolve(PNPM_ROOT, "@incremark+theme@0.3.10/node_modules/@incremark/theme"),
+          replacement: resolve(INCREMARK_PACKAGES_ROOT, "theme/src"),
         },
         {
           find: "@incremark/icons",
-          replacement: resolve(PNPM_ROOT, "@incremark+icons@0.3.10/node_modules/@incremark/icons"),
+          replacement: resolve(INCREMARK_PACKAGES_ROOT, "icons/src"),
         },
-        { find: "shiki", replacement: resolve(PNPM_ROOT, "shiki@3.22.0/node_modules/shiki") },
+        {
+          find: "@incremark/colors",
+          replacement: resolve(INCREMARK_PACKAGES_ROOT, "colors/src"),
+        },
         {
           find: "shiki-stream",
           replacement: resolve(

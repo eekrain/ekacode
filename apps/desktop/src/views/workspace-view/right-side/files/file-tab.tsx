@@ -105,7 +105,7 @@ export const FileTabList: Component<FileTabListProps> = props => {
     <div
       class={cn(
         "border-border/30 flex items-center gap-0.5 border-b",
-        "bg-card/10 scrollbar-thin overflow-x-auto",
+        "bg-card/10 scrollbar-default overflow-x-auto",
         props.class
       )}
     >

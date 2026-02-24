@@ -111,7 +111,7 @@ export const TerminalPanel: Component<TerminalPanelProps> = props => {
       </div>
 
       {/* Output area */}
-      <div class="scrollbar-thin flex-1 overflow-auto p-3 font-mono text-xs">
+      <div class="scrollbar-default flex-1 overflow-auto p-3 font-mono text-xs">
         <Show
           when={output().length > 0}
           fallback={

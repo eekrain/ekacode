@@ -5,8 +5,9 @@ import type {
   ProviderModel,
   ProviderPreferences,
 } from "@/core/services/api/provider-client";
+import { PROVIDER_SELECTION_REFRESH_EVENT } from "@/core/state/providers/provider-selection-events";
 import MiniSearch from "minisearch";
-import { createEffect, createMemo, createResource } from "solid-js";
+import { createEffect, createMemo, createResource, onCleanup } from "solid-js";
 
 export interface ProviderSelectionModelDoc {
   id: string;
@@ -474,6 +475,16 @@ export function createProviderSelectionStore(client: ProviderClient) {
       throw error;
     }
   };
+
+  if (typeof window !== "undefined") {
+    const handleRefresh = () => {
+      void refetch();
+    };
+    window.addEventListener(PROVIDER_SELECTION_REFRESH_EVENT, handleRefresh as EventListener);
+    onCleanup(() => {
+      window.removeEventListener(PROVIDER_SELECTION_REFRESH_EVENT, handleRefresh as EventListener);
+    });
+  }
 
   return {
     data,

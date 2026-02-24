@@ -5,6 +5,7 @@
  * Call this function during app initialization to set up the part registry.
  */
 
+import { ActionButtonPart } from "./action-button-part";
 import { registerPartComponent } from "./part-registry";
 import { PermissionPart } from "./permission-part";
 import { QuestionPart } from "./question-part";
@@ -28,6 +29,7 @@ export function registerDefaultPartComponents(): void {
   registerPartComponent("permission", PermissionPart);
   registerPartComponent("question", QuestionPart);
   registerPartComponent("retry", RetryPart);
+  registerPartComponent("action_buttons", ActionButtonPart);
 
   registered = true;
 }

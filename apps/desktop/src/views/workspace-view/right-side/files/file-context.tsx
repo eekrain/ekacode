@@ -47,7 +47,7 @@ export const FileContext: Component<FileContextProps> = props => {
         class={cn(
           "flex items-center gap-0.5 px-2 py-1",
           "bg-card/10 border-border/30 border-b",
-          "scrollbar-thin overflow-x-auto"
+          "scrollbar-default overflow-x-auto"
         )}
       >
         {/* Label */}

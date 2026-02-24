@@ -1,0 +1,208 @@
+/* Command/Dialog Motion + Model Selector Surface */
+.model-selector-shell {
+  isolation: isolate;
+}
+
+.model-selector-aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.model-selector-aurora::before,
+.model-selector-aurora::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.model-selector-aurora::before {
+  background:
+    radial-gradient(
+      ellipse 120% 100% at 50% 0%,
+      color-mix(in oklch, var(--color-primary) 18%, transparent) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse 80% 60% at 0% 0%,
+      color-mix(in oklch, var(--color-primary) 12%, transparent) 0%,
+      transparent 40%
+    ),
+    radial-gradient(
+      ellipse 80% 60% at 100% 0%,
+      color-mix(in oklch, var(--color-accent) 16%, transparent) 0%,
+      transparent 45%
+    );
+  animation: auroraPulse 6s ease-in-out infinite;
+}
+
+.model-selector-aurora::after {
+  background:
+    radial-gradient(
+      ellipse 60% 50% at 20% 20%,
+      color-mix(in oklch, var(--color-primary) 8%, transparent) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse 50% 40% at 80% 30%,
+      color-mix(in oklch, var(--color-accent) 10%, transparent) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 70% 50% at 50% 80%,
+      color-mix(in oklch, var(--color-muted-foreground) 6%, transparent) 0%,
+      transparent 60%
+    );
+  animation: auroraDrift 12s ease-in-out infinite alternate;
+  opacity: 0.7;
+}
+
+@keyframes auroraPulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes auroraDrift {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(2%, -1%) scale(1.01);
+  }
+  66% {
+    transform: translate(-1%, 1%) scale(0.99);
+  }
+  100% {
+    transform: translate(1%, 0.5%) scale(1.01);
+  }
+}
+
+.model-selector-aurora-glow {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklch, var(--color-primary) 6%, transparent) 0%,
+    transparent 30%
+  );
+  pointer-events: none;
+}
+
+.model-selector-aurora-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 100% 100% at 50% 50%,
+    transparent 40%,
+    color-mix(in oklch, var(--color-popover-foreground) 3%, transparent) 100%
+  );
+  pointer-events: none;
+}
+
+.model-selector-grain {
+  opacity: 0.12;
+  mix-blend-mode: overlay;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in oklch, var(--color-popover-foreground) 6%, transparent) 0 1px,
+      transparent 1px 2px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--color-popover-foreground) 4%, transparent) 0 1px,
+      transparent 1px 2px
+    );
+}
+
+.command-dialog-overlay-motion {
+  transition:
+    opacity 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    backdrop-filter 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  opacity: 0;
+}
+
+.command-dialog-overlay-motion {
+  background: oklch(0 0 0 / 0.7);
+}
+
+.command-dialog-overlay-motion[data-visible] {
+  opacity: 1;
+}
+
+.command-dialog-overlay-motion[data-closed],
+.command-dialog-overlay-motion[data-exiting] {
+  opacity: 0;
+  backdrop-filter: blur(2px);
+}
+
+.command-dialog-content-motion {
+  transform-origin: center;
+  transition:
+    opacity 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.command-dialog-content-motion {
+  opacity: 0;
+  transform: translate(-50%, -46%) scale(0.97);
+  filter: blur(1px);
+}
+
+.command-dialog-content-motion[data-visible] {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  filter: blur(0);
+}
+
+.command-dialog-content-motion[data-closed],
+.command-dialog-content-motion[data-exiting] {
+  opacity: 0;
+  transform: translate(-50%, -46%) scale(0.97);
+  filter: blur(1px);
+}
+
+.provider-modal-content-motion {
+  transition:
+    opacity 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  filter: blur(1px);
+}
+
+.provider-modal-content-motion[data-visible] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+
+.provider-modal-content-motion[data-closed],
+.provider-modal-content-motion[data-exiting] {
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  filter: blur(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .model-selector-aurora::before,
+  .model-selector-aurora::after {
+    animation: none;
+  }
+
+  .command-dialog-overlay-motion,
+  .command-dialog-content-motion,
+  .provider-modal-content-motion {
+    transition-duration: 1ms;
+    animation: none;
+  }
+}

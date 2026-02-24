@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +13,35 @@ describe("chat provider selection", () => {
     delete process.env.ZAI_API_KEY;
     delete process.env.OPENAI_API_KEY;
     vi.resetModules();
+    const { resolveAppPaths } = await import("@sakti-code/shared/paths");
+    const { registerCoreBusBindings, registerCoreDbBindings } =
+      await import("@sakti-code/shared/core-server-bridge");
+    const paths = resolveAppPaths();
+    await mkdir(paths.config, { recursive: true });
+    await mkdir(paths.state, { recursive: true });
+    await mkdir(paths.db, { recursive: true });
+    await mkdir(paths.logs, { recursive: true });
+    const dbModule = await import("../../../db/index.ts");
+    registerCoreDbBindings({
+      getDb: dbModule.getDb,
+      closeDb: dbModule.closeDb,
+      sessions: dbModule.sessions,
+      tasks: dbModule.tasks,
+      taskDependencies: dbModule.taskDependencies,
+      taskMessages: dbModule.taskMessages,
+      threads: dbModule.threads,
+      messages: dbModule.messages,
+      workingMemory: dbModule.workingMemory,
+      reflections: dbModule.reflections,
+      observationalMemory: dbModule.observationalMemory,
+      toolSessions: dbModule.toolSessions,
+    });
+    const busModule = await import("../../bus/index.ts");
+    registerCoreBusBindings({
+      publishTaskUpdated: async (sessionId, tasks) => {
+        await busModule.publish(busModule.TaskUpdated, { sessionId, tasks });
+      },
+    });
     const { getProviderRuntime, resetProviderRuntimeForTests } =
       await import("../../provider/runtime");
     resetProviderRuntimeForTests();

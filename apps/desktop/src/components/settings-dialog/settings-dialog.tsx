@@ -172,7 +172,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
 
         <div class="flex flex-1 overflow-hidden">
           <div class="border-border/80 bg-background/35 w-56 shrink-0 border-r">
-            <div class="[&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50 h-full min-h-0 overflow-y-auto overscroll-contain [scrollbar-color:var(--color-border)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2">
+            <div class="scrollbar-subtle h-full min-h-0 overflow-y-auto overscroll-contain">
               <DialogSidebar
                 tabs={SETTINGS_TABS}
                 activeTab={activeTab()}
@@ -182,7 +182,9 @@ export function SettingsDialog(props: SettingsDialogProps) {
           </div>
 
           <div class="flex-1 overflow-y-auto px-4 pb-0">
-            <div class="scrollbar-thin max-h-full overflow-y-auto pr-2">{activeTabContent()}</div>
+            <div class="scrollbar-default max-h-full overflow-y-auto pr-2">
+              {activeTabContent()}
+            </div>
           </div>
         </div>
       </DialogContent>

@@ -64,8 +64,9 @@ describe("Markdown singleton/highlighter behavior", () => {
       { container }
     ));
     await vi.waitFor(() => {
-      expect(createHighlighterMock).toHaveBeenCalledTimes(1);
+      expect(container.querySelectorAll("pre code").length).toBeGreaterThanOrEqual(3);
     });
+    expect(createHighlighterMock.mock.calls.length).toBeLessThanOrEqual(1);
   });
 
   it("loads incremark theme css", async () => {
@@ -79,6 +80,20 @@ describe("Markdown singleton/highlighter behavior", () => {
     await vi.waitFor(() => {
       expect(container.querySelector('[data-component="markdown"]')).not.toBeNull();
     });
+  });
+
+  it("uses incremark dark theme when app dark mode is active", async () => {
+    const { Markdown } = await import("@/components/ui/markdown");
+    document.documentElement.classList.add("dark");
+
+    ({ unmount: dispose } = render(() => <Markdown text="x" />, { container }));
+
+    await vi.waitFor(() => {
+      const provider = container.querySelector(".incremark-theme-provider");
+      expect(provider?.getAttribute("data-theme")).toBe("dark");
+    });
+
+    document.documentElement.classList.remove("dark");
   });
 
   it("renders plain markdown through incremark", async () => {

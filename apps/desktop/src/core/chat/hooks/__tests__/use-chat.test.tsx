@@ -7,6 +7,13 @@ type MockTextPart = {
   type: "text";
   messageID: string;
   text: string;
+  sessionID?: string;
+  metadata?: {
+    optimistic?: boolean;
+    optimisticSource?: string;
+    correlationKey?: string;
+    timestamp?: number;
+  };
 };
 
 type MockSessionInfo = {
@@ -127,10 +134,12 @@ describe("useChat", () => {
   let mockChatFn: ReturnType<typeof vi.fn>;
   let mockClient: SaktiCodeApiClient;
   let messagesById: Map<string, { id: string; role?: string; sessionID?: string }>;
+  let partsById: Map<string, MockTextPart>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     messagesById = new Map();
+    partsById = new Map();
     Object.defineProperty(globalThis.navigator, "clipboard", {
       value: { writeText: mockWriteText },
       configurable: true,
@@ -149,8 +158,14 @@ describe("useChat", () => {
       }
     });
     mockPartUpsert.mockReset();
+    mockPartUpsert.mockImplementation(part => {
+      if (part?.id && typeof part.id === "string") {
+        partsById.set(part.id, part as MockTextPart);
+      }
+    });
     mockPartRemove.mockReset();
     mockPartGetById.mockReset();
+    mockPartGetById.mockImplementation((id: string) => partsById.get(id));
   });
 
   it("sends messages with expected payload and completes streaming", async () => {
@@ -547,6 +562,69 @@ describe("useChat", () => {
       );
       expect(userMessageCall).toBeTruthy();
       expect(chat.sessionId()).toBe(lateSessionId);
+      dispose();
+    });
+  });
+
+  it("does not overwrite canonical user entities with optimistic metadata when they already exist", async () => {
+    const { useChat } = await import("@/core/chat/hooks");
+    const sessionId = "019c4da0-fc0b-713c-984e-b2aca339c9aa";
+    let userMessageId = "";
+
+    mockChatFn.mockImplementation(async (messages: Array<{ id: string; role: string }>) => {
+      userMessageId = messages[0]?.id ?? "";
+      const userTextPartId = `${userMessageId}-text`;
+      messagesById.set(userMessageId, {
+        id: userMessageId,
+        role: "user",
+        sessionID: sessionId,
+      });
+      partsById.set(userTextPartId, {
+        id: userTextPartId,
+        type: "text",
+        messageID: userMessageId,
+        text: "hello",
+        sessionID: sessionId,
+      });
+      return streamResponse(['data: {"type":"finish","finishReason":"stop"}'], sessionId);
+    });
+
+    await createRoot(async dispose => {
+      const chat = useChat({
+        sessionId: () => sessionId,
+        workspace: () => "/repo",
+        client: mockClient,
+      });
+
+      await chat.sendMessage("hello");
+
+      const userMessageOptimisticCall = mockMessageUpsert.mock.calls.find(call => {
+        const message = call[0] as {
+          id?: string;
+          role?: string;
+          metadata?: { optimistic?: boolean };
+        };
+        return (
+          message.id === userMessageId &&
+          message.role === "user" &&
+          message.metadata?.optimistic === true
+        );
+      });
+      const userPartOptimisticCall = mockPartUpsert.mock.calls.find(call => {
+        const part = call[0] as {
+          id?: string;
+          messageID?: string;
+          metadata?: { optimistic?: boolean };
+        };
+        return (
+          part.id === `${userMessageId}-text` &&
+          part.messageID === userMessageId &&
+          part.metadata?.optimistic === true
+        );
+      });
+
+      expect(userMessageOptimisticCall).toBeUndefined();
+      expect(userPartOptimisticCall).toBeUndefined();
       dispose();
     });
   });

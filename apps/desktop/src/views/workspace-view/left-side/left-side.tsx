@@ -94,7 +94,7 @@ export const LeftSide: Component<SessionSidebarProps> = props => {
       </div>
 
       {/* Session List */}
-      <div class="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-2 py-2">
+      <div class="scrollbar-default min-h-0 flex-1 overflow-y-auto px-2 py-2">
         <SessionList
           sessions={ctx.sessions()}
           activeSessionId={ctx.activeSessionId() ?? ""}

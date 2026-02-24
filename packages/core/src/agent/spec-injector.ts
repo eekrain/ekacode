@@ -16,7 +16,7 @@ import {
   getTaskBySpecAndId,
   listTasksBySpec,
 } from "../spec/helpers";
-import { readSpecState } from "../spec/state";
+import { readSpecState, type SpecState } from "../spec/state";
 
 interface SpecMessage {
   info: { role: "system"; id: string };
@@ -85,7 +85,7 @@ async function buildSpecContext(sessionId: string): Promise<SpecContextData | nu
 
   // Read spec state from mirror
   const instanceContext = Instance.context;
-  let specState = null;
+  let specState: SpecState | null = null;
   let validationHighlights: string[] = [];
 
   if (instanceContext) {

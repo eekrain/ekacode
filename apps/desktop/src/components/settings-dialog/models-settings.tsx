@@ -12,6 +12,7 @@ import type {
   ProviderClient,
 } from "@/core/services/api/provider-client";
 import { createProviderCatalogSearchIndex } from "@/core/state/providers/provider-catalog-store";
+import { notifyProviderSelectionRefresh } from "@/core/state/providers/provider-selection-events";
 import { cn } from "@/utils";
 import { createPresence } from "@solid-primitives/presence";
 import { Search } from "lucide-solid";
@@ -333,6 +334,7 @@ export function ModelsSettings(props: ModelsSettingsProps) {
       setTokenDraft(providerId, "");
       setOauthErrorByProvider(prev => ({ ...prev, [providerId]: "" }));
       await refetchProviderState();
+      notifyProviderSelectionRefresh("token-connected");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setOauthErrorByProvider(prev => ({ ...prev, [providerId]: message }));
@@ -365,6 +367,7 @@ export function ModelsSettings(props: ModelsSettingsProps) {
           if (callback.status === "connected") {
             setOauthBusyByProvider(prev => ({ ...prev, [providerId]: false }));
             await refetchProviderState();
+            notifyProviderSelectionRefresh("oauth-connected");
             return;
           }
           await new Promise(resolve => setTimeout(resolve, 750));
@@ -412,6 +415,7 @@ export function ModelsSettings(props: ModelsSettingsProps) {
         setOauthCodeByProvider(prev => ({ ...prev, [providerId]: "" }));
         setOauthErrorByProvider(prev => ({ ...prev, [providerId]: "" }));
         await refetchProviderState();
+        notifyProviderSelectionRefresh("oauth-connected");
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -452,6 +456,7 @@ export function ModelsSettings(props: ModelsSettingsProps) {
     try {
       await props.client.clearToken(providerId);
       await refetchProviderState();
+      notifyProviderSelectionRefresh("token-disconnected");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setAuthStatusOverrideByProvider(prevOverrides => {
@@ -824,7 +829,7 @@ export function ModelsSettings(props: ModelsSettingsProps) {
             <div class="relative grid h-[480px] min-h-0 gap-0 md:grid-cols-[1.1fr_1.4fr]">
               <div class="border-border/80 min-h-0 border-r">
                 <div
-                  class="bg-background/35 [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50 h-full min-h-0 overflow-y-auto overscroll-contain px-2 py-2 [scrollbar-color:var(--color-border)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2"
+                  class="bg-background/35 scrollbar-subtle h-full min-h-0 overflow-y-auto overscroll-contain px-2 py-2"
                   data-testid="provider-modal-list"
                 >
                   <Show
@@ -898,7 +903,7 @@ export function ModelsSettings(props: ModelsSettingsProps) {
                 </div>
               </div>
 
-              <div class="bg-background/30 [&::-webkit-scrollbar-thumb]:bg-border hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50 h-full min-h-0 overflow-y-auto overscroll-contain px-4 py-4 [scrollbar-color:var(--color-border)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-2">
+              <div class="bg-background/30 scrollbar-subtle h-full min-h-0 overflow-y-auto overscroll-contain px-4 py-4">
                 <Show
                   when={selectedProvider()}
                   fallback={<p class="text-muted-foreground text-sm">Select a provider.</p>}

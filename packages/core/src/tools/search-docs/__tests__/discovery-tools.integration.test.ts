@@ -11,16 +11,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Test files use any for simplicity */
 
 import { Instance } from "@/instance";
-import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   GitCloneOutput,
   GitProbeResult,
   ImportMapLookupOutput,
   RegistryLookupOutput,
 } from "@/tools/search-docs/discovery-tools";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Set up mocks before importing the module
 const mockExecSync = vi.fn();

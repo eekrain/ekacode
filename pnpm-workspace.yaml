@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - third_party/incremark/packages/*
 
 catalogs:
   default:

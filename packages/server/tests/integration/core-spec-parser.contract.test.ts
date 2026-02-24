@@ -92,6 +92,9 @@ This is the outcome of the second task.
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
         {
           id: "T-2",
@@ -101,6 +104,9 @@ This is the outcome of the second task.
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
         {
           id: "T-3",
@@ -110,6 +116,9 @@ This is the outcome of the second task.
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
       ];
 
@@ -130,6 +139,9 @@ This is the outcome of the second task.
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
         {
           id: "T-2",
@@ -139,6 +151,9 @@ This is the outcome of the second task.
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
       ];
 
@@ -158,6 +173,9 @@ This is the outcome of the second task.
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
       ];
 
@@ -176,6 +194,9 @@ This is the outcome of the second task.
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
         {
           id: "T-2",
@@ -185,6 +206,9 @@ This is the outcome of the second task.
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
         {
           id: "T-3",
@@ -194,6 +218,9 @@ This is the outcome of the second task.
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
       ];
 
@@ -214,6 +241,9 @@ This is the outcome of the second task.
           outcome: "",
           notes: "",
           subtasks: [],
+          parallel: false,
+          hasOptionalTestSubtasks: false,
+          subtasksDetailed: [],
         },
       ];
 

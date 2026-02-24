@@ -34,20 +34,24 @@ export const useChatInput = () => {
 
   const currentPendingPermission = createMemo(() => {
     const sessionId = effectiveSessionId();
-    if (!sessionId) return undefined;
-    const nextId = permissionState.pendingOrder.find(
-      id => permissionState.byId[id]?.sessionID === sessionId
-    );
-    return nextId ? permissionState.byId[nextId] : undefined;
+    const nextId = sessionId
+      ? permissionState.pendingOrder.find(id => permissionState.byId[id]?.sessionID === sessionId)
+      : undefined;
+    const fallbackId = permissionState.pendingOrder[0];
+    const resolvedId = nextId ?? fallbackId;
+    if (!resolvedId) return undefined;
+    return permissionState.byId[resolvedId];
   });
 
   const currentPendingQuestion = createMemo(() => {
     const sessionId = effectiveSessionId();
-    if (!sessionId) return undefined;
-    const nextId = questionState.pendingOrder.find(
-      id => questionState.byId[id]?.sessionID === sessionId
-    );
-    return nextId ? questionState.byId[nextId] : undefined;
+    const nextId = sessionId
+      ? questionState.pendingOrder.find(id => questionState.byId[id]?.sessionID === sessionId)
+      : undefined;
+    const fallbackId = questionState.pendingOrder[0];
+    const resolvedId = nextId ?? fallbackId;
+    if (!resolvedId) return undefined;
+    return questionState.byId[resolvedId];
   });
 
   const isPromptBlocked = createMemo(

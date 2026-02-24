@@ -23,8 +23,9 @@
   },
   "dependencies": {
     "@corvu/resizable": "^0.2.5",
-    "@incremark/solid": "latest",
-    "@incremark/theme": "latest",
+    "@incremark/core": "workspace:*",
+    "@incremark/solid": "workspace:*",
+    "@incremark/theme": "workspace:*",
     "@kobalte/core": "^0.13.11",
     "@sakti-code/electron-preload": "workspace:*",
     "@sakti-code/shared": "workspace:*",
