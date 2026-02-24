@@ -56,3 +56,21 @@ export {
   type ParallelTaskInput,
   type ParallelTaskResult,
 } from "./task-parallel";
+
+// Spec tools
+export {
+  specDesignTool,
+  specInitTool,
+  specQuickTool,
+  specRequirementsTool,
+  specStatusTool,
+  specTasksTool,
+} from "./spec-phase";
+
+// Spec validation tools
+export {
+  specValidateDesignTool,
+  specValidateGapTool,
+  specValidateImplTool,
+  type SpecValidationResponse,
+} from "./spec-validation";

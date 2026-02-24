@@ -16,6 +16,7 @@ describe("Spec Validators", () => {
   let validateTaskDependencies: typeof import("@/spec/validators").validateTaskDependencies;
   let detectDependencyCycles: typeof import("@/spec/validators").detectDependencyCycles;
   let normalizeRequirementId: typeof import("@/spec/validators").normalizeRequirementId;
+  let normalizeRequirementHeadings: typeof import("@/spec/validators").normalizeRequirementHeadings;
 
   beforeAll(async () => {
     const v = await import("@/spec/validators");
@@ -28,6 +29,7 @@ describe("Spec Validators", () => {
     validateTaskDependencies = v.validateTaskDependencies;
     detectDependencyCycles = v.detectDependencyCycles;
     normalizeRequirementId = v.normalizeRequirementId;
+    normalizeRequirementHeadings = v.normalizeRequirementHeadings;
   });
 
   describe("extractRequirementIds", () => {
@@ -87,6 +89,79 @@ describe("Spec Validators", () => {
       expect(normalizeRequirementId("X-1")).toBeNull();
       expect(normalizeRequirementId("REQ-1")).toBeNull();
       expect(normalizeRequirementId("")).toBeNull();
+    });
+  });
+
+  describe("normalizeRequirementHeadings", () => {
+    it("should normalize numeric headings to R-N format", () => {
+      const content = `### Requirement 1
+Content here
+
+### Requirement 2
+More content`;
+
+      const result = normalizeRequirementHeadings(content);
+
+      expect(result.content).toContain("### Requirement R-1");
+      expect(result.content).toContain("### Requirement R-2");
+      expect(result.mappings).toHaveLength(2);
+      expect(result.mappings).toContain("Requirement 1 -> R-1");
+      expect(result.mappings).toContain("Requirement 2 -> R-2");
+    });
+
+    it("should not modify already normalized headings", () => {
+      const content = `### Requirement R-1
+Content`;
+
+      const result = normalizeRequirementHeadings(content);
+
+      expect(result.content).toContain("### Requirement R-1");
+      expect(result.mappings).toHaveLength(0);
+    });
+
+    it("should handle mixed normalized and numeric headings", () => {
+      const content = `### Requirement 1
+### Requirement R-2
+### Requirement 3`;
+
+      const result = normalizeRequirementHeadings(content);
+
+      expect(result.content).toContain("### Requirement R-1");
+      expect(result.content).toContain("### Requirement R-2");
+      expect(result.content).toContain("### Requirement R-3");
+      expect(result.mappings).toHaveLength(2);
+    });
+
+    it("should preserve content after headings", () => {
+      const content = `### Requirement 1
+Some detailed content about the requirement.
+
+### Requirement 2
+More content here.`;
+
+      const result = normalizeRequirementHeadings(content);
+
+      expect(result.content).toContain("Some detailed content about the requirement.");
+      expect(result.content).toContain("More content here.");
+    });
+
+    it("should handle headings with existing R-N references in parentheses", () => {
+      const content = `### Requirement 1 (R-1)
+Content`;
+
+      const result = normalizeRequirementHeadings(content);
+
+      expect(result.content).toContain("### Requirement R-1 (R-1)");
+      expect(result.mappings).toHaveLength(1);
+    });
+
+    it("should return empty mappings for content without numeric headings", () => {
+      const content = `### Some other heading
+Content here`;
+
+      const result = normalizeRequirementHeadings(content);
+
+      expect(result.mappings).toHaveLength(0);
     });
   });
 
@@ -355,6 +430,213 @@ Content
 
       const cycles = detectDependencyCycles(tasks);
       expect(cycles).toHaveLength(1);
+    });
+  });
+
+  describe("Deterministic Guard Tests", () => {
+    describe("ID Format Violations", () => {
+      it("should normalize non-standard ID formats", () => {
+        const result = normalizeRequirementId("R1");
+        expect(result).toBe("R-1");
+      });
+
+      it("should normalize ID with colon", () => {
+        const result = normalizeRequirementId("R:1");
+        expect(result).toBe("R-1");
+      });
+
+      it("should normalize ID with space", () => {
+        const result = normalizeRequirementId("R 1");
+        expect(result).toBe("R-1");
+      });
+
+      it("should reject empty requirement ID", () => {
+        const result = normalizeRequirementId("");
+        expect(result).toBeNull();
+      });
+
+      it("should reject requirement ID with special characters", () => {
+        const result = normalizeRequirementId("R@1");
+        expect(result).toBeNull();
+      });
+
+      it("should reject task ID as requirement ID", () => {
+        const result = normalizeRequirementId("TASK-1");
+        expect(result).toBeNull();
+      });
+
+      it("should detect sequence gaps", () => {
+        const content =
+          "### Requirement R-1\nContent\n\n### Requirement R-2\nContent\n\n### Requirement R-3\nContent\n\n### Requirement R-5\nContent";
+        const result = validateRequirementIds(content);
+        expect(result.warnings.some(w => w.code === "REQ_ID_SEQUENCE_GAP")).toBe(true);
+      });
+    });
+
+    describe("Traceability Gaps", () => {
+      it("should detect when design misses requirement", () => {
+        const requirements = `
+### Requirement 1 (R-1)
+Content 1
+
+### Requirement 2 (R-2)
+Content 2
+        `;
+
+        const design = "## Requirements\n\n- R-1: covered";
+
+        const result = validateDesignTraceability(requirements, design);
+        expect(result.ok).toBe(false);
+        expect(result.errors[0].code).toBe("DESIGN_TRACEABILITY_GAP");
+        expect(result.errors[0].message).toContain("R-2");
+      });
+
+      it("should detect when task has no requirement mapping", () => {
+        const requirements = "### Requirement 1 (R-1)\nContent";
+        const tasks = `
+## T-1 — Task with no mapping
+
+**Outcome:** Task done
+        `;
+
+        const result = validateTasksCoverage(requirements, tasks);
+        expect(result.ok).toBe(false);
+        expect(result.errors.some(e => e.code === "REQ_UNCOVERED_BY_TASKS")).toBe(true);
+      });
+
+      it("should detect when requirement is not in any task", () => {
+        const requirements = `
+### Requirement 1 (R-1)
+Content 1
+
+### Requirement 2 (R-2)
+Content 2
+        `;
+
+        const tasks = `
+## T-1 — Task
+
+**Maps to requirements:** R-1
+        `;
+
+        const result = validateTasksCoverage(requirements, tasks);
+        expect(result.ok).toBe(false);
+        expect(result.errors[0].code).toBe("REQ_UNCOVERED_BY_TASKS");
+        expect(result.errors[0].message).toContain("R-2");
+      });
+    });
+
+    describe("Unknown Dependencies and DAG Cycles", () => {
+      it("should detect single unknown dependency", () => {
+        const tasks = [{ id: "T-1", dependencies: ["T-NONEXISTENT"] }];
+        const result = validateTaskDependencies(tasks);
+        expect(result.ok).toBe(false);
+        expect(result.errors[0].code).toBe("TASK_UNKNOWN_DEPENDENCY");
+        expect(result.errors[0].message).toContain("T-NONEXISTENT");
+      });
+
+      it("should detect multiple unknown dependencies", () => {
+        const tasks = [{ id: "T-1", dependencies: ["T-UNKNOWN-1", "T-UNKNOWN-2"] }];
+        const result = validateTaskDependencies(tasks);
+        expect(result.ok).toBe(false);
+        expect(result.errors[0].code).toBe("TASK_UNKNOWN_DEPENDENCY");
+        expect(result.errors[0].message).toContain("T-UNKNOWN-1");
+        expect(result.errors[0].message).toContain("T-UNKNOWN-2");
+      });
+
+      it("should detect 3-task cycle", () => {
+        const tasks = [
+          { id: "T-1", dependencies: ["T-2"] },
+          { id: "T-2", dependencies: ["T-3"] },
+          { id: "T-3", dependencies: ["T-1"] },
+        ];
+
+        const cycles = detectDependencyCycles(tasks);
+        expect(cycles).toHaveLength(1);
+        expect(cycles[0]).toContain("T-1");
+        expect(cycles[0]).toContain("T-2");
+        expect(cycles[0]).toContain("T-3");
+      });
+
+      it("should detect multiple cycles", () => {
+        const tasks = [
+          { id: "T-1", dependencies: ["T-2"] },
+          { id: "T-2", dependencies: ["T-1"] },
+          { id: "T-3", dependencies: ["T-4"] },
+          { id: "T-4", dependencies: ["T-3"] },
+        ];
+
+        const cycles = detectDependencyCycles(tasks);
+        expect(cycles.length).toBeGreaterThanOrEqual(2);
+      });
+
+      it("should detect cycle with additional edges", () => {
+        const tasks = [
+          { id: "T-1", dependencies: ["T-2", "T-3"] },
+          { id: "T-2", dependencies: ["T-1"] },
+          { id: "T-3", dependencies: [] },
+        ];
+
+        const cycles = detectDependencyCycles(tasks);
+        expect(cycles).toHaveLength(1);
+        expect(cycles[0]).toContain("T-1");
+        expect(cycles[0]).toContain("T-2");
+      });
+    });
+
+    describe("Malformed Marker Usage", () => {
+      it("should detect (P) marker without leading space", () => {
+        const content = `## T-1 — Task(P)
+        `;
+        const result = validateTaskFormat(content);
+        expect(result.warnings.some(w => w.code === "TASK_PARALLEL_DETECTED")).toBe(true);
+      });
+
+      it("should detect - [ ]* without space after bracket", () => {
+        const content = `
+## T-1 — Task
+
+- []*Optional test
+        `;
+
+        const result = validateTaskFormat(content);
+        expect(result.warnings.some(w => w.code === "TASK_OPTIONAL_TEST_ONLY")).toBe(true);
+      });
+
+      it("should handle multiple (P) markers correctly", () => {
+        const content = `
+## T-1 — Task (P)
+
+## T-2 — Another Task (P)
+        `;
+
+        const result = validateTaskFormat(content);
+        expect(result.warnings.some(w => w.code === "TASK_PARALLEL_DETECTED")).toBe(true);
+      });
+
+      it("should warn when only optional test subtasks exist", () => {
+        const content = `
+## T-1 — Task
+
+- [ ]* Optional test 1
+- [ ]* Optional test 2
+        `;
+
+        const result = validateTaskFormat(content);
+        expect(result.warnings.some(w => w.code === "TASK_OPTIONAL_TEST_ONLY")).toBe(true);
+      });
+
+      it("should not warn when required tests exist with optional ones", () => {
+        const content = `
+## T-1 — Task
+
+- [ ]* Optional test
+- [ ] Required test
+        `;
+
+        const result = validateTaskFormat(content);
+        expect(result.warnings.some(w => w.code === "TASK_OPTIONAL_TEST_ONLY")).toBe(false);
+      });
     });
   });
 });

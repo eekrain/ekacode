@@ -16,6 +16,7 @@ import {
   getTaskBySpecAndId,
   listTasksBySpec,
 } from "../spec/helpers";
+import { readSpecState } from "../spec/state";
 
 interface SpecMessage {
   info: { role: "system"; id: string };
@@ -26,6 +27,13 @@ interface SpecMessage {
 interface SpecContextData {
   activeSpec: string;
   text: string;
+  phase?: string;
+  approvals?: {
+    requirements: { generated: boolean; approved: boolean };
+    design: { generated: boolean; approved: boolean };
+    tasks: { generated: boolean; approved: boolean };
+  };
+  validationHighlights?: string[];
 }
 
 function escapeRegExp(value: string): string {
@@ -75,6 +83,63 @@ async function buildSpecContext(sessionId: string): Promise<SpecContextData | nu
 
   let specContext = "";
 
+  // Read spec state from mirror
+  const instanceContext = Instance.context;
+  let specState = null;
+  let validationHighlights: string[] = [];
+
+  if (instanceContext) {
+    const specDir = path.join(instanceContext.directory, ".kiro", "specs", activeSpec);
+    const specJsonPath = path.join(specDir, "spec.json");
+    try {
+      specState = await readSpecState(specJsonPath);
+    } catch {
+      // spec.json might not exist
+    }
+  }
+
+  // Include phase and approval context
+  if (specState) {
+    specContext += `## Spec Status\n`;
+    specContext += `**Phase:** ${specState.phase || "initialized"}\n`;
+    specContext += `**Approvals:**\n`;
+    specContext += `- Requirements: ${specState.approvals?.requirements?.approved ? "✓" : "○"} approved, ${specState.approvals?.requirements?.generated ? "✓" : "○"} generated\n`;
+    specContext += `- Design: ${specState.approvals?.design?.approved ? "✓" : "○"} approved, ${specState.approvals?.design?.generated ? "✓" : "○"} generated\n`;
+    specContext += `- Tasks: ${specState.approvals?.tasks?.approved ? "✓" : "○"} approved, ${specState.approvals?.tasks?.generated ? "✓" : "○"} generated\n`;
+    specContext += `\n`;
+
+    // Generate validation highlights based on current phase
+    const phase = specState.phase;
+    if (phase === "requirements-generated" && !specState.approvals?.requirements?.approved) {
+      validationHighlights.push(
+        "Requirements are generated but not approved. Review and approve to proceed to design."
+      );
+    }
+    if (phase === "design-generated" && !specState.approvals?.design?.approved) {
+      validationHighlights.push(
+        "Design is generated but not approved. Review and approve to proceed to tasks."
+      );
+    }
+    if (phase === "tasks-generated" && !specState.approvals?.tasks?.approved) {
+      validationHighlights.push(
+        "Tasks are generated but not approved. Review and approve to start implementation."
+      );
+    }
+    if (phase === "tasks-generated" && specState.approvals?.tasks?.approved) {
+      validationHighlights.push(
+        "Ready for implementation! Use 'wizard:start-implementation' to begin."
+      );
+    }
+
+    if (validationHighlights.length > 0) {
+      specContext += `## Validation Highlights\n`;
+      for (const highlight of validationHighlights) {
+        specContext += `- ${highlight}\n`;
+      }
+      specContext += `\n`;
+    }
+  }
+
   if (currentTaskId) {
     const task = await getTaskBySpecAndId(activeSpec, currentTaskId);
     if (task) {
@@ -117,6 +182,9 @@ async function buildSpecContext(sessionId: string): Promise<SpecContextData | nu
   return {
     activeSpec,
     text: specContext,
+    phase: specState?.phase || undefined,
+    approvals: specState?.approvals,
+    validationHighlights: validationHighlights.length > 0 ? validationHighlights : undefined,
   };
 }
 

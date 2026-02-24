@@ -126,6 +126,29 @@ export function normalizeRequirementId(id: string): string | null {
   return null;
 }
 
+export interface NormalizeHeadingsResult {
+  content: string;
+  mappings: string[];
+}
+
+export function normalizeRequirementHeadings(content: string): NormalizeHeadingsResult {
+  const mappings: string[] = [];
+  let result = content;
+
+  const numericHeadingRegex = /(#{1,3})\s*Requirement\s+(\d+)(?!\s*-\s*\d)/gim;
+
+  result = result.replace(numericHeadingRegex, (_match, hashes: string, num: string) => {
+    const newId = `R-${parseInt(num, 10)}`;
+    mappings.push(`Requirement ${num} -> ${newId}`);
+    return `${hashes} Requirement ${newId}`;
+  });
+
+  return {
+    content: result,
+    mappings,
+  };
+}
+
 export function validateRequirementIds(content: string): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];

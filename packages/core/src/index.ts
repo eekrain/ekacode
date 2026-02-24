@@ -205,6 +205,33 @@ export {
 export { PHASE_PROMPTS } from "./prompts";
 export { AgentProcessor } from "./session/processor";
 
+// Spec System
+export {
+  SpecStateMirror,
+  readSpecState,
+  writeSpecState,
+  type SpecApprovals,
+  type SpecState,
+  type WriteResult,
+} from "./spec/state";
+export {
+  detectDependencyCycles,
+  extractDesignSectionIds,
+  extractRequirementIds,
+  extractTaskIds,
+  normalizeRequirementHeadings,
+  normalizeRequirementId,
+  validateDesignTraceability,
+  validateRequirementIds,
+  validateTaskDependencies,
+  validateTaskFormat,
+  validateTasksCoverage,
+  type ParsedTaskDependency,
+  type ValidationError,
+  type ValidationResult,
+  type ValidationWarning,
+} from "./spec/validators";
+
 // Session Management (new architecture)
 export { SessionController } from "./session/controller";
 export { SessionManager } from "./session/manager";

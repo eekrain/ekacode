@@ -318,6 +318,22 @@ ${prompt}
     const requirementsContent = await fs.readFile(requirementsPath, "utf-8");
     const validation = validateRequirementIds(requirementsContent);
 
+    // Enforce phase failure when unresolved invalid IDs remain
+    if (!validation.ok) {
+      return {
+        ok: false,
+        phase: "requirements-generated",
+        status: "failed",
+        error: "Invalid requirement IDs found",
+        validation: {
+          ok: validation.ok,
+          errors: validation.errors,
+          warnings: validation.warnings,
+        },
+        message: `Phase failed due to validation errors:\n${validation.errors.map(e => `- ${e.code}: ${e.message}`).join("\n")}`,
+      };
+    }
+
     // Update spec state
     const stateUpdate = await updateSpecState(specDir, {
       phase: "requirements-generated",

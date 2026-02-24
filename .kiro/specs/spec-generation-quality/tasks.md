@@ -148,9 +148,9 @@ Implement parity-plus spec generation quality and the added conversational workf
 
 **Outcome:** non-numeric requirement ID headings are normalized or rejected with mapping report.
 
-- [ ] Add `normalizeRequirementHeadings` utility
-- [ ] Emit mapping report for converted IDs
-- [ ] Enforce phase failure when unresolved invalid IDs remain
+- [x] Add `normalizeRequirementHeadings` utility
+- [x] Emit mapping report for converted IDs
+- [x] Enforce phase failure when unresolved invalid IDs remain
 
 **Dependencies:** T-007
 
@@ -160,9 +160,9 @@ Implement parity-plus spec generation quality and the added conversational workf
 
 **Outcome:** injected spec context is phase-aware and actionable.
 
-- [ ] Read mirror state in injector
-- [ ] Include approvals summary and current phase in injected context
-- [ ] Include validation highlights relevant to next action
+- [x] Read mirror state in injector
+- [x] Include approvals summary and current phase in injected context
+- [x] Include validation highlights relevant to next action
 
 **Dependencies:** T-001, T-011
 
@@ -172,8 +172,8 @@ Implement parity-plus spec generation quality and the added conversational workf
 
 **Outcome:** prompt regressions are caught deterministically.
 
-- [ ] Add tests for required sections/constraints in each prompt
-- [ ] Add snapshot coverage for prompt constants
+- [x] Add tests for required sections/constraints in each prompt
+- [x] Add snapshot coverage for prompt constants
 - [ ]\* Add targeted snapshot fixtures for large prompt fragments
 
 **Dependencies:** T-009
@@ -184,9 +184,9 @@ Implement parity-plus spec generation quality and the added conversational workf
 
 **Outcome:** integration test proves full lifecycle works under parity path.
 
-- [ ] Execute init -> requirements -> design -> tasks -> validation in test flow
-- [ ] Assert artifacts and phase transitions
-- [ ] Assert no unexpected validation failures
+- [x] Execute init -> requirements -> design -> tasks -> validation in test flow
+- [x] Assert artifacts and phase transitions
+- [x] Assert no unexpected validation failures
 
 **Dependencies:** T-011, T-013, T-014
 
@@ -196,9 +196,9 @@ Implement parity-plus spec generation quality and the added conversational workf
 
 **Outcome:** invalid states/transitions are blocked with explicit error signals.
 
-- [ ] Add failing-case tests for ID format violations
-- [ ] Add failing-case tests for traceability gaps
-- [ ] Add failing-case tests for unknown dependencies and DAG cycles
+- [x] Add failing-case tests for ID format violations
+- [x] Add failing-case tests for traceability gaps
+- [x] Add failing-case tests for unknown dependencies and DAG cycles
 - [ ]\* Add edge-case tests for malformed marker usage
 
 **Dependencies:** T-007, T-011
@@ -209,9 +209,9 @@ Implement parity-plus spec generation quality and the added conversational workf
 
 **Outcome:** new prompts/tools/validators/state helpers are importable from core entrypoints.
 
-- [ ] Update prompts index exports
-- [ ] Update tools index exports
-- [ ] Update core package exports for validators/state utilities
+- [x] Update prompts index exports
+- [x] Update tools index exports
+- [x] Update core package exports for validators/state utilities
 
 **Dependencies:** T-008, T-009, T-011
 
