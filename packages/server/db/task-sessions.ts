@@ -7,7 +7,7 @@
 
 import { and, desc, eq } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
-import { db, taskSessions, threads } from "./index";
+import { db, taskSessions, threads, toolSessions } from "./index";
 
 export const DEFAULT_SESSION_TITLE = "New Chat";
 
@@ -34,9 +34,35 @@ export interface TaskSessionRecord {
   status: TaskSessionStatus;
   specType: "comprehensive" | "quick" | null;
   sessionKind: "intake" | "task";
+  runtimeMode: "intake" | "plan" | "build" | null;
   createdAt: Date;
   lastAccessed: Date;
   lastActivityAt: Date;
+}
+
+const SPEC_TOOL_NAME = "spec";
+const SESSION_MODE_KEY = "runtimeMode";
+
+async function getRuntimeMode(
+  sessionId: string
+): Promise<"intake" | "plan" | "build" | null> {
+  const result = await db
+    .select()
+    .from(toolSessions)
+    .where(
+      and(
+        eq(toolSessions.session_id, sessionId),
+        eq(toolSessions.tool_name, SPEC_TOOL_NAME),
+        eq(toolSessions.tool_key, SESSION_MODE_KEY)
+      )
+    )
+    .get();
+
+  if (!result || !result.data || typeof result.data !== "object") {
+    return null;
+  }
+  const mode = (result.data as { mode?: unknown }).mode;
+  return mode === "intake" || mode === "plan" || mode === "build" ? mode : null;
 }
 
 function getThreadMetadata(metadata: unknown): Record<string, unknown> {
@@ -108,6 +134,7 @@ export async function createTaskSession(
     status: session.status,
     specType: session.spec_type,
     sessionKind: session.session_kind,
+    runtimeMode: null,
   };
 }
 
@@ -151,6 +178,7 @@ export async function createTaskSessionWithId(
     status: session.status,
     specType: session.spec_type,
     sessionKind: session.session_kind,
+    runtimeMode: null,
   };
 }
 
@@ -174,6 +202,8 @@ export async function getTaskSession(sessionId: string): Promise<TaskSessionReco
     result.title ?? DEFAULT_SESSION_TITLE
   );
 
+  const runtimeMode = await getRuntimeMode(result.session_id);
+
   return {
     taskSessionId: result.session_id,
     resourceId: result.resource_id,
@@ -186,6 +216,7 @@ export async function getTaskSession(sessionId: string): Promise<TaskSessionReco
     status: result.status as TaskSessionStatus,
     specType: result.spec_type as "comprehensive" | "quick" | null,
     sessionKind: result.session_kind as "intake" | "task",
+    runtimeMode,
   };
 }
 
@@ -196,40 +227,48 @@ export async function listTaskSessions(options?: {
   kind?: "intake" | "task";
   workspaceId?: string;
 }): Promise<TaskSessionRecord[]> {
-  let query = db.select().from(taskSessions);
-
+  const conditions = [];
   if (options?.kind) {
-    query = query.where(eq(taskSessions.session_kind, options.kind));
+    conditions.push(eq(taskSessions.session_kind, options.kind));
   }
   if (options?.workspaceId) {
-    const condition = options.kind
-      ? and(
-          eq(taskSessions.session_kind, options.kind),
-          eq(taskSessions.workspace_id, options.workspaceId)
-        )
-      : eq(taskSessions.workspace_id, options.workspaceId);
-    query = query.where(condition);
+    conditions.push(eq(taskSessions.workspace_id, options.workspaceId));
   }
 
-  const results = await query.orderBy(desc(taskSessions.last_activity_at)).all();
+  const results = await (conditions.length > 0
+    ? db
+        .select()
+        .from(taskSessions)
+        .where(and(...conditions))
+        .orderBy(desc(taskSessions.last_activity_at))
+        .all()
+    : db
+        .select()
+        .from(taskSessions)
+        .orderBy(desc(taskSessions.last_activity_at))
+        .all()
+  );
 
-  return results.map(row => ({
-    taskSessionId: row.session_id,
-    resourceId: row.resource_id,
-    threadId: row.thread_id,
-    workspaceId: row.workspace_id,
-    title: row.title,
-    createdAt: row.created_at,
-    lastAccessed: row.last_accessed,
-    lastActivityAt: row.last_activity_at,
-    status: row.status as TaskSessionStatus,
-    specType: row.spec_type as "comprehensive" | "quick" | null,
-    sessionKind: row.session_kind as "intake" | "task",
-  }));
+  return Promise.all(
+    results.map(async row => ({
+      taskSessionId: row.session_id,
+      resourceId: row.resource_id,
+      threadId: row.thread_id,
+      workspaceId: row.workspace_id,
+      title: row.title,
+      createdAt: row.created_at,
+      lastAccessed: row.last_accessed,
+      lastActivityAt: row.last_activity_at,
+      status: row.status as TaskSessionStatus,
+      specType: row.spec_type as "comprehensive" | "quick" | null,
+      sessionKind: row.session_kind as "intake" | "task",
+      runtimeMode: await getRuntimeMode(row.session_id),
+    }))
+  );
 }
 
 /**
- * Get the most recent task session for a workspace
+ * Get most recent task session for a workspace
  */
 export async function getLatestTaskSessionByWorkspace(
   workspaceId: string,
@@ -248,6 +287,7 @@ export async function getLatestTaskSessionByWorkspace(
   }
 
   const result = results[0];
+  const runtimeMode = await getRuntimeMode(result.session_id);
   return {
     taskSessionId: result.session_id,
     resourceId: result.resource_id,
@@ -260,6 +300,7 @@ export async function getLatestTaskSessionByWorkspace(
     status: result.status as TaskSessionStatus,
     specType: result.spec_type as "comprehensive" | "quick" | null,
     sessionKind: result.session_kind as "intake" | "task",
+    runtimeMode,
   };
 }
 

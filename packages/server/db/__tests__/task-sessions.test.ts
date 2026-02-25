@@ -173,15 +173,19 @@ describe("task-sessions", () => {
 
       await createTaskSession("local");
       await new Promise(r => setTimeout(r, 100));
-      const session2 = await createTaskSession("local");
+      await createTaskSession("local");
       await new Promise(r => setTimeout(r, 100));
       await createTaskSession("local");
 
       const sessions = await listTaskSessions();
 
       expect(sessions).toHaveLength(3);
-      // Most recent first
-      expect(sessions[0].taskSessionId).not.toBe(session2.taskSessionId);
+      // Most recent first (allow ties when timestamps are equal).
+      for (let i = 1; i < sessions.length; i++) {
+        expect(sessions[i - 1].lastActivityAt.getTime()).toBeGreaterThanOrEqual(
+          sessions[i].lastActivityAt.getTime()
+        );
+      }
     });
 
     it("should filter by session kind", async () => {
