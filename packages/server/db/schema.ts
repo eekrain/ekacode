@@ -50,7 +50,7 @@ export const workspaces = sqliteTable(
 );
 
 /**
- * Sessions table - stores core session data with UUIDv7 identifiers
+ * Task Sessions table - stores task session data with UUIDv7 identifiers
  *
  * - session_id: UUIDv7 primary key
  * - resource_id: User ID or "local" for single-user desktop
@@ -63,8 +63,8 @@ export const workspaces = sqliteTable(
  * - created_at: Unix timestamp in milliseconds
  * - last_accessed: Unix timestamp in milliseconds
  */
-export const sessions = sqliteTable(
-  "sessions",
+export const taskSessions = sqliteTable(
+  "task_sessions",
   {
     session_id: text("session_id").primaryKey(),
     resource_id: text("resource_id").notNull(),
@@ -112,7 +112,7 @@ export const toolSessions = sqliteTable(
     tool_session_id: text("tool_session_id").primaryKey(),
     session_id: text("session_id")
       .notNull()
-      .references(() => sessions.session_id, { onDelete: "cascade" }),
+      .references(() => taskSessions.session_id, { onDelete: "cascade" }),
     tool_name: text("tool_name").notNull(),
     tool_key: text("tool_key").notNull(),
     data: text("data", { mode: "json" }).$type<unknown>(),
@@ -167,7 +167,7 @@ export const events = sqliteTable(
     event_id: text("event_id").primaryKey(),
     session_id: text("session_id")
       .notNull()
-      .references(() => sessions.session_id, { onDelete: "cascade" }),
+      .references(() => taskSessions.session_id, { onDelete: "cascade" }),
     sequence: integer("sequence").notNull(),
     event_type: text("event_type").notNull(),
     properties: text("properties", { mode: "json" }).notNull().$type<Record<string, unknown>>(),
@@ -183,8 +183,8 @@ export const events = sqliteTable(
 /**
  * Type definitions for TypeScript
  */
-export type Session = typeof sessions.$inferSelect;
-export type NewSession = typeof sessions.$inferInsert;
+export type TaskSession = typeof taskSessions.$inferSelect;
+export type NewTaskSession = typeof taskSessions.$inferInsert;
 export type ToolSession = typeof toolSessions.$inferSelect;
 export type NewToolSession = typeof toolSessions.$inferInsert;
 export type RepoCache = typeof repoCache.$inferSelect;
