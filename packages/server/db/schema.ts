@@ -4,6 +4,7 @@
  * Defines tables for sessions, tool_sessions, and repo_cache using Drizzle ORM.
  */
 
+import { sql } from "drizzle-orm";
 import {
   foreignKey,
   index,
@@ -62,6 +63,10 @@ export const workspaces = sqliteTable(
  * - share_url: Optional URL for shared sessions
  * - created_at: Unix timestamp in milliseconds
  * - last_accessed: Unix timestamp in milliseconds
+ * - status: Task session status (researching | specifying | implementing | completed | failed)
+ * - spec_type: Spec type (comprehensive | quick | null)
+ * - session_kind: Session kind (intake | task) - intake scratch vs user-visible task sessions
+ * - last_activity_at: Last activity timestamp in milliseconds
  */
 export const taskSessions = sqliteTable(
   "task_sessions",
@@ -81,6 +86,12 @@ export const taskSessions = sqliteTable(
     share_url: text("share_url"),
     created_at: integer("created_at", { mode: "timestamp" }).notNull(),
     last_accessed: integer("last_accessed", { mode: "timestamp" }).notNull(),
+    status: text("status").notNull().default("researching"),
+    spec_type: text("spec_type"),
+    session_kind: text("session_kind").notNull().default("task"),
+    last_activity_at: integer("last_activity_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
   },
   table => ({
     parentSession: foreignKey({
@@ -93,6 +104,17 @@ export const taskSessions = sqliteTable(
       foreignColumns: [workspaces.id],
       name: "sessions_workspace_id_fkey",
     }).onDelete("set null"),
+    statusIndex: index("task_sessions_status_idx").on(table.status),
+    kindIndex: index("task_sessions_kind_idx").on(table.session_kind),
+    workspaceActivityIndex: index("task_sessions_workspace_activity_idx").on(
+      table.workspace_id,
+      table.last_activity_at
+    ),
+    workspaceKindActivityIndex: index("task_sessions_workspace_kind_activity_idx").on(
+      table.workspace_id,
+      table.session_kind,
+      table.last_activity_at
+    ),
   })
 );
 
