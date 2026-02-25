@@ -476,6 +476,56 @@ export type WorkingMemory = typeof workingMemory.$inferSelect;
 export type NewWorkingMemory = typeof workingMemory.$inferInsert;
 
 /**
+ * Project Keypoints table - stores project milestones and highlights
+ *
+ * Tracks important milestones and achievements across task sessions:
+ * - task_session_id: Reference to the task session
+ * - task_title: Title of the associated task
+ * - milestone: "started" or "completed" - milestone type
+ * - completed_at: When this milestone was reached
+ * - summary: Narrative summary of the milestone
+ * - artifacts: List of relevant artifacts (files, commits, docs)
+ * - created_at: When the keypoint was created
+ *
+ * Dedupe semantics: Latest keypoint per (task_session_id, milestone) wins.
+ * Multiple writes to the same milestone will replace previous entries.
+ */
+export const projectKeypoints = sqliteTable(
+  "project_keypoints",
+  {
+    id: text("id").primaryKey(),
+    workspace_id: text("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    task_session_id: text("task_session_id")
+      .notNull()
+      .references(() => taskSessions.session_id, { onDelete: "cascade" }),
+    task_title: text("task_title").notNull(),
+    milestone: text("milestone").notNull(),
+    completed_at: integer("completed_at", { mode: "timestamp" }).notNull(),
+    summary: text("summary").notNull(),
+    artifacts: text("artifacts", { mode: "json" }).$type<string[]>().notNull(),
+    created_at: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  table => ({
+    workspaceCompletedIdx: index("project_keypoints_workspace_completed_idx").on(
+      table.workspace_id,
+      table.completed_at
+    ),
+    taskMilestoneIdx: index("project_keypoints_task_milestone_idx").on(
+      table.task_session_id,
+      table.milestone
+    ),
+  })
+);
+
+/**
+ * Type definitions for project keypoints
+ */
+export type ProjectKeypoint = typeof projectKeypoints.$inferSelect;
+export type NewProjectKeypoint = typeof projectKeypoints.$inferInsert;
+
+/**
  * Type definitions for workspaces
  */
 export type Workspace = typeof workspaces.$inferSelect;
