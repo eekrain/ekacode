@@ -220,12 +220,15 @@ describeGit("POST /api/vcs/branches", () => {
 
 describeGit("POST /api/vcs/clone", () => {
   let tempDir: string;
+  let cloneTargetDir: string;
   let sourceRepoDir: string;
   let sourceDefaultBranch: string;
 
   beforeEach(async () => {
     tempDir = await fsPromises.mkdtemp(path.join(os.tmpdir(), "sakti-code-clone-test-"));
+    cloneTargetDir = path.join(tempDir, "clones");
     sourceRepoDir = path.join(tempDir, "source-repo");
+    await fsPromises.mkdir(cloneTargetDir, { recursive: true });
     await fsPromises.mkdir(sourceRepoDir, { recursive: true });
     try {
       git(sourceRepoDir, ["init"]);
@@ -250,20 +253,12 @@ describeGit("POST /api/vcs/clone", () => {
     if (gitUnavailable) return;
     const vcsRouter = (await import("../vcs")).default;
 
-    // Clean up any existing clone directory from previous runs
-    const cloneTargetPath = path.join(tempDir, "source-repo");
-    try {
-      await fsPromises.rm(cloneTargetPath, { recursive: true, force: true });
-    } catch {
-      // Ignore if directory doesn't exist
-    }
-
     const response = await vcsRouter.request("http://localhost/api/vcs/clone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         url: `file://${sourceRepoDir}`,
-        targetDir: tempDir,
+        targetDir: cloneTargetDir,
         branch: sourceDefaultBranch,
       }),
     });
@@ -272,10 +267,10 @@ describeGit("POST /api/vcs/clone", () => {
       const body = await response.json();
       console.log("Clone response error:", JSON.stringify(body, null, 2));
     }
-    
+
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body.path).toBe(path.join(tempDir, "source-repo"));
+    expect(body.path).toBe(path.join(cloneTargetDir, "source-repo"));
     const readme = await fsPromises.readFile(path.join(body.path, "README.md"), "utf-8");
     expect(readme).toContain("Local Source");
   });
