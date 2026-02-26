@@ -1,0 +1,18 @@
+export {
+  modelDescriptorSchema,
+  providerAuthMethodDescriptorSchema,
+  providerAuthMethodSchema,
+  providerAuthPromptSelectSchema,
+  providerAuthPromptTextSchema,
+  providerAuthStateSchema,
+  providerCatalogItemSchema,
+  providerConfigPayloadSchema,
+  providerDescriptorSchema,
+  providerOAuthAuthorizeRequestSchema,
+  providerOAuthAuthorizeResponseSchema,
+  providerOAuthCallbackRequestSchema,
+  providerOAuthCallbackResponseSchema,
+  providerOAuthFlowMethodSchema,
+  providerPreferencesSchema,
+  providerPreferencesUpdateSchema,
+} from "../../../../provider/schema.js";

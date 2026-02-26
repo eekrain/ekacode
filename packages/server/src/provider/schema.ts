@@ -1,13 +1,13 @@
 import { z } from "zod";
 
-const providerAuthPromptTextSchema = z.object({
+export const providerAuthPromptTextSchema = z.object({
   type: z.literal("text"),
   key: z.string().min(1),
   message: z.string().min(1),
   placeholder: z.string().optional(),
 });
 
-const providerAuthPromptSelectSchema = z.object({
+export const providerAuthPromptSelectSchema = z.object({
   type: z.literal("select"),
   key: z.string().min(1),
   message: z.string().min(1),
