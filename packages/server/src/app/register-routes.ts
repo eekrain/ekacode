@@ -1,9 +1,17 @@
 import type { Hono } from "hono";
 import type { Env } from "../index.js";
+import { agentRoutes } from "../modules/agent/controller/routes/index.js";
+import { commandRoutes } from "../modules/command/controller/routes/index.js";
+import { eventRoutes, eventsRoutes } from "../modules/events/controller/routes/index.js";
 import { filesRoutes } from "../modules/files/controller/routes/index.js";
 import { healthRoutes } from "../modules/health/controller/routes/index.js";
+import { lspRoutes } from "../modules/lsp/controller/routes/index.js";
+import { mcpRoutes } from "../modules/mcp/controller/routes/index.js";
+import { permissionsRoutes } from "../modules/permissions/controller/routes/index.js";
 import { projectRoutes } from "../modules/project/controller/routes/index.js";
 import { providerRoutes } from "../modules/provider/controller/routes/index.js";
+import { questionsRoutes } from "../modules/questions/controller/routes/index.js";
+import { rulesRoutes } from "../modules/rules/controller/routes/index.js";
 import { runEventsRoutes, taskRunsRoutes } from "../modules/task-runs/controller/routes/index.js";
 import { taskSessionsRoutes } from "../modules/task-sessions/controller/routes/index.js";
 import { diffRoutes, vcsRoutes } from "../modules/vcs/controller/routes/index.js";
@@ -20,6 +28,15 @@ export function registerRoutes(app: Hono<Env>): void {
   app.route("/", filesRoutes);
   app.route("/", vcsRoutes);
   app.route("/", diffRoutes);
+  app.route("/", permissionsRoutes);
+  app.route("/", questionsRoutes);
+  app.route("/", rulesRoutes);
+  app.route("/", commandRoutes);
+  app.route("/", agentRoutes);
+  app.route("/", eventsRoutes);
+  app.route("/", eventRoutes);
+  app.route("/", lspRoutes);
+  app.route("/", mcpRoutes);
 }
 
 export const migrationCheckpoint = {
