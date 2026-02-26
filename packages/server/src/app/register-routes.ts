@@ -1,10 +1,12 @@
 import type { Hono } from "hono";
 import type { Env } from "../index.js";
+import { filesRoutes } from "../modules/files/controller/routes/index.js";
 import { healthRoutes } from "../modules/health/controller/routes/index.js";
 import { projectRoutes } from "../modules/project/controller/routes/index.js";
 import { providerRoutes } from "../modules/provider/controller/routes/index.js";
 import { runEventsRoutes, taskRunsRoutes } from "../modules/task-runs/controller/routes/index.js";
 import { taskSessionsRoutes } from "../modules/task-sessions/controller/routes/index.js";
+import { diffRoutes, vcsRoutes } from "../modules/vcs/controller/routes/index.js";
 import { workspaceRoutes } from "../modules/workspace/controller/routes/index.js";
 
 export function registerRoutes(app: Hono<Env>): void {
@@ -15,6 +17,9 @@ export function registerRoutes(app: Hono<Env>): void {
   app.route("/", providerRoutes);
   app.route("/", workspaceRoutes);
   app.route("/", projectRoutes);
+  app.route("/", filesRoutes);
+  app.route("/", vcsRoutes);
+  app.route("/", diffRoutes);
 }
 
 export const migrationCheckpoint = {
