@@ -1,6 +1,7 @@
 import type { Hono } from "hono";
 import type { Env } from "../index.js";
 import { agentRoutes } from "../modules/agent/controller/routes/index.js";
+import { chatRoutes } from "../modules/chat/controller/routes/index.js";
 import { commandRoutes } from "../modules/command/controller/routes/index.js";
 import { eventRoutes, eventsRoutes } from "../modules/events/controller/routes/index.js";
 import { filesRoutes } from "../modules/files/controller/routes/index.js";
@@ -19,6 +20,7 @@ import { workspaceRoutes } from "../modules/workspace/controller/routes/index.js
 
 export function registerRoutes(app: Hono<Env>): void {
   app.route("/", healthRoutes);
+  app.route("/", chatRoutes);
   app.route("/", taskSessionsRoutes);
   app.route("/", taskRunsRoutes);
   app.route("/", runEventsRoutes);
