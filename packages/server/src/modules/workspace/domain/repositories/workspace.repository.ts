@@ -11,11 +11,13 @@ export interface Workspace {
   archivedAt: Date | null;
   createdAt: Date;
   lastOpenedAt: Date;
+  projectId: string | null;
 }
 
 export interface CreateWorkspaceInput {
   path: string;
   name?: string;
+  projectId?: string;
 }
 
 export interface UpdateWorkspaceInput {

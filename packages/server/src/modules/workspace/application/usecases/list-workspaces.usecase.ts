@@ -1,8 +1,13 @@
+import {
+  createProject as dbCreateProject,
+  getProjectByPath as dbGetProjectByPath,
+} from "../../../../../db/projects.js";
 import type {
   IWorkspaceRepository,
   ListWorkspaceOptions,
   Workspace,
 } from "../../domain/repositories/workspace.repository.js";
+import { detectProject } from "../../infrastructure/detect-project.js";
 
 export interface CreateWorkspaceInput {
   path: string;
@@ -41,7 +46,24 @@ export function createWorkspaceUsecases(workspaceRepository: IWorkspaceRepositor
         return { workspace: existing, existing: true };
       }
 
-      const workspace = await workspaceRepository.create(input);
+      const projectIdentity = detectProject(input.path);
+      let projectId: string | undefined;
+
+      const existingProject = await dbGetProjectByPath(projectIdentity.path);
+      if (existingProject) {
+        projectId = existingProject.id;
+      } else {
+        const newProject = await dbCreateProject({
+          name: projectIdentity.name,
+          path: projectIdentity.path,
+        });
+        projectId = newProject.id;
+      }
+
+      const workspace = await workspaceRepository.create({
+        ...input,
+        projectId,
+      });
       return { workspace, existing: false };
     },
     async updateWorkspace(id: string, input: UpdateWorkspaceInput): Promise<Workspace | null> {

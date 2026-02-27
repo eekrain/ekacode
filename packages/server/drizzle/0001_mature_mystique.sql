@@ -1,0 +1,10 @@
+CREATE TABLE `projects` (
+	`id` text PRIMARY KEY NOT NULL,
+	`name` text NOT NULL,
+	`path` text NOT NULL,
+	`created_at` integer NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `projects_path_unique` ON `projects` (`path`);--> statement-breakpoint
+CREATE INDEX `projects_path_idx` ON `projects` (`path`);--> statement-breakpoint
+ALTER TABLE `workspaces` ADD `project_id` text REFERENCES projects(id);

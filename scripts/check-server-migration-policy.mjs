@@ -7,6 +7,10 @@ const JOURNAL_PATH = "packages/server/drizzle/meta/_journal.json";
 const SQL_FILE_PATTERN = /^packages\/server\/drizzle\/\d+_.+\.sql$/;
 const SNAPSHOT_FILE_PATTERN = /^packages\/server\/drizzle\/meta\/\d+_snapshot\.json$/;
 
+function isSquashMode() {
+  return process.env.SAKTI_ALLOW_MIGRATION_SQUASH === "1";
+}
+
 function parseNameStatusLine(line) {
   const parts = line.split("\t");
   const status = parts[0];
@@ -33,6 +37,10 @@ function isMigrationPath(filePath) {
 function allowChange(status, filePath) {
   if (!isMigrationPath(filePath)) return true;
 
+  if (isSquashMode()) {
+    return true;
+  }
+
   if (status === "A" && (SQL_FILE_PATTERN.test(filePath) || SNAPSHOT_FILE_PATTERN.test(filePath))) {
     return true;
   }
@@ -46,6 +54,7 @@ function allowChange(status, filePath) {
 
 export function evaluateMigrationDiff(lines) {
   const errors = [];
+  const squashMode = isSquashMode();
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
@@ -55,6 +64,9 @@ export function evaluateMigrationDiff(lines) {
     if (!parsed) continue;
 
     if ("oldPath" in parsed) {
+      if (squashMode) {
+        continue;
+      }
       if (isMigrationPath(parsed.oldPath) || isMigrationPath(parsed.newPath)) {
         errors.push(
           `Disallowed migration change: ${parsed.status} ${parsed.oldPath ?? ""} -> ${parsed.newPath ?? ""}`

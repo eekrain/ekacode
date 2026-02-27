@@ -11,6 +11,7 @@ import { db, workspaces } from "./index";
 export interface CreateWorkspaceInput {
   path: string;
   name?: string;
+  projectId?: string;
 }
 
 export interface ArchiveWorkspaceInput {
@@ -33,6 +34,7 @@ export interface WorkspaceData {
   archivedAt: Date | null;
   createdAt: Date;
   lastOpenedAt: Date;
+  projectId: string | null;
 }
 
 function extractNameFromPath(path: string): string {
@@ -51,6 +53,7 @@ function mapToWorkspaceData(row: {
   archived_at: Date | null;
   created_at: Date;
   last_opened_at: Date;
+  project_id: string | null;
 }): WorkspaceData {
   return {
     id: row.id,
@@ -63,6 +66,7 @@ function mapToWorkspaceData(row: {
     archivedAt: row.archived_at,
     createdAt: row.created_at,
     lastOpenedAt: row.last_opened_at,
+    projectId: row.project_id,
   };
 }
 
@@ -88,6 +92,7 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Work
     archived_at: null,
     created_at: now,
     last_opened_at: now,
+    project_id: input.projectId ?? null,
   };
 
   await db.insert(workspaces).values(workspace);

@@ -28,7 +28,21 @@ import {
  * - archived_at: When the workspace was archived
  * - created_at: When the workspace was created
  * - last_opened_at: When the workspace was last opened
+ * - project_id: Foreign key to projects (optional)
  */
+export const projects = sqliteTable(
+  "projects",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    path: text("path").notNull().unique(),
+    created_at: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  table => ({
+    pathIndex: index("projects_path_idx").on(table.path),
+  })
+);
+
 export const workspaces = sqliteTable(
   "workspaces",
   {
@@ -42,6 +56,9 @@ export const workspaces = sqliteTable(
     archived_at: integer("archived_at", { mode: "timestamp" }),
     created_at: integer("created_at", { mode: "timestamp" }).notNull(),
     last_opened_at: integer("last_opened_at", { mode: "timestamp" }).notNull(),
+    project_id: text("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
   },
   table => ({
     statusIndex: index("workspaces_status_idx").on(table.status),
@@ -630,3 +647,9 @@ export type NewProjectKeypoint = typeof projectKeypoints.$inferInsert;
  */
 export type Workspace = typeof workspaces.$inferSelect;
 export type NewWorkspace = typeof workspaces.$inferInsert;
+
+/**
+ * Type definitions for projects
+ */
+export type Project = typeof projects.$inferSelect;
+export type NewProject = typeof projects.$inferInsert;

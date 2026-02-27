@@ -152,6 +152,11 @@ export function closeDb(): void {
  */
 export * from "./schema";
 
+/**
+ * Export project CRUD operations
+ */
+export * from "./projects";
+
 registerCoreDbBindings({
   getDb,
   closeDb,

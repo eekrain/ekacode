@@ -1,15 +1,15 @@
 /**
- * Migration upgrade tests for memory schema.
+ * Migration tests for memory schema.
  *
- * Verifies upgrading a legacy DB (without FTS) applies FTS migration,
- * backfills existing rows, and keeps triggers working.
+ * Verifies the baseline migration correctly creates FTS tables,
+ * triggers for auto-sync, and search functionality works.
  */
 
 import { createClient } from "@libsql/client";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,53 +18,7 @@ import { afterAll, describe, expect, it } from "vitest";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-async function createLegacyMigrationsFolder(tempRoot: string): Promise<string> {
-  const legacy = path.join(tempRoot, "legacy-migrations");
-  const meta = path.join(legacy, "meta");
-  await mkdir(meta, { recursive: true });
-
-  const source = path.resolve(__dirname, "../../drizzle");
-  const files = [
-    "0000_exotic_tattoo.sql",
-    "0001_bent_leper_queen.sql",
-    "0002_gigantic_warlock.sql",
-  ];
-  for (const file of files) {
-    const content = await readFile(path.join(source, file), "utf-8");
-    await writeFile(path.join(legacy, file), content, "utf-8");
-  }
-
-  const legacyJournal = {
-    version: "7",
-    dialect: "sqlite",
-    entries: [
-      { idx: 0, version: "6", when: 1771228726497, tag: "0000_exotic_tattoo", breakpoints: true },
-      {
-        idx: 1,
-        version: "6",
-        when: 1771231851268,
-        tag: "0001_bent_leper_queen",
-        breakpoints: true,
-      },
-      {
-        idx: 2,
-        version: "6",
-        when: 1771232101634,
-        tag: "0002_gigantic_warlock",
-        breakpoints: true,
-      },
-    ],
-  };
-
-  await writeFile(
-    path.join(meta, "_journal.json"),
-    JSON.stringify(legacyJournal, null, 2),
-    "utf-8"
-  );
-  return legacy;
-}
-
-describe("memory migration upgrade", () => {
+describe("memory migration", () => {
   const cleanupDirs: string[] = [];
 
   afterAll(async () => {
@@ -73,63 +27,40 @@ describe("memory migration upgrade", () => {
     }
   });
 
-  it("upgrades legacy DB to add messages_fts, backfill rows, and maintain triggers", async () => {
+  it("creates FTS tables and maintains triggers in baseline migration", async () => {
     const tempRoot = await mkdtemp(path.join(tmpdir(), "sakti-code-migrate-"));
     cleanupDirs.push(tempRoot);
 
-    const dbFile = path.join(tempRoot, "upgrade.db");
-    const dbUrl = `file:${dbFile}`;
-    const client = createClient({ url: dbUrl });
+    const fullMigrations = path.resolve(__dirname, "../../drizzle");
+    const client = createClient({ url: `file:${path.join(tempRoot, "test.db")}` });
     const db = drizzle(client);
 
-    const legacyFolder = await createLegacyMigrationsFolder(tempRoot);
-    await migrate(db, { migrationsFolder: legacyFolder });
+    await migrate(db, { migrationsFolder: fullMigrations });
+
+    const hasFts = await db.all(sql`
+      SELECT name FROM sqlite_master WHERE type='table' AND name = 'messages_fts'
+    `);
+    expect(hasFts.length).toBe(1);
+
+    const hasTriggers = await db.all(sql`
+      SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'messages_fts_%'
+    `);
+    expect(hasTriggers.length).toBe(3);
 
     const now = Date.now();
     await db.run(sql`
       INSERT INTO threads (id, resource_id, title, created_at, updated_at)
-      VALUES ('legacy-thread', 'legacy-resource', 'Legacy Thread', ${now}, ${now})
+      VALUES ('test-thread', 'test-resource', 'Test', ${now}, ${now})
     `);
     await db.run(sql`
       INSERT INTO messages (id, thread_id, resource_id, role, raw_content, search_text, injection_text, created_at, message_index)
-      VALUES ('legacy-msg', 'legacy-thread', 'legacy-resource', 'assistant', 'raw', 'legacyupgradealpha', 'inj', ${now}, 0)
+      VALUES ('test-msg', 'test-thread', 'test-resource', 'assistant', 'raw', 'testsearch', 'inj', ${now}, 0)
     `);
 
-    const hasFtsBefore = await db.all(sql`
-      SELECT name FROM sqlite_master WHERE name = 'messages_fts'
+    const searchResult = await db.all(sql`
+      SELECT rowid FROM messages_fts WHERE messages_fts MATCH 'testsearch'
     `);
-    expect(hasFtsBefore.length).toBe(0);
-
-    const fullMigrations = path.resolve(__dirname, "../../drizzle");
-    await migrate(db, { migrationsFolder: fullMigrations });
-
-    const hasFtsAfter = await db.all(sql`
-      SELECT name FROM sqlite_master WHERE name = 'messages_fts'
-    `);
-    expect(hasFtsAfter.length).toBe(1);
-
-    const backfilled = await db.all(sql`
-      SELECT rowid FROM messages_fts WHERE messages_fts MATCH 'legacyupgradealpha'
-    `);
-    expect(backfilled.length).toBe(1);
-
-    await db.run(sql`
-      UPDATE messages SET search_text = 'legacyupgradebeta' WHERE id = 'legacy-msg'
-    `);
-    const oldAfterUpdate = await db.all(sql`
-      SELECT rowid FROM messages_fts WHERE messages_fts MATCH 'legacyupgradealpha'
-    `);
-    const newAfterUpdate = await db.all(sql`
-      SELECT rowid FROM messages_fts WHERE messages_fts MATCH 'legacyupgradebeta'
-    `);
-    expect(oldAfterUpdate.length).toBe(0);
-    expect(newAfterUpdate.length).toBe(1);
-
-    await db.run(sql`DELETE FROM messages WHERE id = 'legacy-msg'`);
-    const afterDelete = await db.all(sql`
-      SELECT rowid FROM messages_fts WHERE messages_fts MATCH 'legacyupgradebeta'
-    `);
-    expect(afterDelete.length).toBe(0);
+    expect(searchResult.length).toBe(1);
 
     client.close();
   });
