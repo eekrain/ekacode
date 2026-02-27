@@ -19,7 +19,7 @@
     "drizzle:check": "drizzle-kit check",
     "drizzle:migrate": "drizzle-kit migrate",
     "drizzle:studio": "drizzle-kit studio",
-    "schema:provider": "node src/schema/generate-provider-schema.mjs",
+    "schema:provider": "node schema/generate-provider-schema.mjs",
     "models:refresh:snapshot": "node ../../scripts/update-models-snapshot.mjs"
   },
   "dependencies": {
