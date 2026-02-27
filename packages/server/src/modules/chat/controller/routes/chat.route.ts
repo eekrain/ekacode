@@ -8,6 +8,7 @@
  * Publishes Opencode-style part events to the Bus for SSE streaming.
  */
 
+import { getSessionManager } from "@/app/runtime/session-manager";
 import { MessagePartUpdated, MessageUpdated, publish, SessionStatus } from "@/bus";
 import type { Env } from "@/index";
 import { createSessionMessage, sessionBridge } from "@/middleware/session-bridge";
@@ -18,7 +19,6 @@ import {
   getProviderRuntime,
   resolveChatSelection,
 } from "@/modules/provider/infrastructure/provider/runtime";
-import { getSessionManager } from "@/runtime";
 import { zValidator } from "@/shared/controller/http/validators.js";
 import { Instance } from "@sakti-code/core/server";
 import { createLogger } from "@sakti-code/shared/logger";

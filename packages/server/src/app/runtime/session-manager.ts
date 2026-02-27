@@ -1,7 +1,6 @@
 import { SessionManager } from "@sakti-code/core";
 import { desc, eq } from "drizzle-orm";
-import { db, taskSessions } from "../db";
-import { getServerToken } from "./server-token";
+import { db, taskSessions } from "../../../db";
 
 const sessionDbAdapter = {
   insert: (table: string) => ({
@@ -52,5 +51,3 @@ export function getSessionManager(): SessionManager {
   }
   return globalSessionManager;
 }
-
-export { getServerToken };

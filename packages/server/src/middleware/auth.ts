@@ -7,8 +7,8 @@
 
 import { createLogger } from "@sakti-code/shared/logger";
 import type { Context, Next } from "hono";
+import { getServerToken } from "../app/security/server-token";
 import type { Env } from "../index";
-import { getServerToken } from "../server-token";
 import type { ErrorResponse } from "../types";
 
 const logger = createLogger("server:auth");

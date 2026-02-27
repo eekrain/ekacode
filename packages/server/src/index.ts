@@ -42,14 +42,16 @@ import { shutdown } from "@sakti-code/shared/shutdown";
 import { app } from "./app/app.js";
 import "./app/logging-env.js";
 import { setRuntimePort } from "./app/runtime-config.js";
+import { getSessionManager } from "./app/runtime/session-manager";
+import { getServerToken } from "./app/security/server-token";
 import { PermissionAsked, publish, QuestionAsked } from "./bus";
 import {
   createChatTaskRunExecutor,
   TaskRunWorker,
 } from "./modules/task-runs/infrastructure/task-run-worker";
-import { getServerToken, getSessionManager } from "./runtime";
+export { getSessionManager } from "./app/runtime/session-manager";
+export { getServerToken } from "./app/security/server-token";
 export type { AppType } from "./app/types.js";
-export { getServerToken, getSessionManager } from "./runtime";
 export { app };
 
 let permissionBusBound = false;
