@@ -4,9 +4,7 @@ import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { ArchivedWorkspaceItem } from "./archived-workspace-item";
 import { EmptyState } from "./empty-state";
 import { KeyboardShortcutsFooter } from "./keyboard-shortcuts-footer";
-import { WorkspaceCard } from "./workspace-card";
-
-type Column = "recent" | "archived";
+import { ProjectCard } from "./project-card";
 
 interface WorkspaceDashboardProps {
   recentWorkspaces: RecentProject[];
@@ -18,6 +16,40 @@ interface WorkspaceDashboardProps {
   onSearch: () => void;
   onSettingsOpen?: () => void;
   isLoading?: boolean;
+}
+
+interface ProjectGroup {
+  id: string;
+  name: string;
+  path?: string;
+  workspaces: RecentProject[];
+}
+
+function groupWorkspacesByProject(workspaces: RecentProject[]): ProjectGroup[] {
+  const groups = new Map<string, ProjectGroup>();
+
+  for (const ws of workspaces) {
+    const projectKey = ws.projectId || "ungrouped";
+    const projectName = ws.project?.name || ws.name;
+    const projectPath = ws.project?.path;
+
+    if (!groups.has(projectKey)) {
+      groups.set(projectKey, {
+        id: projectKey,
+        name: projectName,
+        path: projectPath,
+        workspaces: [],
+      });
+    }
+
+    groups.get(projectKey)!.workspaces.push(ws);
+  }
+
+  return Array.from(groups.values()).sort((a, b) => {
+    const aTime = a.workspaces[0]?.lastOpened.getTime() || 0;
+    const bTime = b.workspaces[0]?.lastOpened.getTime() || 0;
+    return bTime - aTime;
+  });
 }
 
 function filterWorkspaces<T extends { name: string; path: string }>(
@@ -33,78 +65,19 @@ function filterWorkspaces<T extends { name: string; path: string }>(
 
 export function WorkspaceDashboard(props: WorkspaceDashboardProps) {
   const [searchQuery, setSearchQuery] = createSignal("");
-  const [isSearchActive, setIsSearchActive] = createSignal(false);
-  const [focusedColumn, setFocusedColumn] = createSignal<Column>("recent");
-  const [focusedIndex, setFocusedIndex] = createSignal(0);
 
   const filteredRecent = () => filterWorkspaces(props.recentWorkspaces, searchQuery());
   const filteredArchived = () => filterWorkspaces(props.archivedWorkspaces, searchQuery());
-
-  const isFocused = (column: Column, index: number): boolean => {
-    return focusedColumn() === column && focusedIndex() === index;
-  };
-
-  const navigateDown = () => {
-    const maxLength =
-      focusedColumn() === "recent" ? filteredRecent().length : filteredArchived().length;
-    const maxIndex = maxLength - 1;
-    setFocusedIndex(prev => Math.min(prev + 1, maxIndex));
-  };
-
-  const navigateUp = () => {
-    setFocusedIndex(prev => Math.max(prev - 1, 0));
-  };
-
-  const navigateRight = () => {
-    if (focusedColumn() === "recent") {
-      setFocusedColumn("archived");
-      setFocusedIndex(0);
-    }
-  };
-
-  const navigateLeft = () => {
-    if (focusedColumn() === "archived") {
-      setFocusedColumn("recent");
-      setFocusedIndex(0);
-    }
-  };
-
-  const openFocused = () => {
-    if (focusedColumn() === "recent") {
-      const workspace = filteredRecent()[focusedIndex()];
-      if (workspace) {
-        props.onOpenWorkspace(workspace);
-      }
-    }
-  };
+  const groupedProjects = () => groupWorkspacesByProject(filteredRecent());
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "f") {
       e.preventDefault();
-      setIsSearchActive(true);
       props.onSearch();
     }
     if ((e.metaKey || e.ctrlKey) && e.key === "n") {
       e.preventDefault();
       props.onNewWorkspace();
-    }
-    if (!isSearchActive()) {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        navigateDown();
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        navigateUp();
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault();
-        navigateRight();
-      } else if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        navigateLeft();
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        openFocused();
-      }
     }
   };
 
@@ -186,34 +159,38 @@ export function WorkspaceDashboard(props: WorkspaceDashboardProps) {
 
             {/* Sections */}
             <div class="flex flex-col">
-              {/* Recent Workspaces */}
+              {/* Projects Grid */}
               <div class="border-border/50 border-b p-4">
                 <div class="mb-3 flex items-center justify-between">
-                  <h2 class="text-foreground text-sm font-semibold">Recent Workspaces</h2>
+                  <h2 class="text-foreground text-sm font-semibold">Projects</h2>
                   <span class="bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 text-xs font-medium">
-                    {filteredRecent().length}
+                    {groupedProjects().length}
                   </span>
                 </div>
 
-                <div class="space-y-2">
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <Show
-                    when={filteredRecent().length > 0}
+                    when={groupedProjects().length > 0}
                     fallback={
-                      <EmptyState
-                        icon="📂"
-                        title="No recent workspaces"
-                        subtitle="Open a workspace to get started"
-                      />
+                      <div class="col-span-full">
+                        <EmptyState
+                          icon="📂"
+                          title="No recent workspaces"
+                          subtitle="Open a workspace to get started"
+                        />
+                      </div>
                     }
                   >
-                    <For each={filteredRecent()}>
-                      {(workspace, index) => (
-                        <WorkspaceCard
-                          workspace={workspace}
-                          shortcutNumber={index() + 1}
-                          onOpen={props.onOpenWorkspace}
-                          onArchive={props.onArchiveWorkspace}
-                          isFocused={isFocused("recent", index())}
+                    <For each={groupedProjects()}>
+                      {project => (
+                        <ProjectCard
+                          project={project}
+                          workspaces={project.workspaces}
+                          onOpenProject={() => {
+                            const firstWs = project.workspaces[0];
+                            if (firstWs) props.onOpenWorkspace(firstWs);
+                          }}
+                          onOpenWorkspace={props.onOpenWorkspace}
                         />
                       )}
                     </For>

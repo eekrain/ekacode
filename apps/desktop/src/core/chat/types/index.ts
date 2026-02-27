@@ -1,9 +1,17 @@
+export interface Project {
+  id: string;
+  name: string;
+  path: string;
+}
+
 export interface RecentProject {
   id: string;
   name: string;
   path: string;
   lastOpened: Date;
   gitStatus?: GitStatus;
+  projectId?: string;
+  project?: Project;
 }
 
 export interface GitStatus {

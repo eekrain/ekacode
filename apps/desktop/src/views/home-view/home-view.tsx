@@ -16,6 +16,8 @@ function mapWorkspaceToRecentProject(ws: Workspace): RecentProject {
     name: ws.name,
     path: ws.path,
     lastOpened: new Date(ws.lastOpenedAt),
+    projectId: ws.projectId ?? undefined,
+    project: ws.project ?? undefined,
   };
 }
 
