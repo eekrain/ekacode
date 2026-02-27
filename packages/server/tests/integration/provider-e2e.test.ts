@@ -12,7 +12,7 @@ describe("provider e2e flow", () => {
   });
 
   it("supports providers -> auth -> models flow", async () => {
-    const providerRouter = (await import("../../src/routes/provider")).default;
+    const providerRouter = (await import("../../src/http/provider")).default;
 
     const providersRes = await providerRouter.request("http://localhost/api/providers");
     const providersBody = await providersRes.json();
