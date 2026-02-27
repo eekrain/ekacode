@@ -1,8 +1,8 @@
 import type {
+  ITaskSessionRepository,
   TaskSession,
   TaskSessionKind,
 } from "../../domain/repositories/task-session.repository.js";
-import { taskSessionRepository } from "../../infrastructure/repositories/task-session.repository.drizzle.js";
 
 export interface ListTaskSessionsInput {
   workspaceId?: string;
@@ -13,20 +13,24 @@ export interface ListTaskSessionsOutput {
   taskSessions: TaskSession[];
 }
 
-export async function listTaskSessionsUsecase(
-  input: ListTaskSessionsInput
-): Promise<ListTaskSessionsOutput> {
-  const sessions = await taskSessionRepository.list({
-    workspaceId: input.workspaceId,
-    kind: input.kind,
-  });
+export function createListTaskSessionsUsecase(repository: ITaskSessionRepository) {
+  return async function listTaskSessionsUsecase(
+    input: ListTaskSessionsInput
+  ): Promise<ListTaskSessionsOutput> {
+    const sessions = await repository.list({
+      workspaceId: input.workspaceId,
+      kind: input.kind,
+    });
 
-  return { taskSessions: sessions };
+    return { taskSessions: sessions };
+  };
 }
 
-export async function getLatestTaskSessionByWorkspaceUsecase(
-  workspaceId: string,
-  kind: TaskSessionKind
-): Promise<TaskSession | null> {
-  return taskSessionRepository.getLatestByWorkspace(workspaceId, kind);
+export function createGetLatestTaskSessionByWorkspaceUsecase(repository: ITaskSessionRepository) {
+  return async function getLatestTaskSessionByWorkspaceUsecase(
+    workspaceId: string,
+    kind: TaskSessionKind
+  ): Promise<TaskSession | null> {
+    return repository.getLatestByWorkspace(workspaceId, kind);
+  };
 }

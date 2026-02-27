@@ -3,11 +3,11 @@ import { streamSSE } from "hono/streaming";
 import { z } from "zod";
 import type { Env } from "../../../../index.js";
 import { zValidator } from "../../../../shared/controller/http/validators.js";
-import { getTaskRunByIdUsecase } from "../../application/usecases/cancel-task-run.usecase.js";
-import { taskRunEventRepository } from "../../infrastructure/repositories/task-run-event.repository.drizzle.js";
+import { buildTaskRunUsecases } from "../factory/task-runs.factory.js";
 import { TaskRunParamsSchema } from "../schemas/task-run.schema.js";
 
 const app = new Hono<Env>();
+const { getTaskRunByIdUsecase, listRunEventsUsecase } = buildTaskRunUsecases();
 
 const querySchema = z.object({
   afterEventSeq: z.coerce.number().int().min(0).default(0),
@@ -26,27 +26,29 @@ app.get(
     const { runId } = c.req.valid("param");
     const parsed = c.req.valid("query");
 
-    const run = await getTaskRunByIdUsecase(runId);
-    if (!run) {
-      return c.json({ error: "Run not found" }, 404);
+    try {
+      const { run, events } = await listRunEventsUsecase({
+        runId,
+        afterEventSeq: parsed.afterEventSeq,
+        limit: parsed.limit,
+      });
+
+      const lastEventSeq =
+        events.length > 0 ? events[events.length - 1].eventSeq : parsed.afterEventSeq;
+
+      return c.json({
+        runId,
+        taskSessionId: run.taskSessionId,
+        events,
+        lastEventSeq,
+        hasMore: events.length >= parsed.limit,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "Run not found") {
+        return c.json({ error: "Run not found" }, 404);
+      }
+      throw error;
     }
-
-    const events = await taskRunEventRepository.listAfter(
-      runId,
-      parsed.afterEventSeq,
-      parsed.limit
-    );
-
-    const lastEventSeq =
-      events.length > 0 ? events[events.length - 1].eventSeq : parsed.afterEventSeq;
-
-    return c.json({
-      runId,
-      taskSessionId: run.taskSessionId,
-      events,
-      lastEventSeq,
-      hasMore: events.length >= parsed.limit,
-    });
   }
 );
 
@@ -80,7 +82,11 @@ app.get(
 
       let cursor = safeAfter;
       const writeEventsAfterCursor = async (): Promise<number> => {
-        const backlog = await taskRunEventRepository.listAfter(runId, cursor, 1000);
+        const { events: backlog } = await listRunEventsUsecase({
+          runId,
+          afterEventSeq: cursor,
+          limit: 1000,
+        });
         for (const event of backlog) {
           await stream.writeSSE({
             id: String(event.eventSeq),

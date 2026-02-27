@@ -2,19 +2,21 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { Env } from "../../../../index.js";
 import { zValidator } from "../../../../shared/controller/http/validators.js";
-import {
-  archiveWorkspace as archiveWorkspaceUseCase,
-  createWorkspace as createWorkspaceUseCase,
-  deleteWorkspace as deleteWorkspaceUseCase,
-  getWorkspaceById as getWorkspaceByIdUseCase,
-  getWorkspaceByPath as getWorkspaceByPathUseCase,
-  listWorkspaces as listWorkspacesUseCase,
-  restoreWorkspace as restoreWorkspaceUseCase,
-  touchWorkspace as touchWorkspaceUseCase,
-  updateWorkspace as updateWorkspaceUseCase,
-} from "../../application/usecases/list-workspaces.usecase.js";
+import { buildWorkspaceUsecases } from "../factory/workspace.factory.js";
 
 const workspacesApp = new Hono<Env>();
+const workspaceUsecases = buildWorkspaceUsecases();
+const {
+  archiveWorkspace: archiveWorkspaceUseCase,
+  createWorkspace: createWorkspaceUseCase,
+  deleteWorkspace: deleteWorkspaceUseCase,
+  getWorkspaceById: getWorkspaceByIdUseCase,
+  getWorkspaceByPath: getWorkspaceByPathUseCase,
+  listWorkspaces: listWorkspacesUseCase,
+  restoreWorkspace: restoreWorkspaceUseCase,
+  touchWorkspace: touchWorkspaceUseCase,
+  updateWorkspace: updateWorkspaceUseCase,
+} = workspaceUsecases;
 
 function serializeWorkspace(ws: Awaited<ReturnType<typeof getWorkspaceByIdUseCase>>) {
   if (!ws) return null;

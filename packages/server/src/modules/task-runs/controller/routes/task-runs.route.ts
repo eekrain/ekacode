@@ -1,13 +1,8 @@
 import { Hono } from "hono";
 import type { Env } from "../../../../index.js";
 import { zValidator } from "../../../../shared/controller/http/validators.js";
-import { getTaskSessionUsecase } from "../../../task-sessions/application/usecases/update-task-session.usecase.js";
-import {
-  cancelTaskRunUsecase,
-  getTaskRunByIdUsecase,
-  listTaskRunsBySessionUsecase,
-} from "../../application/usecases/cancel-task-run.usecase.js";
-import { createTaskRunUsecase } from "../../application/usecases/create-task-run.usecase.js";
+import { buildTaskSessionUsecases } from "../../../task-sessions/controller/factory/task-sessions.factory.js";
+import { buildTaskRunUsecases } from "../factory/task-runs.factory.js";
 import {
   CreateTaskRunSchema,
   TaskRunParamsSchema,
@@ -15,6 +10,13 @@ import {
 } from "../schemas/task-run.schema.js";
 
 const app = new Hono<Env>();
+const { getTaskSessionUsecase } = buildTaskSessionUsecases();
+const {
+  getTaskRunByIdUsecase,
+  listTaskRunsBySessionUsecase,
+  createTaskRunUsecase,
+  cancelTaskRunUsecase,
+} = buildTaskRunUsecases();
 
 app.get(
   "/api/task-sessions/:taskSessionId/runs",

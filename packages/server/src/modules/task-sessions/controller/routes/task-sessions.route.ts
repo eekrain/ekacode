@@ -3,14 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { Env } from "../../../../index.js";
 import { zValidator } from "../../../../shared/controller/http/validators.js";
-import { createTaskSessionUsecase } from "../../application/usecases/create-task-session.usecase.js";
-import { listTaskSessionsUsecase } from "../../application/usecases/list-task-sessions.usecase.js";
-import {
-  deleteTaskSessionUsecase,
-  getLatestTaskSessionByWorkspaceUsecase,
-  getTaskSessionUsecase,
-  updateTaskSessionUsecase,
-} from "../../application/usecases/update-task-session.usecase.js";
+import { buildTaskSessionUsecases } from "../factory/task-sessions.factory.js";
 import {
   CreateTaskSessionSchema,
   ListTaskSessionsQuerySchema,
@@ -25,6 +18,14 @@ const latestTaskSessionQuerySchema = z.object({
 });
 
 const app = new Hono<Env>();
+const {
+  createTaskSessionUsecase,
+  listTaskSessionsUsecase,
+  getTaskSessionUsecase,
+  updateTaskSessionUsecase,
+  deleteTaskSessionUsecase,
+  getLatestTaskSessionByWorkspaceUsecase,
+} = buildTaskSessionUsecases();
 
 function serializeTaskSession(session: Awaited<ReturnType<typeof getTaskSessionUsecase>>) {
   if (!session) return null;

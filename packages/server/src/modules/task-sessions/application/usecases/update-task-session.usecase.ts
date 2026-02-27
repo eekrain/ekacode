@@ -1,10 +1,10 @@
 import type {
+  ITaskSessionRepository,
   TaskSession,
   TaskSessionKind,
   TaskSessionStatus,
   TaskSpecType,
 } from "../../domain/repositories/task-session.repository.js";
-import { taskSessionRepository } from "../../infrastructure/repositories/task-session.repository.drizzle.js";
 
 export interface UpdateTaskSessionInput {
   status?: TaskSessionStatus;
@@ -16,31 +16,39 @@ export interface UpdateTaskSessionOutput {
   taskSession: TaskSession;
 }
 
-export async function updateTaskSessionUsecase(
-  taskSessionId: string,
-  input: UpdateTaskSessionInput
-): Promise<UpdateTaskSessionOutput> {
-  await taskSessionRepository.update(taskSessionId, input);
+export function createUpdateTaskSessionUsecase(repository: ITaskSessionRepository) {
+  return async function updateTaskSessionUsecase(
+    taskSessionId: string,
+    input: UpdateTaskSessionInput
+  ): Promise<UpdateTaskSessionOutput> {
+    await repository.update(taskSessionId, input);
 
-  const taskSession = await taskSessionRepository.getById(taskSessionId);
-  if (!taskSession) {
-    throw new Error("Task session not found");
-  }
+    const taskSession = await repository.getById(taskSessionId);
+    if (!taskSession) {
+      throw new Error("Task session not found");
+    }
 
-  return { taskSession };
+    return { taskSession };
+  };
 }
 
-export async function getTaskSessionUsecase(taskSessionId: string): Promise<TaskSession | null> {
-  return taskSessionRepository.getById(taskSessionId);
+export function createGetTaskSessionUsecase(repository: ITaskSessionRepository) {
+  return async function getTaskSessionUsecase(taskSessionId: string): Promise<TaskSession | null> {
+    return repository.getById(taskSessionId);
+  };
 }
 
-export async function deleteTaskSessionUsecase(taskSessionId: string): Promise<void> {
-  return taskSessionRepository.delete(taskSessionId);
+export function createDeleteTaskSessionUsecase(repository: ITaskSessionRepository) {
+  return async function deleteTaskSessionUsecase(taskSessionId: string): Promise<void> {
+    return repository.delete(taskSessionId);
+  };
 }
 
-export async function getLatestTaskSessionByWorkspaceUsecase(
-  workspaceId: string,
-  kind: TaskSessionKind
-): Promise<TaskSession | null> {
-  return taskSessionRepository.getLatestByWorkspace(workspaceId, kind);
+export function createGetLatestTaskSessionByWorkspaceUsecase(repository: ITaskSessionRepository) {
+  return async function getLatestTaskSessionByWorkspaceUsecase(
+    workspaceId: string,
+    kind: TaskSessionKind
+  ): Promise<TaskSession | null> {
+    return repository.getLatestByWorkspace(workspaceId, kind);
+  };
 }

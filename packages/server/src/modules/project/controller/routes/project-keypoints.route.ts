@@ -2,13 +2,14 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { Env } from "../../../../index.js";
 import { zValidator } from "../../../../shared/controller/http/validators.js";
-import {
-  createProjectKeypoint as createProjectKeypointUseCase,
-  deleteProjectKeypoint as deleteProjectKeypointUseCase,
-  listProjectKeypoints as listProjectKeypointsUseCase,
-} from "../../application/usecases/project-keypoints.usecase.js";
+import { buildProjectKeypointUsecases } from "../factory/project-keypoints.factory.js";
 
 const keypointsApp = new Hono<Env>();
+const {
+  createProjectKeypoint: createProjectKeypointUseCase,
+  deleteProjectKeypoint: deleteProjectKeypointUseCase,
+  listProjectKeypoints: listProjectKeypointsUseCase,
+} = buildProjectKeypointUsecases();
 
 const keypointQuerySchema = z.object({
   workspaceId: z.string().min(1),

@@ -1,8 +1,8 @@
 import type {
+  ITaskSessionRepository,
   TaskSession,
   TaskSessionKind,
 } from "../../domain/repositories/task-session.repository.js";
-import { taskSessionRepository } from "../../infrastructure/repositories/task-session.repository.drizzle.js";
 
 export interface CreateTaskSessionInput {
   resourceId: string;
@@ -14,14 +14,16 @@ export interface CreateTaskSessionOutput {
   taskSession: TaskSession;
 }
 
-export async function createTaskSessionUsecase(
-  input: CreateTaskSessionInput
-): Promise<CreateTaskSessionOutput> {
-  const taskSession = await taskSessionRepository.create({
-    resourceId: input.resourceId,
-    workspaceId: input.workspaceId,
-    sessionKind: input.sessionKind ?? "task",
-  });
+export function createCreateTaskSessionUsecase(repository: ITaskSessionRepository) {
+  return async function createTaskSessionUsecase(
+    input: CreateTaskSessionInput
+  ): Promise<CreateTaskSessionOutput> {
+    const taskSession = await repository.create({
+      resourceId: input.resourceId,
+      workspaceId: input.workspaceId,
+      sessionKind: input.sessionKind ?? "task",
+    });
 
-  return { taskSession };
+    return { taskSession };
+  };
 }
