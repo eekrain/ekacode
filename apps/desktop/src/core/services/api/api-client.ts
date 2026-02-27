@@ -197,6 +197,15 @@ export interface CreateProjectKeypointPayload {
 }
 
 /**
+ * Project info from server
+ */
+export interface Project {
+  id: string;
+  name: string;
+  path: string;
+}
+
+/**
  * Workspace info from server
  */
 export interface Workspace {
@@ -210,6 +219,8 @@ export interface Workspace {
   archivedAt: string | null;
   createdAt: string;
   lastOpenedAt: string;
+  projectId: string | null;
+  project: Project | null;
 }
 
 /**

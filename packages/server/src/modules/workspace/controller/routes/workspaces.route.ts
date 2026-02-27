@@ -31,6 +31,14 @@ function serializeWorkspace(ws: Awaited<ReturnType<typeof getWorkspaceByIdUseCas
     archivedAt: ws.archivedAt?.toISOString() ?? null,
     createdAt: ws.createdAt.toISOString(),
     lastOpenedAt: ws.lastOpenedAt.toISOString(),
+    projectId: ws.projectId,
+    project: ws.project
+      ? {
+          id: ws.project.id,
+          name: ws.project.name,
+          path: ws.project.path,
+        }
+      : null,
   };
 }
 

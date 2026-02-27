@@ -1,4 +1,4 @@
-import { Instance } from "@sakti-code/core/server";
+import { listProjects as dbListProjects } from "../../../../../db/projects.js";
 
 export interface ProjectInfo {
   id: string | undefined;
@@ -8,39 +8,15 @@ export interface ProjectInfo {
   packageJson: unknown;
 }
 
-export async function getProjectInfo(directory?: string): Promise<ProjectInfo> {
-  const buildResponse = (): ProjectInfo => ({
-    id: Instance.project?.root,
-    name: Instance.project?.name,
-    path: Instance.project?.root,
-    detectedBy: Instance.project?.packageJson ? "packageJson" : "directory",
-    packageJson: Instance.project?.packageJson,
-  });
-
-  if (Instance.inContext) {
-    await Instance.bootstrap();
-    return buildResponse();
-  }
-
-  if (!directory) {
-    throw new Error("Directory parameter required");
-  }
-
-  return Instance.provide({
-    directory,
-    async fn() {
-      await Instance.bootstrap();
-      return buildResponse();
-    },
-  }) as Promise<ProjectInfo>;
+export async function getProjectInfo(_directory?: string): Promise<ProjectInfo> {
+  throw new Error("Use workspace project association instead");
 }
 
 export interface ProjectListItem {
-  id: string | undefined;
-  name: string | undefined;
-  path: string | undefined;
-  source: "current";
-  lastSeen: number;
+  id: string;
+  name: string;
+  path: string;
+  createdAt: string;
 }
 
 export interface ProjectListResult {
@@ -48,30 +24,14 @@ export interface ProjectListResult {
 }
 
 export async function listProjects(): Promise<ProjectListResult> {
-  const cwd = process.cwd();
+  const projects = await dbListProjects();
 
-  const buildResponse = (): ProjectListResult => ({
-    projects: [
-      {
-        id: Instance.project?.root,
-        name: Instance.project?.name,
-        path: Instance.project?.root,
-        source: "current",
-        lastSeen: Date.now(),
-      },
-    ],
-  });
-
-  if (Instance.inContext) {
-    await Instance.bootstrap();
-    return buildResponse();
-  }
-
-  return Instance.provide({
-    directory: cwd,
-    async fn() {
-      await Instance.bootstrap();
-      return buildResponse();
-    },
-  }) as Promise<ProjectListResult>;
+  return {
+    projects: projects.map(p => ({
+      id: p.id,
+      name: p.name,
+      path: p.path,
+      createdAt: p.createdAt.toISOString(),
+    })),
+  };
 }

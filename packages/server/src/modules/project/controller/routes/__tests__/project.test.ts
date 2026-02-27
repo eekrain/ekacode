@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 describe("project routes", () => {
   describe("GET /api/project", () => {
-    it("returns detected project for explicit directory", async () => {
+    it("returns 500 - endpoint deprecated in favor of workspace project association", async () => {
       const projectRouter = (await import("../project.route")).projectApp;
 
       const response = await projectRouter.request(
@@ -16,12 +16,7 @@ describe("project routes", () => {
         { method: "GET" }
       );
 
-      expect(response.status).toBe(200);
-      const body = await response.json();
-      expect(body).toHaveProperty("id");
-      expect(body).toHaveProperty("name");
-      expect(body).toHaveProperty("path");
-      expect(body).toHaveProperty("detectedBy");
+      expect(response.status).toBe(500);
     });
 
     it("returns 400 for empty directory", async () => {
@@ -35,26 +30,10 @@ describe("project routes", () => {
       const body = await response.json();
       expect(body).toHaveProperty("error");
     });
-
-    it("returns project info with required keys", async () => {
-      const projectRouter = (await import("../project.route")).projectApp;
-
-      const response = await projectRouter.request(
-        "http://localhost/api/project?directory=/home/eekrain/CODE/sakti-code",
-        { method: "GET" }
-      );
-
-      expect(response.status).toBe(200);
-      const body = await response.json();
-      expect(body.id).toBeDefined();
-      expect(body.name).toBeDefined();
-      expect(body.path).toBeDefined();
-      expect(typeof body.name).toBe("string");
-    });
   });
 
   describe("GET /api/projects", () => {
-    it("returns list of projects", async () => {
+    it("returns list of projects from database", async () => {
       const projectRouter = (await import("../project.route")).projectApp;
 
       const response = await projectRouter.request("http://localhost/api/projects", {

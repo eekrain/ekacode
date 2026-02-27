@@ -6,7 +6,7 @@
 
 import { eq } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
-import { db, workspaces } from "./index";
+import { db, projects, workspaces } from "./index.js";
 
 export interface CreateWorkspaceInput {
   path: string;
@@ -35,6 +35,11 @@ export interface WorkspaceData {
   createdAt: Date;
   lastOpenedAt: Date;
   projectId: string | null;
+  project?: {
+    id: string;
+    name: string;
+    path: string;
+  } | null;
 }
 
 function extractNameFromPath(path: string): string {
@@ -107,9 +112,46 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Work
  * @returns The workspace or null if not found
  */
 export async function getWorkspaceById(id: string): Promise<WorkspaceData | null> {
-  const result = await db.select().from(workspaces).where(eq(workspaces.id, id)).get();
+  const result = await db
+    .select({
+      id: workspaces.id,
+      path: workspaces.path,
+      name: workspaces.name,
+      status: workspaces.status,
+      base_branch: workspaces.base_branch,
+      repo_path: workspaces.repo_path,
+      is_merged: workspaces.is_merged,
+      archived_at: workspaces.archived_at,
+      created_at: workspaces.created_at,
+      last_opened_at: workspaces.last_opened_at,
+      project_id: workspaces.project_id,
+      project_id_join: projects.id,
+      project_name: projects.name,
+      project_path: projects.path,
+    })
+    .from(workspaces)
+    .leftJoin(projects, eq(workspaces.project_id, projects.id))
+    .where(eq(workspaces.id, id))
+    .get();
+
   if (!result) return null;
-  return mapToWorkspaceData(result);
+
+  return {
+    id: result.id,
+    path: result.path,
+    name: result.name,
+    status: result.status as "active" | "archived",
+    baseBranch: result.base_branch,
+    repoPath: result.repo_path,
+    isMerged: result.is_merged ?? false,
+    archivedAt: result.archived_at,
+    createdAt: result.created_at,
+    lastOpenedAt: result.last_opened_at,
+    projectId: result.project_id,
+    project: result.project_id_join
+      ? { id: result.project_id_join, name: result.project_name!, path: result.project_path! }
+      : null,
+  };
 }
 
 /**
@@ -119,9 +161,46 @@ export async function getWorkspaceById(id: string): Promise<WorkspaceData | null
  * @returns The workspace or null if not found
  */
 export async function getWorkspaceByPath(path: string): Promise<WorkspaceData | null> {
-  const result = await db.select().from(workspaces).where(eq(workspaces.path, path)).get();
+  const result = await db
+    .select({
+      id: workspaces.id,
+      path: workspaces.path,
+      name: workspaces.name,
+      status: workspaces.status,
+      base_branch: workspaces.base_branch,
+      repo_path: workspaces.repo_path,
+      is_merged: workspaces.is_merged,
+      archived_at: workspaces.archived_at,
+      created_at: workspaces.created_at,
+      last_opened_at: workspaces.last_opened_at,
+      project_id: workspaces.project_id,
+      project_id_join: projects.id,
+      project_name: projects.name,
+      project_path: projects.path,
+    })
+    .from(workspaces)
+    .leftJoin(projects, eq(workspaces.project_id, projects.id))
+    .where(eq(workspaces.path, path))
+    .get();
+
   if (!result) return null;
-  return mapToWorkspaceData(result);
+
+  return {
+    id: result.id,
+    path: result.path,
+    name: result.name,
+    status: result.status as "active" | "archived",
+    baseBranch: result.base_branch,
+    repoPath: result.repo_path,
+    isMerged: result.is_merged ?? false,
+    archivedAt: result.archived_at,
+    createdAt: result.created_at,
+    lastOpenedAt: result.last_opened_at,
+    projectId: result.project_id,
+    project: result.project_id_join
+      ? { id: result.project_id_join, name: result.project_name!, path: result.project_path! }
+      : null,
+  };
 }
 
 /**
@@ -131,19 +210,45 @@ export async function getWorkspaceByPath(path: string): Promise<WorkspaceData | 
  * @returns List of workspaces sorted by last_opened_at (ascending)
  */
 export async function listWorkspaces(status?: "active" | "archived"): Promise<WorkspaceData[]> {
-  const baseQuery = db.select().from(workspaces);
+  const results = await db
+    .select({
+      id: workspaces.id,
+      path: workspaces.path,
+      name: workspaces.name,
+      status: workspaces.status,
+      base_branch: workspaces.base_branch,
+      repo_path: workspaces.repo_path,
+      is_merged: workspaces.is_merged,
+      archived_at: workspaces.archived_at,
+      created_at: workspaces.created_at,
+      last_opened_at: workspaces.last_opened_at,
+      project_id: workspaces.project_id,
+      project_id_join: projects.id,
+      project_name: projects.name,
+      project_path: projects.path,
+    })
+    .from(workspaces)
+    .leftJoin(projects, eq(workspaces.project_id, projects.id))
+    .where(status ? eq(workspaces.status, status) : undefined)
+    .orderBy(workspaces.last_opened_at)
+    .all();
 
-  let results;
-  if (status) {
-    results = await baseQuery
-      .where(eq(workspaces.status, status))
-      .orderBy(workspaces.last_opened_at)
-      .all();
-  } else {
-    results = await baseQuery.orderBy(workspaces.last_opened_at).all();
-  }
-
-  return results.map(mapToWorkspaceData);
+  return results.map(row => ({
+    id: row.id,
+    path: row.path,
+    name: row.name,
+    status: row.status as "active" | "archived",
+    baseBranch: row.base_branch,
+    repoPath: row.repo_path,
+    isMerged: row.is_merged ?? false,
+    archivedAt: row.archived_at,
+    createdAt: row.created_at,
+    lastOpenedAt: row.last_opened_at,
+    projectId: row.project_id,
+    project: row.project_id_join
+      ? { id: row.project_id_join, name: row.project_name!, path: row.project_path! }
+      : null,
+  }));
 }
 
 /**
