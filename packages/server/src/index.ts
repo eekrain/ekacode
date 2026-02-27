@@ -43,8 +43,11 @@ import { app } from "./app/app.js";
 import "./app/logging-env.js";
 import { setRuntimePort } from "./app/runtime-config.js";
 import { PermissionAsked, publish, QuestionAsked } from "./bus";
+import {
+  createChatTaskRunExecutor,
+  TaskRunWorker,
+} from "./modules/task-runs/infrastructure/task-run-worker";
 import { getServerToken, getSessionManager } from "./runtime";
-import { createChatTaskRunExecutor, TaskRunWorker } from "./services/task-run-worker";
 export type { AppType } from "./app/types.js";
 export { getServerToken, getSessionManager } from "./runtime";
 export { app };

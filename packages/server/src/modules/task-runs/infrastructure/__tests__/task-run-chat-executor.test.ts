@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { TaskSessionRunRecord } from "../../../db/task-session-runs";
+import type { TaskSessionRunRecord } from "../../../../../db/task-session-runs";
 
 function makeRun(overrides?: Partial<TaskSessionRunRecord>): TaskSessionRunRecord {
   const now = new Date();

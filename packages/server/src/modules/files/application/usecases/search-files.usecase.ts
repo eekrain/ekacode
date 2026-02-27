@@ -1,5 +1,5 @@
-import { fileIndex, type SearchResult } from "@/services/file-index.js";
-import { fileWatcher } from "@/services/file-watcher.js";
+import { fileIndex, type SearchResult } from "../../infrastructure/file-index.js";
+import { fileWatcher } from "../../infrastructure/file-watcher.js";
 
 export interface SearchFilesInput {
   directory: string;

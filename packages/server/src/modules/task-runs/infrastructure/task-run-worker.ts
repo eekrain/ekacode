@@ -1,6 +1,6 @@
 import { createLogger } from "@sakti-code/shared/logger";
 
-import { appendTaskRunEvent } from "../../db/task-run-events";
+import { appendTaskRunEvent } from "../../../../db/task-run-events";
 import {
   claimNextTaskSessionRun,
   getTaskSessionRunById,
@@ -9,9 +9,9 @@ import {
   markTaskSessionRunCompleted,
   markTaskSessionRunFailed,
   type TaskSessionRunRecord,
-} from "../../db/task-session-runs";
-import { getTaskSession } from "../../db/task-sessions";
-import { getWorkspaceById } from "../../db/workspaces";
+} from "../../../../db/task-session-runs";
+import { getTaskSession } from "../../../../db/task-sessions";
+import { getWorkspaceById } from "../../../../db/workspaces";
 import { recoverExpiredTaskRuns } from "./task-run-recovery";
 
 const logger = createLogger("server:task-run-worker");

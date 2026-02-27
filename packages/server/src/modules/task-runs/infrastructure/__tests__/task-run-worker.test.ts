@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { db, taskSessionRuns, taskSessions } from "../../../db";
+import { db, taskSessionRuns, taskSessions } from "../../../../../db";
 
 async function createSession(sessionId: string): Promise<void> {
   const now = new Date();
@@ -23,7 +23,7 @@ async function createSession(sessionId: string): Promise<void> {
 
 describe("task-run-worker", () => {
   beforeEach(async () => {
-    const { setupTestDatabase } = await import("../../../db/test-setup");
+    const { setupTestDatabase } = await import("../../../../../db/test-setup");
     await setupTestDatabase();
     await db.delete(taskSessionRuns);
     await db.delete(taskSessions);
@@ -33,8 +33,8 @@ describe("task-run-worker", () => {
     const sessionId = uuidv7();
     await createSession(sessionId);
 
-    const { createTaskSessionRun } = await import("../../../db/task-session-runs");
-    const { listTaskRunEventsAfter } = await import("../../../db/task-run-events");
+    const { createTaskSessionRun } = await import("../../../../../db/task-session-runs");
+    const { listTaskRunEventsAfter } = await import("../../../../../db/task-run-events");
     const run = await createTaskSessionRun({
       taskSessionId: sessionId,
       runtimeMode: "build",
@@ -66,7 +66,7 @@ describe("task-run-worker", () => {
     const sessionId = uuidv7();
     await createSession(sessionId);
 
-    const { createTaskSessionRun } = await import("../../../db/task-session-runs");
+    const { createTaskSessionRun } = await import("../../../../../db/task-session-runs");
     const run = await createTaskSessionRun({
       taskSessionId: sessionId,
       runtimeMode: "plan",
