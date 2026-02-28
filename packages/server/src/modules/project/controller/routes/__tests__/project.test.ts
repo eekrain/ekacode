@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 describe("project routes", () => {
   describe("GET /api/project", () => {
-    it("returns 500 - endpoint deprecated in favor of workspace project association", async () => {
+    it("returns project info for directory", async () => {
       const projectRouter = (await import("../project.route")).projectApp;
 
       const response = await projectRouter.request(
@@ -16,7 +16,12 @@ describe("project routes", () => {
         { method: "GET" }
       );
 
-      expect(response.status).toBe(500);
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.detectedBy).toBe("directory");
+      expect(typeof body.name).toBe("string");
+      expect(body.name.length).toBeGreaterThan(0);
+      expect(typeof body.path).toBe("string");
     });
 
     it("returns 400 for empty directory", async () => {

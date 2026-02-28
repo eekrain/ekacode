@@ -11,37 +11,47 @@ describe("detect-project", () => {
   describe("parseGitRemoteUrl", () => {
     it("parses HTTPS GitHub URL", () => {
       const result = parseGitRemoteUrl("https://github.com/owner/repo.git");
-      expect(result).toEqual({ owner: "owner", repo: "repo" });
+      expect(result).toEqual({ host: "github.com", owner: "owner", repo: "repo" });
     });
 
     it("parses HTTPS GitHub URL without .git", () => {
       const result = parseGitRemoteUrl("https://github.com/owner/repo");
-      expect(result).toEqual({ owner: "owner", repo: "repo" });
+      expect(result).toEqual({ host: "github.com", owner: "owner", repo: "repo" });
     });
 
     it("parses SSH GitHub URL", () => {
       const result = parseGitRemoteUrl("git@github.com:owner/repo.git");
-      expect(result).toEqual({ owner: "owner", repo: "repo" });
+      expect(result).toEqual({ host: "github.com", owner: "owner", repo: "repo" });
     });
 
     it("parses SSH GitHub URL without .git", () => {
       const result = parseGitRemoteUrl("git@github.com:owner/repo");
-      expect(result).toEqual({ owner: "owner", repo: "repo" });
+      expect(result).toEqual({ host: "github.com", owner: "owner", repo: "repo" });
     });
 
     it("parses SSH GitLab URL", () => {
       const result = parseGitRemoteUrl("git@gitlab.com:owner/repo.git");
-      expect(result).toEqual({ owner: "owner", repo: "repo" });
+      expect(result).toEqual({ host: "gitlab.com", owner: "owner", repo: "repo" });
     });
 
     it("parses HTTPS GitLab URL", () => {
       const result = parseGitRemoteUrl("https://gitlab.com/owner/repo.git");
-      expect(result).toEqual({ owner: "owner", repo: "repo" });
+      expect(result).toEqual({ host: "gitlab.com", owner: "owner", repo: "repo" });
     });
 
     it("parses Bitbucket HTTPS URL", () => {
       const result = parseGitRemoteUrl("https://bitbucket.org/owner/repo.git");
-      expect(result).toEqual({ owner: "owner", repo: "repo" });
+      expect(result).toEqual({ host: "bitbucket.org", owner: "owner", repo: "repo" });
+    });
+
+    it("parses HTTPS GitLab subgroup URL", () => {
+      const result = parseGitRemoteUrl("https://gitlab.com/group/subgroup/repo.git");
+      expect(result).toEqual({ host: "gitlab.com", owner: "group/subgroup", repo: "repo" });
+    });
+
+    it("parses ssh:// URL", () => {
+      const result = parseGitRemoteUrl("ssh://git@github.com/owner/repo.git");
+      expect(result).toEqual({ host: "github.com", owner: "owner", repo: "repo" });
     });
 
     it("returns null for invalid URL", () => {

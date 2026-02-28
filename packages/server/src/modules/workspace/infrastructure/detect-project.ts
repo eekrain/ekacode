@@ -12,22 +12,49 @@ export interface ProjectIdentity {
   path: string;
 }
 
-export function parseGitRemoteUrl(url: string): { owner: string; repo: string } | null {
+export function parseGitRemoteUrl(
+  url: string
+): { host: string; owner: string; repo: string } | null {
   const trimmed = url.trim();
+  if (!trimmed) return null;
 
-  const httpsMatch = trimmed.match(/^https?:\/\/[^/]+\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
-  if (httpsMatch) {
-    return { owner: httpsMatch[1], repo: httpsMatch[2] };
+  const parsePathParts = (rawPath: string): { owner: string; repo: string } | null => {
+    const cleanPath = rawPath.replace(/\.git$/, "").replace(/\/+$/, "");
+    const segments = cleanPath.split("/").filter(Boolean);
+    if (segments.length < 2) return null;
+    const repo = segments[segments.length - 1];
+    const owner = segments.slice(0, -1).join("/");
+    if (!owner || !repo) return null;
+    return { owner, repo };
+  };
+
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    try {
+      const parsedUrl = new URL(trimmed);
+      const parts = parsePathParts(parsedUrl.pathname);
+      if (!parts) return null;
+      return { host: parsedUrl.host.toLowerCase(), owner: parts.owner, repo: parts.repo };
+    } catch {
+      return null;
+    }
   }
 
-  const sshMatch = trimmed.match(/^git@[^:]+:([^/]+)\/([^/]+?)(?:\.git)?$/);
+  if (trimmed.startsWith("ssh://")) {
+    try {
+      const parsedUrl = new URL(trimmed);
+      const parts = parsePathParts(parsedUrl.pathname);
+      if (!parts) return null;
+      return { host: parsedUrl.host.toLowerCase(), owner: parts.owner, repo: parts.repo };
+    } catch {
+      return null;
+    }
+  }
+
+  const sshMatch = trimmed.match(/^(?:[^@]+@)?([^:]+):(.+)$/);
   if (sshMatch) {
-    return { owner: sshMatch[1], repo: sshMatch[2] };
-  }
-
-  const githubSshMatch = trimmed.match(/^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/);
-  if (githubSshMatch) {
-    return { owner: githubSshMatch[1], repo: githubSshMatch[2] };
+    const parts = parsePathParts(sshMatch[2]);
+    if (!parts) return null;
+    return { host: sshMatch[1].toLowerCase(), owner: parts.owner, repo: parts.repo };
   }
 
   return null;
@@ -39,11 +66,18 @@ export function getFolderName(workspacePath: string): string {
   return parts[parts.length - 1] || "unknown";
 }
 
-export function detectProject(workspacePath: string): ProjectIdentity {
-  const normalizedPath = path.normalize(workspacePath);
+function normalizeWorkspacePath(workspacePath: string): string {
+  return path.resolve(workspacePath).replace(/\\/g, "/").replace(/\/+$/, "");
+}
 
-  let projectName: string;
-  let projectPath: string;
+export function detectProject(workspacePath: string): ProjectIdentity {
+  const normalizedPath = normalizeWorkspacePath(workspacePath);
+  const folderName = getFolderName(normalizedPath).toLowerCase();
+
+  const fallback = {
+    name: folderName,
+    path: `local:${normalizedPath}`,
+  };
 
   try {
     const remoteUrl = execSync("git remote get-url origin", {
@@ -55,23 +89,19 @@ export function detectProject(workspacePath: string): ProjectIdentity {
     const parsed = parseGitRemoteUrl(remoteUrl);
 
     if (parsed) {
-      projectName = `${parsed.owner}/${parsed.repo}`.toLowerCase();
-      projectPath = `${parsed.owner}/${parsed.repo}`.toLowerCase();
-    } else {
-      const folderName = getFolderName(normalizedPath);
-      projectName = folderName.toLowerCase();
-      projectPath = folderName.toLowerCase();
+      return {
+        name: `${parsed.owner}/${parsed.repo}`.toLowerCase(),
+        path: `${parsed.host}/${parsed.owner}/${parsed.repo}`.toLowerCase(),
+      };
     }
-  } catch {
-    const folderName = getFolderName(normalizedPath);
-    projectName = folderName.toLowerCase();
-    projectPath = folderName.toLowerCase();
-  }
 
-  return {
-    name: projectName,
-    path: projectPath,
-  };
+    return {
+      name: folderName,
+      path: `remote:${remoteUrl.toLowerCase()}`,
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 export function detectProjectSync(workspacePath: string): ProjectIdentity {

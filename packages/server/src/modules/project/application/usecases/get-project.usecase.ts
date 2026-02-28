@@ -1,4 +1,5 @@
 import { listProjects as dbListProjects } from "../../../../../db/projects.js";
+import { detectProject } from "../../../workspace/infrastructure/detect-project.js";
 
 export interface ProjectInfo {
   id: string | undefined;
@@ -8,8 +9,20 @@ export interface ProjectInfo {
   packageJson: unknown;
 }
 
-export async function getProjectInfo(_directory?: string): Promise<ProjectInfo> {
-  throw new Error("Use workspace project association instead");
+export async function getProjectInfo(directory?: string): Promise<ProjectInfo> {
+  if (!directory) {
+    throw new Error("Directory parameter required");
+  }
+
+  const project = detectProject(directory);
+
+  return {
+    id: undefined,
+    name: project.name,
+    path: project.path,
+    detectedBy: "directory",
+    packageJson: null,
+  };
 }
 
 export interface ProjectListItem {

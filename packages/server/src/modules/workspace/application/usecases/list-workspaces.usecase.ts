@@ -1,7 +1,4 @@
-import {
-  createProject as dbCreateProject,
-  getProjectByPath as dbGetProjectByPath,
-} from "../../../../../db/projects.js";
+import { getOrCreateProject as dbGetOrCreateProject } from "../../../../../db/projects.js";
 import type {
   IWorkspaceRepository,
   ListWorkspaceOptions,
@@ -47,24 +44,19 @@ export function createWorkspaceUsecases(workspaceRepository: IWorkspaceRepositor
       }
 
       const projectIdentity = detectProject(input.path);
-      let projectId: string | undefined;
-
-      const existingProject = await dbGetProjectByPath(projectIdentity.path);
-      if (existingProject) {
-        projectId = existingProject.id;
-      } else {
-        const newProject = await dbCreateProject({
-          name: projectIdentity.name,
-          path: projectIdentity.path,
-        });
-        projectId = newProject.id;
-      }
+      const project = await dbGetOrCreateProject({
+        name: projectIdentity.name,
+        path: projectIdentity.path,
+      });
 
       const workspace = await workspaceRepository.create({
         ...input,
-        projectId,
+        projectId: project.id,
       });
-      return { workspace, existing: false };
+
+      // Return a hydrated record so API responses include the linked project object.
+      const hydrated = await workspaceRepository.getById(workspace.id);
+      return { workspace: hydrated ?? workspace, existing: false };
     },
     async updateWorkspace(id: string, input: UpdateWorkspaceInput): Promise<Workspace | null> {
       await workspaceRepository.update(id, input);

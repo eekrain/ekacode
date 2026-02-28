@@ -1,42 +1,21 @@
 import type { ArchivedWorkspace, RecentProject } from "@/core/chat/types";
+import { WorkspaceDashboard } from "@/views/home-view/components/workspace-dashboard";
 import { render } from "@solidjs/testing-library";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("WorkspaceDashboard", () => {
   let container: HTMLDivElement;
-  let dispose: () => void | undefined;
+  let dispose: (() => void) | undefined;
 
-  const mockRecentWorkspaces: RecentProject[] = [
+  const archived: ArchivedWorkspace[] = [
     {
-      id: "1",
-      name: "Project One",
-      path: "/home/user/projects/one",
-      lastOpened: new Date(),
-      gitStatus: {
-        branch: "main",
-        baseBranch: "origin/main",
-        ahead: 2,
-        behind: 0,
-        hasUncommitted: false,
-      },
-    },
-    {
-      id: "2",
-      name: "Project Two",
-      path: "/home/user/projects/two",
-      lastOpened: new Date(),
-    },
-  ];
-
-  const mockArchivedWorkspaces: ArchivedWorkspace[] = [
-    {
-      id: "3",
-      name: "Archived Project",
-      path: "/home/user/projects/archived",
-      archivedAt: new Date("2024-01-01"),
+      id: "arch-1",
+      name: "Archived",
+      path: "/tmp/archived",
+      archivedAt: new Date("2024-01-01T00:00:00.000Z"),
       isMerged: true,
       baseBranch: "main",
-      repoPath: "/repo",
+      repoPath: "/tmp/repo",
     },
   ];
 
@@ -50,40 +29,74 @@ describe("WorkspaceDashboard", () => {
     document.body.removeChild(container);
   });
 
-  it("should render recent workspaces column", () => {
+  function renderDashboard(recent: RecentProject[], onOpenWorkspace = vi.fn()) {
     ({ unmount: dispose } = render(
       () => (
-        <div>
-          <div class="column-header">
-            <span class="column-title">Recent Workspaces</span>
-          </div>
-          {mockRecentWorkspaces.map(w => (
-            <div data-test={`workspace-${w.id}`}>{w.name}</div>
-          ))}
-        </div>
+        <WorkspaceDashboard
+          recentWorkspaces={recent}
+          archivedWorkspaces={archived}
+          onOpenWorkspace={onOpenWorkspace}
+          onArchiveWorkspace={vi.fn()}
+          onRestoreWorkspace={vi.fn()}
+          onNewWorkspace={vi.fn()}
+          onSearch={vi.fn()}
+        />
       ),
       { container }
     ));
-    expect(container.textContent).toContain("Recent Workspaces");
-    expect(container.textContent).toContain("Project One");
-    expect(container.textContent).toContain("Project Two");
+    return onOpenWorkspace;
+  }
+
+  it("groups workspaces by project and keeps ungrouped fallback", () => {
+    renderDashboard([
+      {
+        id: "ws-1",
+        name: "Workspace One",
+        path: "/tmp/ws-1",
+        lastOpened: new Date("2026-02-28T10:00:00.000Z"),
+        projectId: "p-1",
+        project: { id: "p-1", name: "acme/app", path: "github.com/acme/app" },
+      },
+      {
+        id: "ws-2",
+        name: "Workspace Two",
+        path: "/tmp/ws-2",
+        lastOpened: new Date("2026-02-28T09:00:00.000Z"),
+        projectId: undefined,
+      },
+    ]);
+
+    expect(container.textContent).toContain("Projects");
+    expect(container.textContent).toContain("acme/app");
+    expect(container.textContent).toContain("Workspace Two");
   });
 
-  it("should render archived workspaces column", () => {
-    ({ unmount: dispose } = render(
-      () => (
-        <div>
-          <div class="column-header">
-            <span class="column-title">Archived</span>
-          </div>
-          {mockArchivedWorkspaces.map(w => (
-            <div data-test={`archived-${w.id}`}>{w.name}</div>
-          ))}
-        </div>
-      ),
-      { container }
-    ));
-    expect(container.textContent).toContain("Archived");
-    expect(container.textContent).toContain("Archived Project");
+  it("opens the most recently used workspace for a project card", () => {
+    const onOpenWorkspace = renderDashboard([
+      {
+        id: "older",
+        name: "Older Workspace",
+        path: "/tmp/older",
+        lastOpened: new Date("2026-02-28T08:00:00.000Z"),
+        projectId: "p-1",
+        project: { id: "p-1", name: "acme/app", path: "github.com/acme/app" },
+      },
+      {
+        id: "newer",
+        name: "Newer Workspace",
+        path: "/tmp/newer",
+        lastOpened: new Date("2026-02-28T10:00:00.000Z"),
+        projectId: "p-1",
+        project: { id: "p-1", name: "acme/app", path: "github.com/acme/app" },
+      },
+    ]);
+
+    const openButton = Array.from(container.querySelectorAll("button")).find(
+      b => b.textContent?.trim() === "Open"
+    );
+    openButton?.click();
+
+    expect(onOpenWorkspace).toHaveBeenCalledTimes(1);
+    expect(onOpenWorkspace).toHaveBeenCalledWith(expect.objectContaining({ id: "newer" }));
   });
 });

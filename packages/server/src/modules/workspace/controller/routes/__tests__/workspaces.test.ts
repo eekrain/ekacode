@@ -8,7 +8,7 @@
 
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { db, taskSessions, threads, workspaces } from "../../../../../../db";
+import { db, projects, taskSessions, threads, workspaces } from "../../../../../../db";
 
 describe("workspace API endpoints", () => {
   let mockApp: Hono<any>;
@@ -20,6 +20,7 @@ describe("workspace API endpoints", () => {
     await db.delete(taskSessions);
     await db.delete(threads);
     await db.delete(workspaces);
+    await db.delete(projects);
 
     // Create a test app
     mockApp = new Hono();
@@ -33,6 +34,7 @@ describe("workspace API endpoints", () => {
     await db.delete(taskSessions);
     await db.delete(threads);
     await db.delete(workspaces);
+    await db.delete(projects);
   });
 
   describe("GET /api/workspaces", () => {
@@ -45,6 +47,13 @@ describe("workspace API endpoints", () => {
     });
 
     it("should return active workspaces", async () => {
+      await db.insert(projects).values({
+        id: "project-1",
+        name: "acme/app",
+        path: "github.com/acme/app",
+        created_at: new Date(),
+      });
+
       // Create a workspace directly in DB
       await db.insert(workspaces).values({
         id: "test-ws-1",
@@ -53,6 +62,7 @@ describe("workspace API endpoints", () => {
         status: "active",
         created_at: new Date(),
         last_opened_at: new Date(),
+        project_id: "project-1",
       });
 
       const response = await mockApp.request("/api/workspaces");
@@ -61,6 +71,12 @@ describe("workspace API endpoints", () => {
       expect(response.status).toBe(200);
       expect(data.workspaces).toHaveLength(1);
       expect(data.workspaces[0].name).toBe("workspace-1");
+      expect(data.workspaces[0].projectId).toBe("project-1");
+      expect(data.workspaces[0].project).toEqual({
+        id: "project-1",
+        name: "acme/app",
+        path: "github.com/acme/app",
+      });
     });
 
     it("should not return archived workspaces", async () => {
@@ -103,6 +119,13 @@ describe("workspace API endpoints", () => {
 
   describe("GET /api/workspaces/:id", () => {
     it("should return workspace by ID", async () => {
+      await db.insert(projects).values({
+        id: "project-1",
+        name: "acme/app",
+        path: "github.com/acme/app",
+        created_at: new Date(),
+      });
+
       await db.insert(workspaces).values({
         id: "test-ws-1",
         path: "/tmp/workspace-1",
@@ -110,6 +133,7 @@ describe("workspace API endpoints", () => {
         status: "active",
         created_at: new Date(),
         last_opened_at: new Date(),
+        project_id: "project-1",
       });
 
       const response = await mockApp.request("/api/workspaces/test-ws-1");
@@ -118,6 +142,12 @@ describe("workspace API endpoints", () => {
       expect(response.status).toBe(200);
       expect(data.workspace.id).toBe("test-ws-1");
       expect(data.workspace.name).toBe("workspace-1");
+      expect(data.workspace.projectId).toBe("project-1");
+      expect(data.workspace.project).toEqual({
+        id: "project-1",
+        name: "acme/app",
+        path: "github.com/acme/app",
+      });
     });
 
     it("should return 404 for non-existent workspace", async () => {
@@ -166,6 +196,8 @@ describe("workspace API endpoints", () => {
       expect(data.workspace.path).toBe("/tmp/new-workspace");
       expect(data.workspace.name).toBe("new-workspace");
       expect(data.workspace.status).toBe("active");
+      expect(data.workspace.projectId).toBeTruthy();
+      expect(data.workspace.project).toBeTruthy();
     });
 
     it("should return existing workspace if path already exists", async () => {

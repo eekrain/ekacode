@@ -45,7 +45,14 @@ function groupWorkspacesByProject(workspaces: RecentProject[]): ProjectGroup[] {
     groups.get(projectKey)!.workspaces.push(ws);
   }
 
-  return Array.from(groups.values()).sort((a, b) => {
+  const grouped = Array.from(groups.values()).map(group => ({
+    ...group,
+    workspaces: [...group.workspaces].sort(
+      (a, b) => b.lastOpened.getTime() - a.lastOpened.getTime()
+    ),
+  }));
+
+  return grouped.sort((a, b) => {
     const aTime = a.workspaces[0]?.lastOpened.getTime() || 0;
     const bTime = b.workspaces[0]?.lastOpened.getTime() || 0;
     return bTime - aTime;

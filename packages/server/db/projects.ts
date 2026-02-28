@@ -66,3 +66,28 @@ export async function listProjects(): Promise<ProjectData[]> {
   const results = await db.select().from(projects).orderBy(projects.created_at).all();
   return results.map(mapToProjectData);
 }
+
+export async function getOrCreateProject(input: CreateProjectInput): Promise<ProjectData> {
+  const existing = await getProjectByPath(input.path);
+  if (existing) {
+    return existing;
+  }
+
+  const id = uuidv7();
+  const now = new Date();
+  await db
+    .insert(projects)
+    .values({
+      id,
+      name: input.name,
+      path: input.path,
+      created_at: now,
+    })
+    .onConflictDoNothing({ target: projects.path });
+
+  const createdOrExisting = await getProjectByPath(input.path);
+  if (!createdOrExisting) {
+    throw new Error(`Failed to get or create project for path: ${input.path}`);
+  }
+  return createdOrExisting;
+}
